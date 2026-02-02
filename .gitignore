@@ -1,5 +1,5 @@
 /target
-Cargo.lock
+**/target/
 **/*.rs.bk
 *.swp
 *.swo
@@ -12,3 +12,6 @@ Cargo.lock
 
 # Test artifacts
 *.log
+
+# Claude Code local context
+CLAUDE.md
