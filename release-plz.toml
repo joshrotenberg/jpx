@@ -1,0 +1,29 @@
+[workspace]
+# Changelog configuration
+changelog_update = true
+git_tag_enable = true
+# Validate semantic versioning
+semver_check = true
+# PR configuration
+pr_labels = ["release"]
+
+# CLI tool - let cargo-dist handle GitHub releases
+[[package]]
+name = "jpx"
+publish = true
+git_release_enable = false
+git_tag_name = "jpx-v{{ version }}"
+
+# Engine library
+[[package]]
+name = "jpx-engine"
+publish = true
+git_release_enable = true
+git_tag_name = "jpx-engine-v{{ version }}"
+
+# MCP Server
+[[package]]
+name = "jpx-server"
+publish = true
+git_release_enable = true
+git_tag_name = "jpx-server-v{{ version }}"

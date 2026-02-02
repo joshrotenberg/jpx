@@ -1,0 +1,72 @@
+[workspace]
+members = ["crates/jpx", "crates/jpx-engine", "crates/jpx-server", "mock-mcp-server"]
+resolver = "3"
+default-members = ["crates/jpx"]
+
+[workspace.package]
+edition = "2024"
+authors = ["Josh Rotenberg <joshrotenberg@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/joshrotenberg/jpx"
+homepage = "https://github.com/joshrotenberg/jpx"
+
+[workspace.dependencies]
+# Core dependencies
+jmespath = "0.4"
+serde = "1.0"
+serde_json = "1.0"
+
+# jmespath_extensions from crates.io
+jmespath_extensions = { version = "0.8", package = "jmespath_extensions" }
+
+# Internal crates
+jpx-engine = { path = "crates/jpx-engine", version = "0.1.2" }
+
+# CLI dependencies
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+anyhow = "1.0"
+colored_json = "5"
+atty = "0.2"
+
+# Search and similarity
+strsim = "0.11"
+
+# JSON utilities
+json-patch = "4.0"
+
+# MCP server dependencies
+tower-mcp = "0.2"
+schemars = "1.2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Dev dependencies
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Config for 'cargo dist'
+[workspace.metadata.dist]
+# The preferred cargo-dist version to use in CI
+cargo-dist-version = "0.30.2"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell", "powershell"]
+# Target platforms to build for
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Which actions to run on pull requests
+pr-run-mode = "plan"
+# Only jpx (the CLI) should produce binaries
+install-path = "CARGO_HOME"
+# Don't generate an updater
+install-updater = false
+# Whether to auto-include files like READMEs, LICENSEs, and CHANGELOGs
+auto-includes = true
+# Allow CI scripts to be manually modified
+allow-dirty = ["ci"]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

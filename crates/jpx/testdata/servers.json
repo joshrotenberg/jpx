@@ -1,0 +1,8 @@
+[
+  {"name": "web-prod-01", "ip": "10.0.1.10", "status": "active", "role": "web", "cpu": 8, "memory_gb": 32, "disk_bytes": 536870912000, "uptime_seconds": 2592000, "version": "2.5.1"},
+  {"name": "web-prod-02", "ip": "10.0.1.11", "status": "active", "role": "web", "cpu": 8, "memory_gb": 32, "disk_bytes": 536870912000, "uptime_seconds": 2592000, "version": "2.5.1"},
+  {"name": "api-prod-01", "ip": "10.0.2.20", "status": "active", "role": "api", "cpu": 16, "memory_gb": 64, "disk_bytes": 1073741824000, "uptime_seconds": 5184000, "version": "3.1.0"},
+  {"name": "api-prod-02", "ip": "10.0.2.21", "status": "maintenance", "role": "api", "cpu": 16, "memory_gb": 64, "disk_bytes": 1073741824000, "uptime_seconds": 0, "version": "3.1.0"},
+  {"name": "db-prod-01", "ip": "10.0.3.30", "status": "active", "role": "database", "cpu": 32, "memory_gb": 256, "disk_bytes": 4398046511104, "uptime_seconds": 15552000, "version": "15.2"},
+  {"name": "cache-01", "ip": "10.0.4.40", "status": "active", "role": "cache", "cpu": 4, "memory_gb": 128, "disk_bytes": 0, "uptime_seconds": 7776000, "version": "7.2.3"}
+]

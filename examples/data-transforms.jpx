@@ -1,0 +1,104 @@
+-- :name flatten-users
+-- :desc Flatten nested user records for CSV export
+[*].{
+  id: id,
+  name: profile.name,
+  email: profile.email,
+  city: profile.address.city,
+  country: profile.address.country,
+  created: metadata.created_at
+}
+
+-- :name group-by-status
+-- :desc Group records by status with counts
+group_by(@, &status) | [*].{ status: [0].status, count: length(@) }
+
+-- :name group-by-category
+-- :desc Group items by category with totals
+group_by(@, &category) | [*].{
+  category: [0].category,
+  count: length(@),
+  total_value: sum([*].value)
+}
+
+-- :name deduplicate
+-- :desc Remove duplicate records by id
+unique_by(@, &id)
+
+-- :name null-to-defaults
+-- :desc Replace null fields with default values
+[*] | map(&{
+  name: name | default(@, `"Unknown"`),
+  email: email | default(@, `"N/A"`),
+  status: status | default(@, `"pending"`)
+}, @)
+
+-- :name rename-fields
+-- :desc Rename fields for API compatibility
+[*].{
+  user_id: id,
+  user_name: name,
+  user_email: email,
+  is_active: active
+}
+
+-- :name filter-active
+-- :desc Keep only active records
+[?active == `true` || status == `"active"`]
+
+-- :name sort-by-date
+-- :desc Sort records by created_at descending
+sort_by(@, &created_at) | reverse(@)
+
+-- :name paginate
+-- :desc Get first page of 20 results
+[:20]
+
+-- :name add-computed-fields
+-- :desc Add computed fields to records
+[*] | map(&merge(@, {
+  full_name: join(`" "`, [first_name, last_name]),
+  display_date: created_at | split(@, `"T"`)[0]
+}), @)
+
+-- :name aggregate-stats
+-- :desc Compute aggregate statistics
+{
+  total_count: length(@),
+  active_count: length([?active]),
+  total_value: sum([*].value),
+  avg_value: avg([*].value),
+  min_value: min([*].value),
+  max_value: max([*].value)
+}
+
+-- :name pivot-by-month
+-- :desc Group records by month
+[*].{
+  month: created_at | split(@, `"-"`) | join(`"-"`, [@[0], @[1]]),
+  value: value
+} | group_by(@, &month) | [*].{
+  month: [0].month,
+  count: length(@),
+  total: sum([*].value)
+}
+
+-- :name headers-to-object
+-- :desc Create object from header row and data row using zipmap
+zipmap(headers, values)
+
+-- :name csv-row-to-objects
+-- :desc Convert CSV-style data (headers + rows) to array of objects
+rows | [*].zipmap(to_array($.headers), @)
+
+-- :name interpose-ids
+-- :desc Format IDs with separator for display
+[*].id | interpose(@, `" | "`)
+
+-- :name dedupe-status-changes
+-- :desc Keep only status changes (remove consecutive same-status entries)
+dedupe([*].status)
+
+-- :name partition-by-category
+-- :desc Split into runs by category (useful for detecting category changes in time-series)
+partition_by(@, `"category"`)

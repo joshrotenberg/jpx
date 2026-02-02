@@ -1,0 +1,71 @@
+-- :name repos-summary
+-- :desc Repository list with key metrics
+[*].{
+  name: name,
+  stars: stargazers_count,
+  forks: forks_count,
+  language: language,
+  description: description | default(@, `"-"`) | slice(@, `0`, `60`)
+}
+
+-- :name top-repos
+-- :desc Top 10 repositories by stars
+sort_by(@, &stargazers_count) | reverse(@) | [:10].{
+  name: name,
+  stars: stargazers_count,
+  language: language
+}
+
+-- :name repos-by-language
+-- :desc Count repositories by programming language
+[*].language | [?@ != null] | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@)
+
+-- :name issues-list
+-- :desc Format issues for display
+[*].{
+  number: number,
+  title: title,
+  state: state,
+  author: user.login,
+  labels: labels[*].name | join(`", "`, @) | default(@, `"-"`)
+}
+
+-- :name open-issues
+-- :desc Filter to open issues only
+[?state == `"open"`].{
+  number: number,
+  title: title,
+  author: user.login,
+  created: created_at
+}
+
+-- :name issues-by-label
+-- :desc Group issues by label
+[*].labels[] | [*].name | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@)
+
+-- :name pr-list
+-- :desc Format pull requests for display
+[*].{
+  number: number,
+  title: title,
+  state: state,
+  author: user.login,
+  draft: draft,
+  mergeable: mergeable_state
+}
+
+-- :name contributors
+-- :desc Contributor list with stats
+[*].{
+  login: login,
+  contributions: contributions,
+  type: type
+} | sort_by(@, &contributions) | reverse(@)
+
+-- :name recent-activity
+-- :desc Recent commits/events sorted by date
+sort_by(@, &created_at) | reverse(@) | [:20].{
+  type: type,
+  repo: repo.name,
+  created: created_at
+}

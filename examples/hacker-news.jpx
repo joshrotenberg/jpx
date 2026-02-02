@@ -1,0 +1,72 @@
+-- :name titles
+-- :desc Extract all story titles
+hits[*].title
+
+-- :name top-stories
+-- :desc Top 10 stories by points with metadata
+sort_by(hits, &points) | reverse(@) | [:10].{
+  title: title,
+  points: points,
+  comments: num_comments,
+  author: author
+}
+
+-- :name most-discussed
+-- :desc Top 10 stories by comment count
+sort_by(hits, &num_comments) | reverse(@) | [:10].{
+  title: title,
+  comments: num_comments,
+  points: points
+}
+
+-- :name title-keywords
+-- :desc Extract top keywords from all titles (stemmed, no stopwords)
+hits[*].title | join(`" "`, @) | tokens(@) | remove_stopwords(@) | stems(@) | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:20]
+
+-- :name title-bigrams
+-- :desc Common word pairs in titles
+hits[*].title | join(`" "`, @) | lower(@) | bigrams(@) | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:15]
+
+-- :name question-posts
+-- :desc Posts that are questions (end with ?)
+hits[?ends_with(title, `"?"`)].{
+  title: title,
+  points: points,
+  comments: num_comments
+}
+
+-- :name high-engagement
+-- :desc Posts with high comment-to-point ratio (controversial/discussion-heavy)
+hits[?points > `50`] | [*].{
+  title: title,
+  points: points,
+  comments: num_comments,
+  ratio: divide(num_comments, points)
+} | sort_by(@, &ratio) | reverse(@) | [:10]
+
+-- :name author-frequency
+-- :desc Most frequent authors
+hits[*].author | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:10]
+
+-- :name summary
+-- :desc Overall dataset summary
+{
+  total_stories: length(hits),
+  total_points: sum(hits[*].points),
+  total_comments: sum(hits[*].num_comments),
+  avg_points: avg(hits[*].points),
+  avg_comments: avg(hits[*].num_comments),
+  question_posts: length(hits[?ends_with(title, `"?"`)])
+}
+
+-- :name ask-hn-text-keywords
+-- :desc Keywords from Ask HN story text (HTML stripped)
+hits[?story_text != null] | [*].story_text | [*] | regex_replace(@, `"<[^>]+>"`, `" "`) | join(`" "`, @) | tokens(@) | remove_stopwords(@) | stems(@) | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:20]
+
+-- :name stories-with-reading-time
+-- :desc Ask HN posts with estimated reading time
+hits[?story_text != null][:10] | [*].{
+  title: title,
+  reading_time: story_text | regex_replace(@, `"<[^>]+>"`, `" "`) | reading_time(@),
+  word_count: story_text | regex_replace(@, `"<[^>]+>"`, `" "`) | word_count(@)
+}

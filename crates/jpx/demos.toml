@@ -1,0 +1,378 @@
+# JMESPath Extension Demos
+# Each demo provides sample data and example queries for learning
+
+[[demo]]
+name = "users"
+description = "User profiles with nested data"
+root_key = "users"
+data = '''
+{
+  "users": [
+    {"id": 1, "name": "Alice", "age": 30, "email": "alice@example.com", "role": "admin", "active": true},
+    {"id": 2, "name": "Bob", "age": 25, "email": "bob@example.com", "role": "user", "active": true},
+    {"id": 3, "name": "Carol", "age": 35, "email": "carol@example.com", "role": "user", "active": false},
+    {"id": 4, "name": "Dave", "age": 28, "email": "dave@example.com", "role": "moderator", "active": true}
+  ],
+  "meta": {"total": 4, "version": "1.0"}
+}
+'''
+
+[[demo.queries]]
+expression = "users[*].name"
+description = "Get all user names"
+difficulty = 1
+
+[[demo.queries]]
+expression = "users[?active].name"
+description = "Get active user names"
+difficulty = 2
+
+[[demo.queries]]
+expression = "users[?age > `30`]"
+description = "Users older than 30"
+difficulty = 2
+
+[[demo.queries]]
+expression = "group_by_expr('role', users)"
+description = "Group users by role"
+difficulty = 3
+
+[[demo.queries]]
+expression = "users | sort_by_expr(@, &age) | [].{name: name, age: age}"
+description = "Sort by age"
+difficulty = 4
+
+[[demo.queries]]
+expression = "{oldest: max_by(users, &age).name, youngest: min_by(users, &age).name}"
+description = "Oldest and youngest"
+difficulty = 4
+
+[[demo]]
+name = "geo"
+description = "Geographic locations and distances"
+root_key = "cities"
+data = '''
+{
+  "cities": [
+    {"name": "New York", "lat": 40.7128, "lon": -74.0060, "population": 8336817},
+    {"name": "Los Angeles", "lat": 34.0522, "lon": -118.2437, "population": 3979576},
+    {"name": "London", "lat": 51.5074, "lon": -0.1278, "population": 8982000},
+    {"name": "Tokyo", "lat": 35.6762, "lon": 139.6503, "population": 13960000},
+    {"name": "Sydney", "lat": -33.8688, "lon": 151.2093, "population": 5312000}
+  ],
+  "origin": {"name": "San Francisco", "lat": 37.7749, "lon": -122.4194}
+}
+'''
+
+[[demo.queries]]
+expression = "cities[*].name"
+description = "List all cities"
+difficulty = 1
+
+[[demo.queries]]
+expression = "cities | sort_by(@, &population) | reverse(@) | [0:3].name"
+description = "Top 3 by population"
+difficulty = 4
+
+[[demo.queries]]
+expression = "geo_distance_km(origin.lat, origin.lon, cities[0].lat, cities[0].lon)"
+description = "Distance SF to NYC (km)"
+difficulty = 3
+
+[[demo.queries]]
+expression = "geo_bearing(origin.lat, origin.lon, cities[2].lat, cities[2].lon)"
+description = "Bearing SF to London"
+difficulty = 3
+
+[[demo.queries]]
+expression = "cities[*].{name: name, pop_millions: divide(population, `1000000`)}"
+description = "Population in millions"
+difficulty = 2
+
+[[demo]]
+name = "text"
+description = "Text analysis and NLP functions"
+root_key = "articles"
+data = '''
+{
+  "articles": [
+    {"title": "Hello World", "body": "This is a simple example. It has two sentences.", "tags": ["intro", "basic"]},
+    {"title": "Advanced Topics", "body": "The quick brown fox jumps over the lazy dog. This pangram contains every letter.", "tags": ["advanced", "complete"]}
+  ],
+  "words": ["hello", "hallo", "helo", "help", "world"]
+}
+'''
+
+[[demo.queries]]
+expression = "articles[0].body | word_count(@)"
+description = "Count words in first article"
+difficulty = 2
+
+[[demo.queries]]
+expression = "articles[*].body | [*].word_count(@)"
+description = "Word counts for all articles"
+difficulty = 3
+
+[[demo.queries]]
+expression = "articles[0].body | ngrams(@, `2`)"
+description = "Word bigrams"
+difficulty = 3
+
+[[demo.queries]]
+expression = "ngrams(articles[1].body, `3`, 'char') | [0:5]"
+description = "First 5 character trigrams"
+difficulty = 4
+
+[[demo.queries]]
+expression = "words[*].{word: @, soundex: soundex(@)}"
+description = "Soundex codes"
+difficulty = 3
+
+[[demo.queries]]
+expression = "levenshtein(words[0], words[1])"
+description = "Edit distance: hello vs hallo"
+difficulty = 2
+
+[[demo]]
+name = "datetime"
+description = "Date and time manipulation"
+root_key = "events"
+data = '''
+{
+  "events": [
+    {"name": "Launch", "timestamp": 1704067200, "duration": "2h30m"},
+    {"name": "Meeting", "timestamp": 1704110400, "duration": "1h"},
+    {"name": "Review", "timestamp": 1704153600, "duration": "45m"}
+  ],
+  "now": 1704200000
+}
+'''
+
+[[demo.queries]]
+expression = "events[*].{name: name, date: format_date(timestamp, '%Y-%m-%d')}"
+description = "Format dates"
+difficulty = 2
+
+[[demo.queries]]
+expression = "events[*].{name: name, duration_sec: parse_duration(duration)}"
+description = "Parse durations"
+difficulty = 2
+
+[[demo.queries]]
+expression = "events[*].{name: name, ago: time_ago(timestamp)}"
+description = "Time ago strings"
+difficulty = 2
+
+[[demo.queries]]
+expression = "filter_expr('timestamp > `1704100000`', events)"
+description = "Events after timestamp"
+difficulty = 3
+
+[[demo.queries]]
+expression = "now() | format_date(@, '%A, %B %d, %Y')"
+description = "Current date formatted"
+difficulty = 3
+
+[[demo]]
+name = "ecommerce"
+description = "E-commerce orders and products"
+root_key = "orders"
+data = '''
+{
+  "orders": [
+    {"id": "ORD-001", "customer": "alice", "items": [{"sku": "WIDGET-1", "qty": 2, "price": 9.99}, {"sku": "GADGET-1", "qty": 1, "price": 24.99}], "status": "shipped"},
+    {"id": "ORD-002", "customer": "bob", "items": [{"sku": "WIDGET-1", "qty": 5, "price": 9.99}], "status": "pending"},
+    {"id": "ORD-003", "customer": "alice", "items": [{"sku": "THING-1", "qty": 1, "price": 149.99}], "status": "delivered"}
+  ],
+  "customers": {"alice": {"tier": "gold", "discount": 0.1}, "bob": {"tier": "silver", "discount": 0.05}}
+}
+'''
+
+[[demo.queries]]
+expression = "orders[*].{id: id, total: sum(items[*].multiply(qty, price))}"
+description = "Order totals"
+difficulty = 3
+
+[[demo.queries]]
+expression = "orders[].items[] | unique_by(@, &sku)"
+description = "Unique products ordered"
+difficulty = 4
+
+[[demo.queries]]
+expression = "group_by_expr('customer', orders)"
+description = "Orders by customer"
+difficulty = 3
+
+[[demo.queries]]
+expression = "orders[?status == 'pending'].id"
+description = "Pending order IDs"
+difficulty = 2
+
+[[demo.queries]]
+expression = "orders[*].items[*].price | flatten(@) | {min: min(@), max: max(@), avg: avg(@)}"
+description = "Price stats"
+difficulty = 5
+
+[[demo.queries]]
+expression = "orders[*].{id: id, customer: customer, total: sum(items[*].multiply(qty, price))} | sort_by(@, &total) | reverse(@)"
+description = "Orders ranked by total"
+difficulty = 4
+
+[[demo]]
+name = "timeseries"
+description = "Server metrics and time-series data"
+root_key = "metrics"
+data = '''
+{
+  "metrics": [
+    {"timestamp": "2025-01-15T10:00:00Z", "host": "web-01", "cpu": 45.2, "memory": 62.1, "requests": 1250},
+    {"timestamp": "2025-01-15T10:05:00Z", "host": "web-01", "cpu": 78.5, "memory": 65.3, "requests": 2100},
+    {"timestamp": "2025-01-15T10:10:00Z", "host": "web-01", "cpu": 92.1, "memory": 71.8, "requests": 3500},
+    {"timestamp": "2025-01-15T10:00:00Z", "host": "web-02", "cpu": 32.4, "memory": 55.0, "requests": 890},
+    {"timestamp": "2025-01-15T10:05:00Z", "host": "web-02", "cpu": 41.2, "memory": 58.2, "requests": 1100},
+    {"timestamp": "2025-01-15T10:10:00Z", "host": "web-02", "cpu": 38.9, "memory": 56.7, "requests": 950}
+  ],
+  "alerts": [
+    {"timestamp": "2025-01-15T10:08:00Z", "host": "web-01", "type": "cpu_high", "value": 92.1, "threshold": 90},
+    {"timestamp": "2025-01-15T10:12:00Z", "host": "web-01", "type": "memory_high", "value": 85.2, "threshold": 80}
+  ],
+  "hosts": ["web-01", "web-02"]
+}
+'''
+
+[[demo.queries]]
+expression = "metrics[?cpu > `80`]"
+description = "High CPU readings (>80%)"
+difficulty = 2
+
+[[demo.queries]]
+expression = "group_by_expr('host', metrics) | map_values('avg([*].cpu)', @)"
+description = "Average CPU by host"
+difficulty = 4
+
+[[demo.queries]]
+expression = "group_by_expr('host', metrics) | map_values('sum([*].requests)', @)"
+description = "Total requests per host"
+difficulty = 4
+
+[[demo.queries]]
+expression = "max(metrics[*].memory)"
+description = "Peak memory across all hosts"
+difficulty = 2
+
+[[demo.queries]]
+expression = "metrics | sort_by(@, &cpu) | reverse(@) | [0]"
+description = "Highest CPU reading"
+difficulty = 3
+
+[[demo.queries]]
+expression = "alerts[*].{host: host, type: type, exceeded_by: subtract(value, threshold)}"
+description = "Alert details with threshold delta"
+difficulty = 3
+
+[[demo.queries]]
+expression = "{hosts: unique(metrics[*].host), time_range: {start: min(metrics[*].timestamp), end: max(metrics[*].timestamp)}}"
+description = "Data summary"
+difficulty = 3
+
+[[demo]]
+name = "logs"
+description = "Application logs with levels and errors"
+root_key = "logs"
+data = '''
+{
+  "logs": [
+    {"timestamp": "2025-01-15T10:00:01Z", "level": "INFO", "service": "api", "message": "Server started on port 8080"},
+    {"timestamp": "2025-01-15T10:00:15Z", "level": "DEBUG", "service": "api", "message": "Request received: GET /users"},
+    {"timestamp": "2025-01-15T10:00:16Z", "level": "INFO", "service": "db", "message": "Query executed in 45ms"},
+    {"timestamp": "2025-01-15T10:00:22Z", "level": "WARN", "service": "api", "message": "Rate limit approaching for client 192.168.1.50"},
+    {"timestamp": "2025-01-15T10:00:30Z", "level": "ERROR", "service": "api", "message": "Connection timeout to upstream service", "error_code": "E_TIMEOUT"},
+    {"timestamp": "2025-01-15T10:00:31Z", "level": "ERROR", "service": "db", "message": "Query failed: duplicate key violation", "error_code": "E_DUPLICATE"},
+    {"timestamp": "2025-01-15T10:00:45Z", "level": "INFO", "service": "api", "message": "Health check passed"},
+    {"timestamp": "2025-01-15T10:01:00Z", "level": "WARN", "service": "db", "message": "Connection pool at 80% capacity"}
+  ],
+  "levels": {"DEBUG": 0, "INFO": 1, "WARN": 2, "ERROR": 3}
+}
+'''
+
+[[demo.queries]]
+expression = "logs[?level == 'ERROR']"
+description = "All error logs"
+difficulty = 1
+
+[[demo.queries]]
+expression = "logs[?level == 'ERROR'].error_code"
+description = "Error codes"
+difficulty = 2
+
+[[demo.queries]]
+expression = "group_by_expr('level', logs) | map_values('length(@)', @)"
+description = "Count by log level"
+difficulty = 3
+
+[[demo.queries]]
+expression = "group_by_expr('service', logs) | map_values('length(@)', @)"
+description = "Count by service"
+difficulty = 3
+
+[[demo.queries]]
+expression = "logs[?contains(message, 'timeout') || contains(message, 'failed')]"
+description = "Logs mentioning failures"
+difficulty = 3
+
+[[demo.queries]]
+expression = "logs[*].{time: split(timestamp, 'T')[1], level: level, msg: truncate(message, `40`)}"
+description = "Compact log view"
+difficulty = 4
+
+[[demo]]
+name = "inventory"
+description = "Product inventory with stock levels"
+root_key = "products"
+data = '''
+{
+  "products": [
+    {"sku": "LAPTOP-001", "name": "Pro Laptop 15", "category": "electronics", "price": 1299.99, "stock": 23, "reorder_at": 10, "supplier": "techcorp"},
+    {"sku": "LAPTOP-002", "name": "Budget Laptop 14", "category": "electronics", "price": 499.99, "stock": 8, "reorder_at": 15, "supplier": "techcorp"},
+    {"sku": "CHAIR-001", "name": "Ergonomic Chair", "category": "furniture", "price": 349.99, "stock": 45, "reorder_at": 20, "supplier": "officepro"},
+    {"sku": "DESK-001", "name": "Standing Desk", "category": "furniture", "price": 599.99, "stock": 12, "reorder_at": 10, "supplier": "officepro"},
+    {"sku": "MOUSE-001", "name": "Wireless Mouse", "category": "electronics", "price": 29.99, "stock": 150, "reorder_at": 50, "supplier": "periph-inc"},
+    {"sku": "KEYBD-001", "name": "Mechanical Keyboard", "category": "electronics", "price": 89.99, "stock": 5, "reorder_at": 25, "supplier": "periph-inc"}
+  ],
+  "suppliers": {
+    "techcorp": {"lead_time_days": 14, "rating": 4.5},
+    "officepro": {"lead_time_days": 7, "rating": 4.8},
+    "periph-inc": {"lead_time_days": 5, "rating": 4.2}
+  }
+}
+'''
+
+[[demo.queries]]
+expression = "products[?stock < reorder_at]"
+description = "Products needing reorder"
+difficulty = 2
+
+[[demo.queries]]
+expression = "products[?stock < reorder_at].{sku: sku, name: name, deficit: subtract(reorder_at, stock)}"
+description = "Reorder list with quantities"
+difficulty = 3
+
+[[demo.queries]]
+expression = "group_by_expr('category', products) | map_values('sum([*].stock)', @)"
+description = "Stock by category"
+difficulty = 4
+
+[[demo.queries]]
+expression = "products | sort_by(@, &price) | reverse(@) | [0:3].{name: name, price: price}"
+description = "Top 3 most expensive"
+difficulty = 3
+
+[[demo.queries]]
+expression = "sum(products[*].multiply(stock, price))"
+description = "Total inventory value"
+difficulty = 3
+
+[[demo.queries]]
+expression = "group_by_expr('supplier', products) | map_values('length(@)', @)"
+description = "Products per supplier"
+difficulty = 3

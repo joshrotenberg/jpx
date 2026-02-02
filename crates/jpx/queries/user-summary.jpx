@@ -1,0 +1,10 @@
+-- :name user-summary
+-- :description Summarize users by active status with contact info
+{
+  active_users: @[?active].{
+    name: name,
+    email: contact.email
+  },
+  inactive_count: length(@[?!active]),
+  total: length(@)
+}

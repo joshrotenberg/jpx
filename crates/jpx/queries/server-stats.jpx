@@ -1,0 +1,13 @@
+-- :name server-stats
+-- :description Summarize server status and uptime
+{
+  online: @[?status == 'active'] | {
+    count: length(@),
+    names: [].name
+  },
+  offline: @[?status != 'active'] | {
+    count: length(@),
+    names: [].name
+  },
+  total_uptime_hours: sum(@[].uptime_seconds) | divide(@, `3600`)
+}

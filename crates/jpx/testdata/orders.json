@@ -1,0 +1,7 @@
+[
+  {"id": "ord_001", "customer": "Alice", "status": "completed", "total": 125.50, "items": 3, "date": "2024-01-10", "duration": "2d4h"},
+  {"id": "ord_002", "customer": "Bob", "status": "pending", "total": 89.99, "items": 1, "date": "2024-01-12", "duration": "1h30m"},
+  {"id": "ord_003", "customer": "Carol", "status": "completed", "total": 450.00, "items": 5, "date": "2024-01-08", "duration": "3d"},
+  {"id": "ord_004", "customer": "Alice", "status": "shipped", "total": 67.25, "items": 2, "date": "2024-01-11", "duration": "1d12h"},
+  {"id": "ord_005", "customer": "David", "status": "completed", "total": 234.00, "items": 4, "date": "2024-01-09", "duration": "2d"}
+]

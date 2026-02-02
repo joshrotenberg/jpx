@@ -1,0 +1,63 @@
+-- :name errors
+-- :desc Filter to error-level logs only
+[?level == `"error"` || level == `"ERROR"` || level == `"Error"`]
+
+-- :name warnings
+-- :desc Filter to warning-level logs only
+[?level == `"warn"` || level == `"WARN"` || level == `"warning"` || level == `"WARNING"`]
+
+-- :name errors-by-service
+-- :desc Count errors grouped by service
+[?level == `"error"` || level == `"ERROR"`] | group_by(@, &service) | [*].{ service: [0].service, count: length(@) } | sort_by(@, &count) | reverse(@)
+
+-- :name recent-errors
+-- :desc Most recent 20 errors with context
+[?level == `"error"` || level == `"ERROR"`] | sort_by(@, &timestamp) | reverse(@) | [:20].{
+  time: timestamp,
+  service: service,
+  message: message
+}
+
+-- :name slow-requests
+-- :desc Requests slower than 1 second
+[?duration_ms > `1000`] | sort_by(@, &duration_ms) | reverse(@) | [*].{
+  endpoint: endpoint,
+  duration_ms: duration_ms,
+  timestamp: timestamp
+}
+
+-- :name status-codes
+-- :desc HTTP status code distribution
+[*].status_code | frequencies(@) | to_entries(@) | sort_by(@, &key)
+
+-- :name error-messages
+-- :desc Unique error messages with counts
+[?level == `"error"`] | [*].message | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:20]
+
+-- :name timeline
+-- :desc Logs grouped by minute
+[*].{
+  minute: timestamp | split(@, `":"`)[0],
+  level: level
+} | group_by(@, &minute) | [*].{
+  time: [0].minute,
+  count: length(@),
+  errors: length([?level == `"error"`])
+}
+
+-- :name summary
+-- :desc Log level summary
+{
+  total: length(@),
+  errors: length([?level == `"error"` || level == `"ERROR"`]),
+  warnings: length([?level == `"warn"` || level == `"WARN"`]),
+  info: length([?level == `"info"` || level == `"INFO"`])
+}
+
+-- :name dedupe-consecutive
+-- :desc Remove consecutive duplicate log messages (useful for repeated errors)
+dedupe([*].message)
+
+-- :name partition-by-level
+-- :desc Split logs into runs of consecutive entries by level (preserves order)
+partition_by(@, `"level"`)

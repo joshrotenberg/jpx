@@ -1,0 +1,7 @@
+[
+  {"name": "web-framework", "version": "2.5.1", "size": "1.2 MB", "downloads": 50000},
+  {"name": "cli-tools", "version": "1.0.0-beta.2", "size": "450 KB", "downloads": 12000},
+  {"name": "database-driver", "version": "3.1.0", "size": "2.8 MB", "downloads": 85000},
+  {"name": "auth-library", "version": "1.2.3", "size": "890 KB", "downloads": 34000},
+  {"name": "logging", "version": "0.9.5", "size": "120 KB", "downloads": 150000}
+]

@@ -1,0 +1,37 @@
+[package]
+name = "jpx-server"
+version = "0.1.2"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "JMESPath query server supporting MCP, REST, and gRPC protocols"
+keywords = ["jmespath", "json", "mcp", "server"]
+categories = ["network-programming", "web-programming"]
+
+[[bin]]
+name = "jpx-server"
+path = "src/main.rs"
+
+[dependencies]
+# Engine
+jpx-engine = { workspace = true, features = ["schema"] }
+
+# Core
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+# MCP (default)
+tower-mcp = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+
+[features]
+default = ["mcp"]
+mcp = ["tower-mcp", "schemars", "tokio", "tracing", "tracing-subscriber"]
+# Future transports
+# rest = ["axum", "tower"]
+# grpc = ["tonic", "prost"]

@@ -1,0 +1,35 @@
+-- :name clean-html
+-- :desc Strip HTML tags and normalize whitespace
+regex_replace(@, `"<[^>]+>"`, `" "`) | collapse_whitespace(@)
+
+-- :name extract-keywords
+-- :desc Get keyword frequencies from text (stemmed, stopwords removed)
+tokens(@) | remove_stopwords(@) | stems(@) | frequencies(@)
+
+-- :name top-keywords
+-- :desc Get the top 20 keywords from text
+tokens(@) | remove_stopwords(@) | stems(@) | frequencies(@) | to_entries(@) | sort_by(@, &value) | reverse(@) | [:20]
+
+-- :name bigram-frequencies
+-- :desc Get word pair (bigram) frequencies from text
+bigrams(@) | frequencies(@)
+
+-- :name reading-stats
+-- :desc Get reading time, word count, and sentence count
+{
+  word_count: word_count(@),
+  reading_time: reading_time(@),
+  sentence_count: sentence_count(@)
+}
+
+-- :name normalize-text
+-- :desc Lowercase, remove accents, and collapse whitespace
+lower(@) | remove_accents(@) | collapse_whitespace(@)
+
+-- :name extract-sentences
+-- :desc Split text into sentences
+sentences(@)
+
+-- :name vocabulary-size
+-- :desc Count unique words (case-insensitive)
+tokens(@) | [*] | lower(@) | unique(@) | length(@)
