@@ -691,49 +691,80 @@ impl DiscoveryRegistry {
     }
 }
 
-/// Result of registering a discovery spec
+/// Result of registering a discovery spec.
+///
+/// Returned by [`DiscoveryRegistry::register`] to indicate success and any issues.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistrationResult {
+    /// Whether the registration succeeded
     pub ok: bool,
+    /// Number of tools that were indexed
     pub tools_indexed: usize,
+    /// Any warnings encountered during registration (e.g., duplicate tools)
     pub warnings: Vec<String>,
 }
 
-/// Tool query result
+/// Result from querying tools across registered servers.
+///
+/// Contains the matched tool along with relevance scoring and match details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolQueryResult {
+    /// Unique tool identifier in format "server:tool_name"
     pub id: String,
+    /// Name of the server providing this tool
     pub server: String,
+    /// The tool specification
     pub tool: ToolSpec,
+    /// BM25 relevance score (higher = better match)
     pub score: f64,
+    /// Fields that matched the query, with matched terms
     pub matches: HashMap<String, Vec<String>>,
 }
 
-/// Server summary for listing
+/// Summary information about a registered server.
+///
+/// Used when listing all registered discovery servers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerSummary {
+    /// Server name (unique identifier)
     pub name: String,
+    /// Server version, if provided
     pub version: Option<String>,
+    /// Server description, if provided
     pub description: Option<String>,
+    /// Number of tools registered by this server
     pub tool_count: usize,
 }
 
-/// Category summary
+/// Summary information about a tool category.
+///
+/// Aggregates category data across all registered servers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CategorySummary {
+    /// Category name
     pub name: String,
+    /// Total number of tools in this category across all servers
     pub tool_count: usize,
+    /// Names of servers that have tools in this category
     pub servers: Vec<String>,
+    /// Subcategories within this category
     pub subcategories: Vec<String>,
 }
 
-/// Index statistics
+/// Statistics about the discovery search index.
+///
+/// Provides insight into what has been indexed for debugging and monitoring.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexStats {
+    /// Number of documents (tools) in the index
     pub doc_count: usize,
+    /// Number of unique terms in the index
     pub term_count: usize,
+    /// Average document length (in terms)
     pub avg_doc_length: f64,
+    /// Number of registered servers
     pub server_count: usize,
+    /// Most frequent terms in the index with their counts
     pub top_terms: Vec<(String, usize)>,
 }
 
