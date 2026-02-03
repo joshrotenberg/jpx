@@ -31,7 +31,7 @@ brew install jpx
 
 ## Pre-built Binaries
 
-Download pre-built binaries for your platform from the [GitHub Releases](https://github.com/joshrotenberg/jmespath-extensions/releases) page.
+Download pre-built binaries for your platform from the [GitHub Releases](https://github.com/joshrotenberg/jpx/releases) page.
 
 Available platforms:
 - macOS (Apple Silicon / arm64)
@@ -52,9 +52,9 @@ cargo install jpx
 Clone and build from source:
 
 ```bash
-git clone https://github.com/joshrotenberg/jmespath-extensions
-cd jmespath-extensions/jpx
-cargo install --path .
+git clone https://github.com/joshrotenberg/jpx
+cd jpx
+cargo install --path crates/jpx
 ```
 
 ### Without MCP Server Support
@@ -75,7 +75,7 @@ jpx --version
 
 You should see output like:
 ```
-jpx 0.1.15
+jpx 0.2.2
 ```
 
 ## Shell Completions

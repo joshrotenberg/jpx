@@ -8,7 +8,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-jpx-engine = "0.1"
+jpx-engine = "0.1.3"
 ```
 
 ## Quick Start
