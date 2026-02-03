@@ -14,9 +14,9 @@
 
 [JMESPath](https://jmespath.org/) is a query language for JSON. It allows you to declaratively specify how to extract and transform elements from a JSON document.
 
-## Why JMESPath Extensions?
+## Why jpx?
 
-While standard JMESPath is powerful, it's intentionally minimal with only 26 built-in functions. This project extends JMESPath with 400+ additional functions for:
+Standard JMESPath has only 26 built-in functions. jpx adds 400+ more:
 
 - **String manipulation**: `upper`, `lower`, `split`, `replace`, `camel_case`, `snake_case`, and more
 - **Array operations**: `unique`, `chunk`, `flatten`, `group_by`, `zip`, and more
