@@ -274,19 +274,29 @@ jq '[.[].score] | add / length' data.json
 jpx 'avg([*].score)' data.json
 ```
 
-### When to Use Which
+### Different Tools for Different Jobs
 
-**Use jq when:**
-- Complex recursive transformations
-- You need variables or conditionals
-- Custom function definitions
-- You're already fluent in jq
+jq and jpx aren't really competing - they have different sweet spots.
 
-**Use jpx when:**
-- Domain-specific functions (NLP, geo, dates, fuzzy, etc.)
-- You want function discovery and help
-- Using the same queries in Python code
-- Working with AI assistants (MCP)
+**jq excels at:**
+- **Recursive transformations**: Walking arbitrary nested structures with `..`
+- **Algorithmic work**: When you need variables, conditionals, custom functions
+- **Stream processing**: Native support for JSON streams
+- **When you know jq**: If you're fluent in jq, its expressive power is hard to beat
+
+**jpx excels at:**
+- **Domain-specific analysis**: NLP (tokenize, stem, stopwords), fuzzy matching (levenshtein, soundex), geo (distance calculations), dates, validation
+- **Explorability**: Built-in function search, describe, and similar - great when you're not sure what you need
+- **Cross-platform queries**: Same expressions work in CLI, Python, Rust, and MCP
+- **Quick data extraction**: Filter/project syntax reads like SQL, less cryptic than jq for simple cases
+
+**Use both together:**
+```bash
+# jq for complex reshaping, jpx for domain functions
+curl api.example.com | jq '.data | recurse | select(.type == "user")' | jpx '[*].{name: name, similarity: jaro_winkler(name, `"target"`)}'
+```
+
+The choice often comes down to: "Do I need jq's algorithmic power, or jpx's 400 functions?"
 
 ## Summary
 
