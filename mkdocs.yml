@@ -71,7 +71,7 @@ copyright: Copyright &copy; 2024-2026 Josh Rotenberg
 docs_dir: docs/src
 
 nav:
-  - Home: introduction.md
+  - Home: index.md
   - Getting Started:
     - Quick Start: getting-started/quick-start.md
     - Installation: getting-started/installation.md
