@@ -21,7 +21,7 @@
 //! ## Cargo Features
 //!
 //! - **`arrow`** - Enables Apache Arrow support for columnar data conversion.
-//!   This adds the [`arrow`] module with functions to convert between Arrow
+//!   This adds the `arrow` module with functions to convert between Arrow
 //!   RecordBatches and JSON Values. Used by the CLI for Parquet I/O.
 //!
 //! ## Quick Start
