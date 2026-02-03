@@ -1,20 +1,20 @@
-# Build and publish Docker images for jpx-server MCP server
+# Build and publish Docker images for jpx-mcp MCP server
 #
-# Triggers on jpx-server version tags and builds multi-arch images.
+# Triggers on jpx-mcp version tags and builds multi-arch images.
 # Both architectures build from source.
 #
-# Images are published to ghcr.io/joshrotenberg/jpx-server
+# Images are published to ghcr.io/joshrotenberg/jpx-mcp
 
-name: Docker Server
+name: Docker MCP
 
 on:
   push:
     tags:
-      - "jpx-server-v[0-9]+.[0-9]+.[0-9]+*"
+      - "jpx-mcp-v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Version tag (e.g., jpx-server-v0.1.0)"
+        description: "Version tag (e.g., jpx-mcp-v0.1.0)"
         required: true
         type: string
 
@@ -24,7 +24,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/jpx-server
+  IMAGE_NAME: ${{ github.repository_owner }}/jpx-mcp
 
 jobs:
   build:
@@ -48,7 +48,7 @@ jobs:
         id: meta
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
-          VERSION="${TAG#jpx-server-v}"
+          VERSION="${TAG#jpx-mcp-v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -79,7 +79,7 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}-${{ matrix.suffix }}
           labels: |
-            org.opencontainers.image.title=jpx-server
+            org.opencontainers.image.title=jpx-mcp
             org.opencontainers.image.description=JMESPath MCP server with extended functions
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -96,7 +96,7 @@ jobs:
         id: meta
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
-          VERSION="${TAG#jpx-server-v}"
+          VERSION="${TAG#jpx-mcp-v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 

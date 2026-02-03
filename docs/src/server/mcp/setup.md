@@ -1,12 +1,12 @@
 # Setup with Claude Desktop
 
-Configure jpx-server as an MCP server for Claude Desktop.
+Configure jpx-mcp as an MCP server for Claude Desktop.
 
 ## Prerequisites
 
-1. Install jpx-server:
+1. Install jpx-mcp:
    ```bash
-   cargo install jpx-server
+   cargo install jpx-mcp
    ```
    Or use Docker (no installation required).
 
@@ -23,7 +23,7 @@ The simplest way to run jpx as an MCP server using the dedicated server image:
   "mcpServers": {
     "jpx": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/joshrotenberg/jpx-server"]
+      "args": ["run", "-i", "--rm", "ghcr.io/joshrotenberg/jpx-mcp"]
     }
   }
 }
@@ -39,19 +39,19 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "jpx": {
-      "command": "jpx-server"
+      "command": "jpx-mcp"
     }
   }
 }
 ```
 
-If jpx-server is not in your PATH, use the full path:
+If jpx-mcp is not in your PATH, use the full path:
 
 ```json
 {
   "mcpServers": {
     "jpx": {
-      "command": "/Users/yourname/.cargo/bin/jpx-server"
+      "command": "/Users/yourname/.cargo/bin/jpx-mcp"
     }
   }
 }
@@ -65,7 +65,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 {
   "mcpServers": {
     "jpx": {
-      "command": "C:\\path\\to\\jpx-server.exe"
+      "command": "C:\\path\\to\\jpx-mcp.exe"
     }
   }
 }
@@ -93,7 +93,7 @@ To use only standard JMESPath functions (no extensions):
 {
   "mcpServers": {
     "jpx": {
-      "command": "jpx-server",
+      "command": "jpx-mcp",
       "args": ["--strict"]
     }
   }
@@ -107,7 +107,7 @@ Or with Docker:
   "mcpServers": {
     "jpx": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/joshrotenberg/jpx-server", "--strict"]
+      "args": ["run", "-i", "--rm", "ghcr.io/joshrotenberg/jpx-mcp", "--strict"]
     }
   }
 }
@@ -115,9 +115,9 @@ Or with Docker:
 
 ## Troubleshooting
 
-### jpx-server not found
+### jpx-mcp not found
 
-Make sure jpx-server is in your PATH, or use the full path in the config.
+Make sure jpx-mcp is in your PATH, or use the full path in the config.
 
 ### Tools not appearing
 

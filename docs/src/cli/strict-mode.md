@@ -92,7 +92,7 @@ The MCP server also supports strict mode. When configured with `--strict`, only 
 {
   "mcpServers": {
     "jpx-strict": {
-      "command": "jpx-server",
+      "command": "jpx-mcp",
       "args": ["--strict"]
     }
   }

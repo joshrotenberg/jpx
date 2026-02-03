@@ -23,7 +23,7 @@ git_tag_name = "jpx-engine-v{{ version }}"
 
 # MCP Server
 [[package]]
-name = "jpx-server"
+name = "jpx-mcp"
 publish = true
 git_release_enable = true
-git_tag_name = "jpx-server-v{{ version }}"
+git_tag_name = "jpx-mcp-v{{ version }}"

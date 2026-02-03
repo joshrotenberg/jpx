@@ -866,7 +866,7 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
     // =========================================================================
 
     let router = McpRouter::new()
-        .server_info("jpx-server", env!("CARGO_PKG_VERSION"))
+        .server_info("jpx-mcp", env!("CARGO_PKG_VERSION"))
         .instructions(
             "JMESPath query tool with 400+ extended functions. \
             \n\nDISCOVERY: Use 'search' to find functions by keyword, 'similar' to find related functions, \

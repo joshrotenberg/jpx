@@ -1,4 +1,4 @@
-//! MCP transport implementation for jpx-server.
+//! MCP transport implementation for jpx-mcp.
 //!
 //! This module provides the MCP (Model Context Protocol) server implementation
 //! that exposes jpx_engine functionality over stdio.

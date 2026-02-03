@@ -1,16 +1,16 @@
 [package]
-name = "jpx-server"
+name = "jpx-mcp"
 version = "0.1.3"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "JMESPath query server supporting MCP, REST, and gRPC protocols"
-keywords = ["jmespath", "json", "mcp", "server"]
-categories = ["network-programming", "web-programming"]
+description = "JMESPath MCP server for AI assistants"
+keywords = ["jmespath", "json", "mcp", "server", "ai"]
+categories = ["network-programming", "development-tools"]
 
 [[bin]]
-name = "jpx-server"
+name = "jpx-mcp"
 path = "src/main.rs"
 
 [dependencies]

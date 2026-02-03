@@ -11,7 +11,7 @@ This repository contains the tooling built on [jmespath-extensions](https://gith
 | Package | Description |
 |---------|-------------|
 | **[jpx](crates/jpx/)** | CLI tool with REPL, multiple output formats |
-| **[jpx-server](crates/jpx-server/)** | MCP server for AI assistants |
+| **[jpx-mcp](crates/jpx-mcp/)** | MCP server for AI assistants |
 | **[jpx-engine](crates/jpx-engine/)** | Query engine with introspection and discovery |
 
 ## Quick Start
@@ -39,7 +39,7 @@ curl -s https://api.github.com/users/octocat | jpx '{
 echo '{"name": "world"}' | docker run -i ghcr.io/joshrotenberg/jpx 'upper(name)'
 
 # MCP Server
-docker run -i --rm ghcr.io/joshrotenberg/jpx-server
+docker run -i --rm ghcr.io/joshrotenberg/jpx-mcp
 ```
 
 ## MCP Server
@@ -50,7 +50,7 @@ Give Claude (or any MCP client) the ability to query and transform JSON:
 {
   "mcpServers": {
     "jpx": {
-      "command": "jpx-server"
+      "command": "jpx-mcp"
     }
   }
 }

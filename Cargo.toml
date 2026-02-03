@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/jpx", "crates/jpx-engine", "crates/jpx-server", "mock-mcp-server"]
+members = ["crates/jpx", "crates/jpx-engine", "crates/jpx-mcp", "mock-mcp-server"]
 resolver = "3"
 default-members = ["crates/jpx"]
 
