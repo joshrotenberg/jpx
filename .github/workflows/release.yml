@@ -11,6 +11,7 @@ name: Release
 
 permissions:
   contents: write
+  packages: write
 
 on:
   push:
@@ -317,3 +318,139 @@ jobs:
           git add Formula/jpx.rb
           git commit -m "jpx $VERSION"
           git push
+
+  # Build Docker image for linux/amd64 using pre-built binary
+  docker-amd64:
+    name: Docker linux/amd64
+    needs: [plan, host]
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/jpx
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release binary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          gh release download "$TAG" --pattern "jpx-x86_64-unknown-linux-gnu.tar.xz" --dir /tmp
+          tar -xJf /tmp/jpx-x86_64-unknown-linux-gnu.tar.xz
+          mv jpx-x86_64-unknown-linux-gnu/jpx ./jpx
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/cli/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.plan.outputs.tag }}-amd64
+          labels: |
+            org.opencontainers.image.title=jpx
+            org.opencontainers.image.description=JMESPath CLI with extended functions
+            org.opencontainers.image.version=${{ needs.plan.outputs.tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+  # Build Docker image for linux/arm64 from source
+  docker-arm64:
+    name: Docker linux/arm64
+    needs: [plan, host]
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/jpx
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tag }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/cli/Dockerfile.build
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.plan.outputs.tag }}-arm64
+          labels: |
+            org.opencontainers.image.title=jpx
+            org.opencontainers.image.description=JMESPath CLI with extended functions
+            org.opencontainers.image.version=${{ needs.plan.outputs.tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+  # Create multi-arch manifest for Docker CLI
+  docker-manifest:
+    name: Docker Multi-arch Manifest
+    needs: [plan, docker-amd64, docker-arm64]
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/jpx
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifests
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          VERSION="${TAG#jpx-v}"
+          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          # Create manifest for version tag
+          docker buildx imagetools create -t ${IMAGE}:${VERSION} \
+            ${IMAGE}:${TAG}-amd64 \
+            ${IMAGE}:${TAG}-arm64
+
+          # Create manifest for major.minor tag
+          docker buildx imagetools create -t ${IMAGE}:${MAJOR_MINOR} \
+            ${IMAGE}:${TAG}-amd64 \
+            ${IMAGE}:${TAG}-arm64
+
+          # Create manifest for major tag (only if major > 0)
+          if [ "$MAJOR" != "0" ]; then
+            docker buildx imagetools create -t ${IMAGE}:${MAJOR} \
+              ${IMAGE}:${TAG}-amd64 \
+              ${IMAGE}:${TAG}-arm64
+          fi
+
+          # Create manifest for latest tag
+          docker buildx imagetools create -t ${IMAGE}:latest \
+            ${IMAGE}:${TAG}-amd64 \
+            ${IMAGE}:${TAG}-arm64
+
+      - name: Verify multi-arch image
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          VERSION="${TAG#jpx-v}"
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
