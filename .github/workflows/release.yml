@@ -324,6 +324,9 @@ jobs:
     name: Docker linux/amd64
     needs: [plan, host]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/jpx
@@ -368,6 +371,9 @@ jobs:
     name: Docker linux/arm64
     needs: [plan, host]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/jpx
@@ -408,6 +414,9 @@ jobs:
     name: Docker Multi-arch Manifest
     needs: [plan, docker-amd64, docker-arm64]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/jpx
