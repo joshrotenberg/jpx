@@ -17,7 +17,7 @@ serde = "1.0"
 serde_json = "1.0"
 
 # jmespath_extensions from crates.io
-jmespath_extensions = { version = "0.8", package = "jmespath_extensions" }
+jmespath_extensions = { version = "0.9", package = "jmespath_extensions" }
 
 # Internal crates
 jpx-engine = { path = "crates/jpx-engine", version = "0.1.2" }
