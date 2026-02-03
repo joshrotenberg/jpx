@@ -10,8 +10,8 @@ This project includes multiple components:
 |-----------|-------------|---------------|
 | **[jmespath_extensions](https://crates.io/crates/jmespath_extensions)** | Rust library with 400+ extension functions | [docs.rs](https://docs.rs/jmespath_extensions) |
 | **[jpx](https://crates.io/crates/jpx)** | Command-line tool for querying JSON | This site |
-| **[jmespath-extensions-py](https://pypi.org/project/jmespath-extensions/)** | Python bindings | [Python section](./python/installation.md) |
-| **MCP Server** | AI assistant integration | [MCP section](./mcp/overview.md) |
+| **[jmespath-extensions-py](https://pypi.org/project/jmespath-extensions/)** | Python bindings | [PyPI](https://pypi.org/project/jmespath-extensions/) |
+| **[jpx-mcp](https://crates.io/crates/jpx-mcp)** | MCP server for AI assistants | [MCP section](./mcp/overview.md) |
 
 This documentation primarily focuses on **jpx**, the CLI tool. For using the Rust library directly in your code, see the [rustdoc documentation](https://docs.rs/jmespath_extensions).
 

@@ -416,7 +416,7 @@ jpx -Q examples/hacker-news.jpx:summary hn_front.json
 jpx -Q examples/hacker-news.jpx:most-discussed -t hn_front.json
 ```
 
-See [Query Files](../../guide/query-files.md) for more on creating and using query libraries.
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
 
 ---
 

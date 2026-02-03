@@ -77,7 +77,7 @@ jpx --describe unique
 
 ## Next Steps
 
-- [Cookbook](../guide/cookbook.md) - Common tasks and recipes
-- [Basic Usage](./basic-usage.md) - More CLI options
+- [JMESPath Primer](./jmespath-primer.md) - Learn the query language
+- [Examples](../cli/examples.md) - Common tasks and recipes
+- [Basic Usage](../cli/basic-usage.md) - More CLI options
 - [Function Reference](../functions/overview.md) - All functions by category
-- [Why jpx?](../guide/why-jpx.md) - Compare jpx to Python, jq, and other tools

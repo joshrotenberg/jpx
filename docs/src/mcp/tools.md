@@ -1,6 +1,28 @@
 # Available Tools
 
-The jpx MCP server provides 26 tools organized into five categories.
+The jpx MCP server provides 26 tools organized into six categories.
+
+## Server Info
+
+### engine_info
+
+Get information about the jpx engine including version, capabilities, and available functions.
+
+```json
+{}
+```
+
+Returns:
+```json
+{
+  "name": "jpx-mcp",
+  "version": "0.1.3",
+  "strict_mode": false,
+  "function_count": 395,
+  "category_count": 31,
+  "categories": ["Array", "Color", "Computing", ...]
+}
+```
 
 ## Function Discovery
 

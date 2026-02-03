@@ -128,7 +128,7 @@ Environment variables are overridden by command-line flags.
 
 A few examples showing common flag combinations. For comprehensive examples, see:
 - [Basic Usage](./basic-usage.md) - getting started with queries
-- [Cookbook](./cookbook.md) - task-oriented recipes
+- [Examples](./examples.md) - task-oriented examples
 - [Output Formats](./output-formats.md) - tables, CSV, YAML
 - [Query Files](./query-files.md) - reusable query libraries
 

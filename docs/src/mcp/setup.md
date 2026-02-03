@@ -1,18 +1,27 @@
-# Setup with Claude Desktop
+# Setup
 
-Configure jpx-mcp as an MCP server for Claude Desktop.
+Configure jpx-mcp as an MCP server for Claude Desktop or as a standalone HTTP server.
 
-## Prerequisites
+## Installation
 
-1. Install jpx-mcp:
-   ```bash
-   cargo install jpx-mcp
-   ```
-   Or use Docker (no installation required).
+Install jpx-mcp:
 
-2. Have Claude Desktop installed
+```bash
+cargo install jpx-mcp
+```
 
-## Configuration
+Or use Docker (no installation required).
+
+## Transport Modes
+
+jpx-mcp supports two transport modes:
+
+| Transport | Use Case |
+|-----------|----------|
+| `stdio` (default) | Claude Desktop and other MCP clients |
+| `http` | Web applications, remote access |
+
+## Claude Desktop Configuration
 
 ### Docker (Recommended)
 
@@ -83,6 +92,37 @@ User: I have this JSON: {"users": [{"name": "alice"}, {"name": "bob"}]}
 
 Claude: [Uses jpx.evaluate]
         Result: ["alice", "bob"]
+```
+
+## HTTP Transport
+
+Run jpx-mcp as an HTTP server for web applications or remote access:
+
+```bash
+# Start HTTP server on default port 3000
+jpx-mcp --transport http
+
+# Custom host and port
+jpx-mcp --transport http --host 0.0.0.0 --port 8080
+
+# With request timeout
+jpx-mcp --transport http --request-timeout-secs 60
+```
+
+### CLI Options
+
+```
+jpx-mcp [OPTIONS]
+
+Options:
+  -t, --transport <TRANSPORT>       Transport mode [default: stdio] [possible values: stdio, http]
+      --strict                      Use standard JMESPath only (no extensions)
+  -l, --log-level <LOG_LEVEL>       Log level [default: info]
+      --host <HOST>                 HTTP host [default: 127.0.0.1]
+  -p, --port <PORT>                 HTTP port [default: 3000]
+      --request-timeout-secs <SECS> Request timeout in seconds [default: 30]
+  -h, --help                        Print help
+  -V, --version                     Print version
 ```
 
 ## Strict Mode
