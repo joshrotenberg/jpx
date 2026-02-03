@@ -4,7 +4,7 @@
 //!
 //! This crate provides the core "brain" of jpx - everything you can do with JMESPath
 //! beyond basic compile and evaluate. It's designed to be transport-agnostic, allowing
-//! the CLI (`jpx`), MCP server (`jpx-server`), or any future REST/gRPC adapters to be
+//! the CLI (`jpx`), MCP server (`jpx-mcp`), or any future REST/gRPC adapters to be
 //! thin wrappers over this engine.
 //!
 //! ## Features
@@ -215,7 +215,7 @@
 //!         |
 //!    +----+----+
 //!    |         |
-//!   jpx    jpx-server    (CLI and MCP transport)
+//!   jpx    jpx-mcp    (CLI and MCP transport)
 //! ```
 //!
 //! ## Thread Safety

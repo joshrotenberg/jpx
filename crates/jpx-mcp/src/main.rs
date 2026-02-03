@@ -1,6 +1,6 @@
 //! JMESPath MCP Server
 //!
-//! This is the entry point for the jpx-server binary, which provides
+//! This is the entry point for the jpx-mcp binary, which provides
 //! JMESPath functionality over the MCP (Model Context Protocol).
 
 #[cfg(feature = "mcp")]

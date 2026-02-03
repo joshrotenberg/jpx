@@ -94,14 +94,14 @@ cargo install --path . --no-default-features
 
 ## MCP Server (AI Assistant Integration)
 
-For MCP (Model Context Protocol) support, use the dedicated [`jpx-server`](https://crates.io/crates/jpx-server) package:
+For MCP (Model Context Protocol) support, use the dedicated [`jpx-mcp`](https://crates.io/crates/jpx-mcp) package:
 
 ```bash
 # Install
-cargo install jpx-server
+cargo install jpx-mcp
 
 # Or use Docker
-docker run -i --rm ghcr.io/joshrotenberg/jpx-server
+docker run -i --rm ghcr.io/joshrotenberg/jpx-mcp
 ```
 
 See the [MCP documentation](https://joshrotenberg.github.io/jmespath-extensions/server/mcp/overview.html) for setup instructions with Claude Desktop.
