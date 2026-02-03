@@ -535,5 +535,5 @@ jpx --describe group_by
 ## Related
 
 - [JMESPath Specification](https://jmespath.org/specification.html)
-- [jpx Function Reference](../functions/index.md)
+- [jpx Function Reference](../functions/overview.md)
 - [Real-World Dataset Guides](./index.md)

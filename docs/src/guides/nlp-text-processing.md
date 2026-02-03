@@ -415,7 +415,7 @@ tokens(@) | remove_stopwords(@) | stems(@)
 tokens(@) | remove_stopwords(@) | stems(@) | frequencies(@) | items(@) | sort_by(@, &[1]) | reverse(@) | [:10][*][0]
 ```
 
-See [Query Files](../../guide/query-files.md) for more on creating and using query libraries.
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
 
 ---
 

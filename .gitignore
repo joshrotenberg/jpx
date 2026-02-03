@@ -15,3 +15,7 @@
 
 # Claude Code local context
 CLAUDE.md
+
+# Documentation build outputs
+/site/
+/docs/build/

@@ -1,0 +1,140 @@
+site_name: jpx - JMESPath Extended
+site_description: JMESPath CLI and libraries with 400+ extension functions
+site_author: Josh Rotenberg
+site_url: https://joshrotenberg.github.io/jpx/
+repo_name: joshrotenberg/jpx
+repo_url: https://github.com/joshrotenberg/jpx
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/joshrotenberg/jpx
+  generator: false
+
+copyright: Copyright &copy; 2024-2026 Josh Rotenberg
+
+docs_dir: docs/src
+
+nav:
+  - Home: introduction.md
+  - CLI:
+    - Installation: cli/installation.md
+    - Quick Start: cli/quick-start.md
+    - Basic Usage: cli/basic-usage.md
+    - Commands: cli/commands.md
+    - Examples: cli/examples.md
+    - Output Formats: cli/output-formats.md
+    - Expression Syntax: cli/expression-syntax.md
+    - String Literals & Escaping: cli/escaping.md
+    - Working with Files: cli/working-with-files.md
+    - Query Files: cli/query-files.md
+    - Strict Mode: cli/strict-mode.md
+    - Why jpx?: cli/why-jpx.md
+  - MCP Server:
+    - Overview: server/mcp/overview.md
+    - Setup: server/mcp/setup.md
+    - Tools: server/mcp/tools.md
+    - Discovery: server/mcp/discovery.md
+    - Examples: server/mcp/examples.md
+  - Functions:
+    - Overview: functions/overview.md
+    - Standard: functions/standard.md
+    - String: functions/string.md
+    - Array: functions/array.md
+    - Object: functions/object.md
+    - Math: functions/math.md
+    - Date/Time: functions/datetime.md
+    - Duration: functions/duration.md
+    - Hash: functions/hash.md
+    - Encoding: functions/encoding.md
+    - Validation: functions/validation.md
+    - Expression: functions/expression.md
+    - Type: functions/type.md
+    - Regex: functions/regex.md
+    - URL: functions/url.md
+    - Semver: functions/semver.md
+    - JSON Patch: functions/jsonpatch.md
+    - Multi-Match: functions/multimatch.md
+    - UUID: functions/uuid.md
+    - IDs: functions/ids.md
+    - Random: functions/rand.md
+    - Text: functions/text.md
+    - Language: functions/language.md
+    - Fuzzy: functions/fuzzy.md
+    - Discovery: functions/discovery.md
+    - Phonetic: functions/phonetic.md
+    - Network: functions/network.md
+    - Geo: functions/geo.md
+    - Path: functions/path.md
+    - Format: functions/format.md
+    - Color: functions/color.md
+    - Computing: functions/computing.md
+    - Utility: functions/utility.md
+  - Libraries:
+    - jmespath-extensions: libraries/jmespath-extensions.md
+    - jpx-engine: libraries/jpx-engine.md
+    - Python Bindings: libraries/python.md
+  - Guides:
+    - Overview: guides/index.md
+    - Standard JMESPath Only: guides/standard-jmespath.md
+    - NLP Text Processing: guides/nlp-text-processing.md
+    - Hacker News: guides/hacker-news.md
+    - USGS Earthquakes: guides/earthquakes.md
+    - Nobel Prize API: guides/nobel-prize.md
+    - NASA Near Earth Objects: guides/nasa-neo.md
+    - Project Management: guides/project-management.md
