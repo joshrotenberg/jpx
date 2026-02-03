@@ -1,19 +1,14 @@
-# Introduction
+# jpx
 
-This documentation covers the **JMESPath Extensions** project, which provides 400+ additional functions for [JMESPath](https://jmespath.org/) queries.
+**jpx** is a command-line tool for querying and transforming JSON using [JMESPath](https://jmespath.org/) with 400+ extension functions.
 
-## Project Components
+## Components
 
-This project includes multiple components:
-
-| Component | Description | Documentation |
-|-----------|-------------|---------------|
-| **[jmespath_extensions](https://crates.io/crates/jmespath_extensions)** | Rust library with 400+ extension functions | [docs.rs](https://docs.rs/jmespath_extensions) |
-| **[jpx](https://crates.io/crates/jpx)** | Command-line tool for querying JSON | This site |
-| **[jmespath-extensions-py](https://pypi.org/project/jmespath-extensions/)** | Python bindings | [PyPI](https://pypi.org/project/jmespath-extensions/) |
-| **[jpx-mcp](https://crates.io/crates/jpx-mcp)** | MCP server for AI assistants | [MCP section](./mcp/overview.md) |
-
-This documentation primarily focuses on **jpx**, the CLI tool. For using the Rust library directly in your code, see the [rustdoc documentation](https://docs.rs/jmespath_extensions).
+| Component | Description |
+|-----------|-------------|
+| **[jpx](https://crates.io/crates/jpx)** | Command-line tool |
+| **[jpx-mcp](https://crates.io/crates/jpx-mcp)** | MCP server for AI assistants |
+| **[Python bindings](https://pypi.org/project/jmespath-extensions/)** | Use jpx functions in Python |
 
 ## What is JMESPath?
 
@@ -34,12 +29,11 @@ While standard JMESPath is powerful, it's intentionally minimal with only 26 bui
 
 ## Features
 
-- **Rust Library**: Use the functions in your Rust applications ([docs.rs](https://docs.rs/jmespath_extensions))
-- **Powerful CLI**: Query JSON from files, stdin, or inline with jpx
-- **MCP Server**: Use jpx with AI assistants like Claude
-- **Python Bindings**: Use the same 400+ functions in Python
-- **Function Discovery**: Built-in help for all functions
-- **Strict Mode**: Use only standard JMESPath for portable queries
+- **400+ functions**: String, math, dates, NLP, geo, fuzzy matching, and more
+- **Multiple interfaces**: CLI, MCP server for AI assistants, Python bindings
+- **Function discovery**: Search, describe, and explore functions from the command line
+- **Strict mode**: Limit to standard JMESPath for portable queries
+- **Multiple output formats**: JSON, CSV, TSV, tables, raw text
 
 ## Quick Example
 

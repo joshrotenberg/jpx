@@ -387,7 +387,7 @@ echo '{"texts": ["running fast", "jumping high"]}' | jpx 'texts[*] | [*].tokens(
 
 ## Using Query Libraries
 
-Save your NLP pipelines in a `.jpx` query library for reuse. See [examples/nlp.jpx](https://github.com/joshrotenberg/jmespath-extensions/blob/main/examples/nlp.jpx) for ready-to-use text processing queries:
+Save your NLP pipelines in a `.jpx` query library for reuse. See [examples/nlp.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/nlp.jpx) for ready-to-use text processing queries:
 
 ```bash
 # List available NLP queries
