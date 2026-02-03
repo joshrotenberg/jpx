@@ -10,8 +10,8 @@ This project includes multiple components:
 |-----------|-------------|---------------|
 | **[jmespath_extensions](https://crates.io/crates/jmespath_extensions)** | Rust library with 400+ extension functions | [docs.rs](https://docs.rs/jmespath_extensions) |
 | **[jpx](https://crates.io/crates/jpx)** | Command-line tool for querying JSON | This site |
-| **[jmespath-extensions-py](https://pypi.org/project/jmespath-extensions/)** | Python bindings | [Python section](./libraries/python.md) |
-| **MCP Server** | AI assistant integration | [MCP section](./server/mcp/overview.md) |
+| **[jmespath-extensions-py](https://pypi.org/project/jmespath-extensions/)** | Python bindings | [PyPI](https://pypi.org/project/jmespath-extensions/) |
+| **[jpx-mcp](https://crates.io/crates/jpx-mcp)** | MCP server for AI assistants | [MCP section](./mcp/overview.md) |
 
 This documentation primarily focuses on **jpx**, the CLI tool. For using the Rust library directly in your code, see the [rustdoc documentation](https://docs.rs/jmespath_extensions).
 
@@ -61,4 +61,4 @@ echo '{"values": [10, 20, 30, 40, 50]}' | jpx 'median(values)'
 
 ## Getting Started
 
-Ready to dive in? Start with [Installation](./cli/installation.md) to get jpx set up on your system.
+Ready to dive in? Start with [Installation](./getting-started/installation.md) to get jpx set up on your system.

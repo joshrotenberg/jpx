@@ -190,17 +190,103 @@ result = jmespath_extensions.search('items[?active].{id: id, name: upper(name)}'
 save_to_database(result)
 ```
 
-## Coming from jq?
+## jpx vs jq
 
-The key syntax differences:
+Both tools query and transform JSON from the command line. Here's how they compare.
 
-| jq | jpx |
-|----|-----|
-| `.[].name` | `[*].name` |
-| `select(.age > 30)` | `[?age > \`30\`]` |
-| `length` | `length(@)` |
+### What's the Same
 
-jpx has more built-in functions (400+). jq is better for complex recursive transformations.
+- **Pipe-based composition**: Both chain operations with `|`
+- **Zero dependencies**: Single binaries, no runtime needed
+- **Streaming capable**: Both can process large files
+- **Shell-friendly**: Designed for pipelines and scripting
+
+### Syntax Comparison
+
+| Task | jq | jpx |
+|------|----|----|
+| Get field | `.name` | `name` |
+| Nested field | `.user.name` | `user.name` |
+| Array element | `.[0]` | `[0]` |
+| All elements | `.[]` | `[*]` |
+| Filter | `select(.age > 30)` | `[?age > \`30\`]` |
+| Project fields | `{name, age}` | `{name: name, age: age}` |
+| Length | `length` | `length(@)` |
+| Sort | `sort` | `sort(@)` |
+| Sort by field | `sort_by(.age)` | `sort_by(@, &age)` |
+| Map | `map(.name)` | `[*].name` or `map(&name, @)` |
+| Unique | `unique` | `unique(@)` |
+| Literals | `30` | `` \`30\` `` (backticks) |
+
+### What jq Does Better
+
+- **Recursive descent**: `..` traverses all levels
+- **Variable bindings**: `as $x` for reusing values
+- **String interpolation**: `"Hello \(.name)"`
+- **Conditionals**: `if-then-else` expressions
+- **Define functions**: `def name(args): body;`
+- **Reduce**: `reduce .[] as $x (init; update)`
+
+### What jpx Does Better
+
+- **More built-in functions**: 400+ vs ~50 in jq
+- **Domain-specific functions**: NLP, geo, fuzzy matching, phonetic, etc.
+- **Function discovery**: `--search`, `--describe`, `--similar`
+- **Readable filters**: `[?age > \`30\`]` reads like SQL WHERE
+- **MCP server**: Use with AI assistants
+- **Python bindings**: Same queries in Python code
+
+### Examples Side-by-Side
+
+**Filter and transform:**
+```bash
+# jq
+jq '[.[] | select(.active) | {name, score}]' data.json
+
+# jpx
+jpx '[?active].{name: name, score: score}' data.json
+```
+
+**Sort by field descending:**
+```bash
+# jq
+jq 'sort_by(.score) | reverse' data.json
+
+# jpx
+jpx 'sort_by(@, &score) | reverse(@)' data.json
+```
+
+**String operations:**
+```bash
+# jq
+jq '.name | ascii_upcase' data.json
+
+# jpx
+jpx 'upper(name)' data.json
+```
+
+**Aggregate:**
+```bash
+# jq
+jq '[.[].score] | add / length' data.json
+
+# jpx
+jpx 'avg([*].score)' data.json
+```
+
+### When to Use Which
+
+**Use jq when:**
+- Complex recursive transformations
+- You need variables or conditionals
+- Custom function definitions
+- You're already fluent in jq
+
+**Use jpx when:**
+- Domain-specific functions (NLP, geo, dates, fuzzy, etc.)
+- You want function discovery and help
+- Using the same queries in Python code
+- Working with AI assistants (MCP)
 
 ## Summary
 

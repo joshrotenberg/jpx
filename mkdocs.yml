@@ -72,9 +72,11 @@ docs_dir: docs/src
 
 nav:
   - Home: introduction.md
+  - Getting Started:
+    - Quick Start: getting-started/quick-start.md
+    - Installation: getting-started/installation.md
+    - JMESPath Primer: getting-started/jmespath-primer.md
   - CLI:
-    - Installation: cli/installation.md
-    - Quick Start: cli/quick-start.md
     - Basic Usage: cli/basic-usage.md
     - Commands: cli/commands.md
     - Examples: cli/examples.md
@@ -86,11 +88,11 @@ nav:
     - Strict Mode: cli/strict-mode.md
     - Why jpx?: cli/why-jpx.md
   - MCP Server:
-    - Overview: server/mcp/overview.md
-    - Setup: server/mcp/setup.md
-    - Tools: server/mcp/tools.md
-    - Discovery: server/mcp/discovery.md
-    - Examples: server/mcp/examples.md
+    - Overview: mcp/overview.md
+    - Setup: mcp/setup.md
+    - Tools Reference: mcp/tools.md
+    - Discovery: mcp/discovery.md
+    - Examples: mcp/examples.md
   - Functions:
     - Overview: functions/overview.md
     - Standard: functions/standard.md
@@ -125,10 +127,6 @@ nav:
     - Color: functions/color.md
     - Computing: functions/computing.md
     - Utility: functions/utility.md
-  - Libraries:
-    - jmespath-extensions: libraries/jmespath-extensions.md
-    - jpx-engine: libraries/jpx-engine.md
-    - Python Bindings: libraries/python.md
   - Guides:
     - Overview: guides/index.md
     - Standard JMESPath Only: guides/standard-jmespath.md
@@ -138,3 +136,6 @@ nav:
     - Nobel Prize API: guides/nobel-prize.md
     - NASA Near Earth Objects: guides/nasa-neo.md
     - Project Management: guides/project-management.md
+  - Libraries:
+    - Rust (docs.rs): https://docs.rs/jmespath_extensions
+    - Python (PyPI): https://pypi.org/project/jmespath-extensions/
