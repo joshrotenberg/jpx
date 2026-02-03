@@ -862,6 +862,36 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
         .build()?;
 
     // =========================================================================
+    // Engine info
+    // =========================================================================
+
+    // -- engine_info
+    let e = engine.clone();
+    let engine_info = ToolBuilder::new("engine_info")
+        .description("Get information about the jpx engine including version, mode, function count, and current session state.")
+        .read_only()
+        .handler(move |_params: EmptyParams| {
+            let engine = e.clone();
+            async move {
+                let function_count = engine.functions(None).len();
+                let category_count = engine.categories().len();
+                let stored_queries = engine.list_queries().unwrap_or_default().len();
+                let discovery_servers = engine.list_discovery_servers().unwrap_or_default().len();
+
+                json_result(&serde_json::json!({
+                    "name": "jpx-mcp",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "strict_mode": engine.is_strict(),
+                    "function_count": function_count,
+                    "category_count": category_count,
+                    "stored_queries": stored_queries,
+                    "registered_discovery_servers": discovery_servers
+                }))
+            }
+        })
+        .build()?;
+
+    // =========================================================================
     // Build the router
     // =========================================================================
 
@@ -907,7 +937,8 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
         .tool(get_query)
         .tool(delete_query)
         .tool(list_queries)
-        .tool(run_query);
+        .tool(run_query)
+        .tool(engine_info);
 
     Ok(router)
 }
