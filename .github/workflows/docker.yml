@@ -74,7 +74,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.COMMITTER_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -130,7 +130,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.COMMITTER_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -161,7 +161,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.COMMITTER_TOKEN }}
 
       - name: Create and push manifests
         run: |
