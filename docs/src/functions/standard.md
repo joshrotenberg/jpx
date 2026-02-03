@@ -1,6 +1,6 @@
 # Standard JMESPath Functions
 
-These are the standard JMESPath functions as defined in the specification. They work in all JMESPath implementations.
+These are the 26 standard JMESPath functions as defined in the [JMESPath specification](https://jmespath.org/specification.html). They work in all JMESPath implementations.
 
 ## Summary
 
