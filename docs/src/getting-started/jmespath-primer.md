@@ -1,6 +1,6 @@
 # JMESPath Primer
 
-JMESPath is a query language for JSON. This primer covers the essentials you need to start using jpx effectively.
+[JMESPath](https://jmespath.org/) is a query language for JSON. This primer covers the essentials you need to start using jpx effectively.
 
 ## Basic Syntax
 
@@ -182,3 +182,5 @@ jpx --list-category string
 - [Basic Usage](../cli/basic-usage.md) - CLI options and features
 - [Function Overview](../functions/overview.md) - All 400+ functions
 - [Examples](../cli/examples.md) - Common recipes
+- [JMESPath Specification](https://jmespath.org/specification.html) - Official language spec
+- [JMESPath Tutorial](https://jmespath.org/tutorial.html) - Interactive tutorial

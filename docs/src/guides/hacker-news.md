@@ -401,7 +401,7 @@ jpx '{
 
 ## Using Query Libraries
 
-Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/hacker-news.jpx](https://github.com/joshrotenberg/jmespath-extensions/blob/main/examples/hacker-news.jpx) for a ready-to-use library:
+Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/hacker-news.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/hacker-news.jpx) for a ready-to-use library:
 
 ```bash
 # List available queries
