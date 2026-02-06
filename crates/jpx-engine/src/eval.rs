@@ -55,11 +55,11 @@ impl JpxEngine {
 
         let result = expr
             .search(&var)
-            .map_err(|e| EngineError::EvaluationFailed(e.to_string()))?;
+            .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
 
         // Convert Rcvar to Value
         let value: Value = serde_json::to_value(result.as_ref())
-            .map_err(|e| EngineError::EvaluationFailed(e.to_string()))?;
+            .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
 
         Ok(value)
     }

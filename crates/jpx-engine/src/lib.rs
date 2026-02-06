@@ -228,6 +228,7 @@ mod bm25;
 mod discovery;
 mod error;
 mod eval;
+mod explain;
 mod introspection;
 mod json_utils;
 mod query_store;
@@ -242,7 +243,8 @@ pub use discovery::{
     ParamSpec, RegistrationResult, ReturnSpec, ServerInfo, ServerSummary, ToolQueryResult,
     ToolSpec,
 };
-pub use error::{EngineError, Result};
+pub use error::{EngineError, EvaluationErrorKind, Result};
+pub use explain::{ExplainResult, ExplainStep};
 pub use introspection::{FunctionDetail, SearchResult, SimilarFunctionsResult};
 pub use json_utils::{FieldAnalysis, PathInfo, StatsResult};
 pub use query_store::{QueryStore, StoredQuery};

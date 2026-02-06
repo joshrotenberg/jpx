@@ -245,6 +245,12 @@ pub struct RunQueryParams {
     pub input: String,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ExplainParams {
+    /// JMESPath expression to explain
+    pub expression: String,
+}
+
 // Empty params for tools that take no input
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct EmptyParams {}
@@ -355,6 +361,22 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
             async move {
                 let result = engine.validate(&params.expression);
                 json_result(&result)
+            }
+        })
+        .build()?;
+
+    // -- explain
+    let e = engine.clone();
+    let explain = ToolBuilder::new("explain")
+        .description("Explain a JMESPath expression by breaking it down into steps. Returns a structured breakdown of each part of the expression including node types, descriptions, functions used, and complexity rating. Useful for understanding complex queries or debugging unexpected results. Also works for invalid expressions (returns the parse error).")
+        .read_only()
+        .handler(move |params: ExplainParams| {
+            let engine = e.clone();
+            async move {
+                match engine.explain(&params.expression) {
+                    Ok(result) => json_result(&result),
+                    Err(e) => Err(Error::tool(e.to_string())),
+                }
             }
         })
         .build()?;
@@ -904,7 +926,8 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
             \n\nDATA ANALYSIS: Use 'stats' to analyze JSON structure before querying, 'paths' to list all paths in dot notation, \
             'keys' to extract object keys (optionally recursive). \
             \n\nQUERYING: Use 'evaluate' to run JMESPath queries, 'evaluate_file' to query JSON files directly, \
-            'batch_evaluate' for multiple expressions against the same input, 'validate' to check expression syntax. \
+            'batch_evaluate' for multiple expressions against the same input, 'validate' to check expression syntax, \
+            'explain' to get a step-by-step breakdown of what an expression does. \
             \n\nJSON UTILITIES: Use 'format' to pretty-print JSON, 'diff' to generate RFC 6902 JSON Patches, \
             'patch' to apply RFC 6902 patches, 'merge' to apply RFC 7396 JSON Merge Patches."
         )
@@ -913,6 +936,7 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
         .tool(describe)
         .tool(categories)
         .tool(validate)
+        .tool(explain)
         .tool(batch_evaluate)
         .tool(format)
         .tool(diff)

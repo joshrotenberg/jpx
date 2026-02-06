@@ -1,5 +1,5 @@
 use crate::args::{ColorMode, create_runtime};
-use crate::input::read_json_from;
+use crate::input::{self, read_json_from};
 use crate::output::output_json;
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -13,13 +13,13 @@ pub(crate) fn diff_files(
 ) -> Result<()> {
     let source: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(source_path)
-            .with_context(|| format!("Failed to read source file: {}", source_path))?,
+            .map_err(|e| input::file_read_error(source_path, &e))?,
     )
     .context("Failed to parse source JSON")?;
 
     let target: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(target_path)
-            .with_context(|| format!("Failed to read target file: {}", target_path))?,
+            .map_err(|e| input::file_read_error(target_path, &e))?,
     )
     .context("Failed to parse target JSON")?;
 
@@ -44,8 +44,8 @@ pub(crate) fn diff_files(
 /// List queries in a .jpx query library file
 pub(crate) fn list_queries(query_path: &str, color_mode: &ColorMode) -> Result<()> {
     let (file_path, _) = jpx::query_library::parse_query_path(query_path);
-    let content = std::fs::read_to_string(file_path)
-        .with_context(|| format!("Failed to read query file: {}", file_path))?;
+    let content =
+        std::fs::read_to_string(file_path).map_err(|e| input::file_read_error(file_path, &e))?;
 
     let library = jpx::query_library::QueryLibrary::parse(&content)
         .with_context(|| format!("Failed to parse query library: {}", file_path))?;
@@ -117,8 +117,8 @@ pub(crate) fn list_queries(query_path: &str, color_mode: &ColorMode) -> Result<(
 /// Validate queries in a .jpx file without running them
 pub(crate) fn check_queries(query_path: &str, color_mode: &ColorMode) -> Result<()> {
     let (file_path, _) = jpx::query_library::parse_query_path(query_path);
-    let content = std::fs::read_to_string(file_path)
-        .with_context(|| format!("Failed to read query file: {}", file_path))?;
+    let content =
+        std::fs::read_to_string(file_path).map_err(|e| input::file_read_error(file_path, &e))?;
 
     let library = jpx::query_library::QueryLibrary::parse(&content)
         .with_context(|| format!("Failed to parse query library: {}", file_path))?;
@@ -193,8 +193,8 @@ pub(crate) fn apply_patch(
     let mut doc = read_json_from(doc_path.as_deref())?;
 
     // Read the patch from file
-    let patch_content = std::fs::read_to_string(patch_path)
-        .with_context(|| format!("Failed to read patch file: {}", patch_path))?;
+    let patch_content =
+        std::fs::read_to_string(patch_path).map_err(|e| input::file_read_error(patch_path, &e))?;
     let patch_value: serde_json::Value =
         serde_json::from_str(&patch_content).context("Failed to parse patch JSON")?;
 
@@ -225,8 +225,8 @@ pub(crate) fn apply_merge(
     let mut doc = read_json_from(doc_path.as_deref())?;
 
     // Read the merge patch from file
-    let merge_content = std::fs::read_to_string(merge_path)
-        .with_context(|| format!("Failed to read merge patch file: {}", merge_path))?;
+    let merge_content =
+        std::fs::read_to_string(merge_path).map_err(|e| input::file_read_error(merge_path, &e))?;
     let merge_patch: serde_json::Value =
         serde_json::from_str(&merge_content).context("Failed to parse merge patch JSON")?;
 
