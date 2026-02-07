@@ -1369,8 +1369,6 @@ checksum = "7714e70437a7dc3ac8eb7e6f8df75fd8eb422675fc7678aff7364301092b1017"
 dependencies = [
  "equivalent",
  "hashbrown 0.16.1",
- "serde",
- "serde_core",
 ]
 
 [[package]]
@@ -1426,20 +1424,6 @@ dependencies = [
  "serde",
  "serde_json",
  "slug",
-]
-
-[[package]]
-name = "jmespath_community"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "902f6d8cddf0b15fd5d2e3b85bb31f9b02d9569075e1920a34331769524d49f1"
-dependencies = [
- "indexmap",
- "lazy_static",
- "regex",
- "santiago",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1517,7 +1501,6 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "jmespath",
- "jmespath_community",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2371,15 +2354,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "santiago"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de36022292bc2086eb8f55bffa460fef3475e4459b478820711f4c421feb87ec"
-dependencies = [
- "regex",
-]
-
-[[package]]
 name = "scanlex"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2475,7 +2449,6 @@ version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
 dependencies = [
- "indexmap",
  "itoa",
  "memchr",
  "serde",

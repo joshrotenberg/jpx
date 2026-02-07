@@ -1,6 +1,6 @@
-//! Head-to-head benchmarks: jpx-core vs jmespath.rs vs jmespath-community.
+//! Head-to-head benchmarks: jpx-core (Value-native) vs jmespath.rs (Rcvar/Variable).
 //!
-//! Each benchmark group runs the same expression and data through all implementations
+//! Each benchmark group runs the same expression and data through both implementations
 //! so we can compare like-for-like.
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
@@ -64,8 +64,10 @@ fn jpx_search_precompiled(expression: &jpx_core::Expression<'_>, data: &Value) -
 
 fn jmespath_compile_and_search(expr: &str, data: &Value) -> Value {
     let expression = jmespath::compile(expr).unwrap();
+    // jmespath.rs requires Variable, so we need to convert
     let var = jmespath::Variable::from_json(&data.to_string()).unwrap();
     let result = expression.search(&var).unwrap();
+    // Convert back to Value for fair comparison
     serde_json::to_value(result.as_ref()).unwrap()
 }
 
@@ -73,37 +75,6 @@ fn jmespath_search_precompiled(expression: &jmespath::Expression<'_>, data: &Val
     let var = jmespath::Variable::from_json(&data.to_string()).unwrap();
     let result = expression.search(&var).unwrap();
     serde_json::to_value(result.as_ref()).unwrap()
-}
-
-// ---------------------------------------------------------------------------
-// jmespath-community helpers
-// ---------------------------------------------------------------------------
-
-fn community_compile_and_search(
-    expr: &str,
-    data: &jmespath_community::Value,
-) -> jmespath_community::Value {
-    let ast = jmespath_community::parse(expr).unwrap();
-    ast.search(data).unwrap()
-}
-
-fn community_search_precompiled(
-    ast: &jmespath_community::AST,
-    data: &jmespath_community::Value,
-) -> jmespath_community::Value {
-    ast.search(data).unwrap()
-}
-
-/// Try to parse and search with community; returns None if the expression
-/// uses features/functions that jmespath-community doesn't support.
-fn community_try_compile(
-    expr: &str,
-    data: &jmespath_community::Value,
-) -> Option<jmespath_community::AST> {
-    let ast = jmespath_community::parse(expr).ok()?;
-    // Verify it actually works (some functions may be unimplemented)
-    ast.search(data).ok()?;
-    Some(ast)
 }
 
 // ---------------------------------------------------------------------------
@@ -136,38 +107,18 @@ fn bench_parse(c: &mut Criterion) {
         group.bench_function(format!("jmespath/{name}"), |b| {
             b.iter(|| jmespath::compile(black_box(expr)).unwrap());
         });
-        // Only bench community parse if it can actually parse the expression
-        if jmespath_community::parse(expr).is_ok() {
-            group.bench_function(format!("community/{name}"), |b| {
-                b.iter(|| jmespath_community::parse(black_box(expr)).unwrap());
-            });
-        }
     }
 
     group.finish();
 }
 
-/// Helper macro to add a community benchmark only if the expression is supported.
-macro_rules! bench_community {
-    ($group:expr, $name:expr, $ast:expr, $data:expr) => {
-        if let Some(ref ast) = $ast {
-            let data = $data;
-            $group.bench_function($name, |b| {
-                b.iter(|| community_search_precompiled(ast, black_box(data)));
-            });
-        }
-    };
-}
-
 fn bench_simple_field(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_field");
     let data = small_object();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "foo.bar.baz";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -175,7 +126,6 @@ fn bench_simple_field(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -183,12 +133,10 @@ fn bench_simple_field(c: &mut Criterion) {
 fn bench_wildcard_projection(c: &mut Criterion) {
     let mut group = c.benchmark_group("wildcard_projection");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "people[*].name";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -196,7 +144,6 @@ fn bench_wildcard_projection(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -204,12 +151,10 @@ fn bench_wildcard_projection(c: &mut Criterion) {
 fn bench_filter(c: &mut Criterion) {
     let mut group = c.benchmark_group("filter");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "people[?age > `30`].name";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -217,7 +162,6 @@ fn bench_filter(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -225,12 +169,10 @@ fn bench_filter(c: &mut Criterion) {
 fn bench_sort(c: &mut Criterion) {
     let mut group = c.benchmark_group("sort");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "sort_by(people, &age)";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -238,7 +180,6 @@ fn bench_sort(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -246,12 +187,10 @@ fn bench_sort(c: &mut Criterion) {
 fn bench_multiselect(c: &mut Criterion) {
     let mut group = c.benchmark_group("multiselect");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "people[*].{name: name, city: city}";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -259,7 +198,6 @@ fn bench_multiselect(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -267,12 +205,10 @@ fn bench_multiselect(c: &mut Criterion) {
 fn bench_large_array_wildcard(c: &mut Criterion) {
     let mut group = c.benchmark_group("large_array_wildcard");
     let data = large_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "items[*].value";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -280,7 +216,6 @@ fn bench_large_array_wildcard(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -288,12 +223,10 @@ fn bench_large_array_wildcard(c: &mut Criterion) {
 fn bench_large_array_filter(c: &mut Criterion) {
     let mut group = c.benchmark_group("large_array_filter");
     let data = large_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "items[?score > `750`].id";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -301,7 +234,6 @@ fn bench_large_array_filter(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -309,12 +241,10 @@ fn bench_large_array_filter(c: &mut Criterion) {
 fn bench_deep_nesting(c: &mut Criterion) {
     let mut group = c.benchmark_group("deep_nesting");
     let data = nested_object();
-    let community_data = jmespath_community::Value::map_from_json(&data);
     let expr = "a.b.c.d.e.f.g";
 
     let jpx_expr = jpx_core::compile(expr).unwrap();
     let jmespath_expr = jmespath::compile(expr).unwrap();
-    let community_ast = community_try_compile(expr, &community_data);
 
     group.bench_function("jpx", |b| {
         b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -322,7 +252,6 @@ fn bench_deep_nesting(c: &mut Criterion) {
     group.bench_function("jmespath", |b| {
         b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
     });
-    bench_community!(group, "community", community_ast, &community_data);
 
     group.finish();
 }
@@ -330,7 +259,6 @@ fn bench_deep_nesting(c: &mut Criterion) {
 fn bench_functions(c: &mut Criterion) {
     let mut group = c.benchmark_group("functions");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
 
     let cases = [
         ("length", "length(people)"),
@@ -344,7 +272,6 @@ fn bench_functions(c: &mut Criterion) {
     for (name, expr) in &cases {
         let jpx_expr = jpx_core::compile(expr).unwrap();
         let jmespath_expr = jmespath::compile(expr).unwrap();
-        let community_ast = community_try_compile(expr, &community_data);
 
         group.bench_function(format!("jpx/{name}"), |b| {
             b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
@@ -352,11 +279,6 @@ fn bench_functions(c: &mut Criterion) {
         group.bench_function(format!("jmespath/{name}"), |b| {
             b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
         });
-        if let Some(ref ast) = community_ast {
-            group.bench_function(format!("community/{name}"), |b| {
-                b.iter(|| community_search_precompiled(ast, black_box(&community_data)));
-            });
-        }
     }
 
     group.finish();
@@ -365,7 +287,6 @@ fn bench_functions(c: &mut Criterion) {
 fn bench_end_to_end(c: &mut Criterion) {
     let mut group = c.benchmark_group("end_to_end");
     let data = medium_array();
-    let community_data = jmespath_community::Value::map_from_json(&data);
 
     let cases = [
         ("simple", "people[0].name"),
@@ -376,21 +297,12 @@ fn bench_end_to_end(c: &mut Criterion) {
     ];
 
     for (name, expr) in &cases {
-        let community_supported = community_try_compile(expr, &community_data).is_some();
-
         group.bench_function(format!("jpx/{name}"), |b| {
             b.iter(|| jpx_compile_and_search(black_box(expr), black_box(&data)));
         });
         group.bench_function(format!("jmespath/{name}"), |b| {
             b.iter(|| jmespath_compile_and_search(black_box(expr), black_box(&data)));
         });
-        if community_supported {
-            group.bench_function(format!("community/{name}"), |b| {
-                b.iter(|| {
-                    community_compile_and_search(black_box(expr), black_box(&community_data))
-                });
-            });
-        }
     }
 
     group.finish();
