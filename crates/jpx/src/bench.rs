@@ -2,7 +2,7 @@ use crate::args::ColorMode;
 use crate::stats::{format_bytes_human, format_with_commas};
 use anyhow::{Context, Result};
 use colored::Colorize;
-use jpx_core::Runtime;
+use jpx_engine::Runtime;
 use serde_json::Value;
 use std::io::{self, Write};
 use std::time::Instant;

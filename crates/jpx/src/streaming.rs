@@ -1,12 +1,12 @@
 use crate::args::Args;
 use crate::input;
 use anyhow::{Context, Result};
-use jpx_core::{FunctionRegistry, Runtime};
+use jpx_engine::Runtime;
 use serde_json::Value;
 use std::io::{self, BufRead, BufWriter, Write};
 
 /// Run streaming mode - process input line by line (NDJSON/JSON Lines)
-pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
+pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runtime) -> Result<()> {
     // Set up input reader
     let input: Box<dyn BufRead> = match &args.file {
         Some(path) => {
@@ -19,15 +19,6 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
     // Set up buffered output
     let stdout = io::stdout();
     let mut writer = BufWriter::new(stdout.lock());
-
-    // Create runtime with extensions (unless strict mode)
-    let mut runtime = Runtime::new();
-    runtime.register_builtin_functions();
-    if !args.strict {
-        let mut registry = FunctionRegistry::new();
-        registry.register_all();
-        registry.apply(&mut runtime);
-    }
 
     // Compile expressions once
     let compiled: Vec<_> = expressions

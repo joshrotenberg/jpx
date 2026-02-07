@@ -6,8 +6,7 @@
 #![allow(clippy::collapsible_if)]
 
 use anyhow::{Context, Result};
-use jpx_core::Runtime;
-use jpx_core::registry::{Category, FunctionRegistry};
+use jpx_engine::{Category, FunctionRegistry, Runtime};
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{CmdKind, Highlighter};
@@ -70,10 +69,7 @@ pub struct JmespathHelper {
 }
 
 impl JmespathHelper {
-    pub fn new(data_fields: Rc<RefCell<Vec<String>>>) -> Self {
-        let mut registry = FunctionRegistry::new();
-        registry.register_all();
-
+    pub fn new(registry: &FunctionRegistry, data_fields: Rc<RefCell<Vec<String>>>) -> Self {
         let functions: HashSet<String> = registry.functions().map(|f| f.name.to_string()).collect();
 
         Self {
@@ -1255,11 +1251,11 @@ fn extract_fields(var: &Value) -> Vec<String> {
 }
 
 /// Run the REPL
-pub fn run(demo_name: Option<&str>) -> Result<()> {
+pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry) -> Result<()> {
     // Shared state for data field completion
     let data_fields: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(vec![]));
 
-    let helper = JmespathHelper::new(Rc::clone(&data_fields));
+    let helper = JmespathHelper::new(&registry, Rc::clone(&data_fields));
     let mut rl: Editor<JmespathHelper, DefaultHistory> = Editor::new()?;
     rl.set_helper(Some(helper));
 
@@ -1270,13 +1266,6 @@ pub fn run(demo_name: Option<&str>) -> Result<()> {
         let _ = std::fs::create_dir_all(path.parent().unwrap());
         let _ = rl.load_history(path);
     }
-
-    // Create runtime with all extensions
-    let mut runtime = Runtime::new();
-    runtime.register_builtin_functions();
-    let mut registry = FunctionRegistry::new();
-    registry.register_all();
-    registry.apply(&mut runtime);
 
     // Current data
     let mut data: Option<Value> = None;

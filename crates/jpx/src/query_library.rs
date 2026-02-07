@@ -6,7 +6,7 @@
 use anyhow::{Context, Result, anyhow};
 
 // Re-export core types for convenience
-pub use jpx_core::query_library::{NamedQuery, ParseError, QueryLibrary, is_query_library};
+pub use jpx_engine::query_library::{NamedQuery, ParseError, QueryLibrary, is_query_library};
 
 /// Parse a query file path that may contain a colon-separated query name.
 ///

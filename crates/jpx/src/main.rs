@@ -16,7 +16,7 @@ use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use clap_complete::generate;
 use colored::Colorize;
-use jpx_core::{FunctionRegistry, Runtime};
+use jpx_engine::FunctionRegistry;
 use serde_json::Value;
 use std::io::{self, Write};
 use std::time::Instant;
@@ -44,15 +44,14 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
+    // Load engine config (jpx.toml discovery) and create runtime/registry
+    let engine_config = jpx_engine::config::EngineConfig::discover().unwrap_or_default();
+    let (runtime, registry) = args::create_configured_runtime(&engine_config, args.strict);
+
     // Handle REPL mode
     if args.repl || args.demo.is_some() {
-        return repl::run(args.demo.as_deref());
+        return repl::run(args.demo.as_deref(), runtime, registry);
     }
-
-    // Create registry for introspection
-    let mut registry = FunctionRegistry::new();
-    registry.register_all();
-    // Note: registry.apply(&runtime) is called below when creating the runtime
 
     if args.list_functions {
         discovery::print_functions(&registry);
@@ -124,7 +123,7 @@ fn run() -> Result<()> {
             .query_file
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("--check requires -Q/--query-file"))?;
-        return ops::check_queries(query_path, &args.color);
+        return ops::check_queries(query_path, &args.color, &runtime);
     }
 
     // Get expressions from positional args, -e flags, or file
@@ -155,8 +154,8 @@ fn run() -> Result<()> {
             }
             println!();
 
-            let ast =
-                jpx_core::parse(expression).map_err(|e| input::expression_error(expression, e))?;
+            let ast = jpx_engine::parse(expression)
+                .map_err(|e| input::expression_error(expression, e))?;
 
             explain::print_ast(&ast, 0);
             println!();
@@ -166,7 +165,7 @@ fn run() -> Result<()> {
 
     // Handle --stream: process input line by line (NDJSON/JSON Lines)
     if args.stream {
-        return streaming::run_streaming(&expressions, &args);
+        return streaming::run_streaming(&expressions, &args, &runtime);
     }
 
     // Get input data
@@ -190,13 +189,6 @@ fn run() -> Result<()> {
         #[cfg(not(feature = "parquet"))]
         input::read_input_as_value(&args)?
     };
-
-    // Create runtime with extensions (unless strict mode)
-    let mut runtime = Runtime::new();
-    runtime.register_builtin_functions();
-    if !args.strict {
-        registry.apply(&mut runtime);
-    }
 
     // Verbose mode: show input info
     if args.verbose {

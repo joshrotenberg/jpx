@@ -1,8 +1,9 @@
-use crate::args::{ColorMode, create_runtime};
+use crate::args::ColorMode;
 use crate::input::{self, read_json_from};
 use crate::output::output_json;
 use anyhow::{Context, Result};
 use colored::Colorize;
+use jpx_engine::Runtime;
 
 /// Generate JSON Patch (RFC 6902) from two files
 pub(crate) fn diff_files(
@@ -115,7 +116,11 @@ pub(crate) fn list_queries(query_path: &str, color_mode: &ColorMode) -> Result<(
 }
 
 /// Validate queries in a .jpx file without running them
-pub(crate) fn check_queries(query_path: &str, color_mode: &ColorMode) -> Result<()> {
+pub(crate) fn check_queries(
+    query_path: &str,
+    color_mode: &ColorMode,
+    runtime: &Runtime,
+) -> Result<()> {
     let (file_path, _) = jpx::query_library::parse_query_path(query_path);
     let content =
         std::fs::read_to_string(file_path).map_err(|e| input::file_read_error(file_path, &e))?;
@@ -128,9 +133,6 @@ pub(crate) fn check_queries(query_path: &str, color_mode: &ColorMode) -> Result<
         ColorMode::Never => false,
         ColorMode::Auto => atty::is(atty::Stream::Stdout),
     };
-
-    // Create runtime with all functions registered for proper validation
-    let runtime = create_runtime();
 
     let mut has_errors = false;
 
