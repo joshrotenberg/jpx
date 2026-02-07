@@ -572,9 +572,11 @@ pub(crate) struct Args {
 }
 
 /// Create a JMESPath runtime with all extension functions registered.
-pub(crate) fn create_runtime() -> jmespath::Runtime {
-    let mut runtime = jmespath::Runtime::new();
+pub(crate) fn create_runtime() -> jpx_core::Runtime {
+    let mut runtime = jpx_core::Runtime::new();
     runtime.register_builtin_functions();
-    jmespath_extensions::register_all(&mut runtime);
+    let mut registry = jpx_core::FunctionRegistry::new();
+    registry.register_all();
+    registry.apply(&mut runtime);
     runtime
 }

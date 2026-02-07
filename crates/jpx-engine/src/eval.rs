@@ -49,19 +49,11 @@ impl JpxEngine {
             .compile(expression)
             .map_err(|e| EngineError::InvalidExpression(e.to_string()))?;
 
-        // Convert input Value to Variable for jmespath
-        let var = jmespath::Variable::from_json(&input.to_string())
-            .map_err(|e| EngineError::InvalidJson(e.to_string()))?;
-
         let result = expr
-            .search(&var)
+            .search(input)
             .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
 
-        // Convert Rcvar to Value
-        let value: Value = serde_json::to_value(result.as_ref())
-            .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
-
-        Ok(value)
+        Ok(result)
     }
 
     /// Evaluates a JMESPath expression against a JSON string.
@@ -157,7 +149,7 @@ impl JpxEngine {
     /// assert!(result.error.is_some());
     /// ```
     pub fn validate(&self, expression: &str) -> ValidationResult {
-        match jmespath::compile(expression) {
+        match jpx_core::compile(expression) {
             Ok(_) => ValidationResult {
                 valid: true,
                 error: None,

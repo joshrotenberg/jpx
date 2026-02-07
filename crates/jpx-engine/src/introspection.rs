@@ -5,7 +5,7 @@
 //! matching and synonyms, describing functions, and finding similar functions.
 
 use crate::JpxEngine;
-use jmespath_extensions::registry::{Category, FunctionInfo, expand_search_terms, lookup_synonyms};
+use jpx_core::registry::{Category, FunctionInfo, expand_search_terms, lookup_synonyms};
 use serde::{Deserialize, Serialize};
 use strsim::jaro_winkler;
 

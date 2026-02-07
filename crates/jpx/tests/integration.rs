@@ -153,10 +153,10 @@ mod extension_functions {
 
     #[test]
     fn test_group_by_expr() {
-        // group_by_expr('expression', array)
+        // group_by_expr(&expr, array) - uses expref syntax
         let result = run_query(
             r#"[{"role": "admin", "name": "Alice"}, {"role": "user", "name": "Bob"}, {"role": "admin", "name": "Carol"}]"#,
-            "group_by_expr('role', @)",
+            "group_by_expr(&role, @)",
         );
         assert!(result.contains("\"admin\""));
         assert!(result.contains("\"user\""));
@@ -164,25 +164,25 @@ mod extension_functions {
 
     #[test]
     fn test_map_values() {
-        let result = run_query(r#"{"a": 1, "b": 2}"#, "map_values('multiply(@, `2`)', @)");
+        let result = run_query(r#"{"a": 1, "b": 2}"#, "map_values(&multiply(@, `2`), @)");
         assert!(result.contains("\"a\": 2"));
         assert!(result.contains("\"b\": 4"));
     }
 
     #[test]
     fn test_reduce_expr() {
-        // reduce_expr(expression, array, initial)
+        // reduce_expr(&expr, array, initial) - uses expref syntax
         let result = run_query(
             r#"[1, 2, 3, 4, 5]"#,
-            "reduce_expr('add(accumulator, current)', @, `0`)",
+            "reduce_expr(&add(accumulator, current), @, `0`)",
         );
         assert_eq!(result, "15.0");
     }
 
     #[test]
     fn test_filter_expr() {
-        // filter_expr('expression', array)
-        let result = run_query(r#"[1, 2, 3, 4, 5]"#, "filter_expr('@ > `3`', @)");
+        // filter_expr(&expr, array) - uses expref syntax
+        let result = run_query(r#"[1, 2, 3, 4, 5]"#, "filter_expr(&(@ > `3`), @)");
         assert_eq!(result, "[\n  4,\n  5\n]");
     }
 }
@@ -220,7 +220,7 @@ mod file_operations {
     fn test_users_group_by() {
         let result = run_query_with_file(
             "users.json",
-            "group_by_expr('department', @) | map_values('length(@)', @)",
+            "group_by_expr(&department, @) | map_values(&length(@), @)",
         );
         assert!(result.contains("\"Engineering\": 3"));
         assert!(result.contains("\"Marketing\": 1"));

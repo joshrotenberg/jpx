@@ -1,14 +1,12 @@
 //! Query library file loading and CLI support.
 //!
 //! This module provides file I/O and CLI-specific functionality for query libraries.
-//! The core parsing logic is in `jmespath_extensions::query_library`.
+//! The core parsing logic is in `jpx_core::query_library`.
 
 use anyhow::{Context, Result, anyhow};
 
 // Re-export core types for convenience
-pub use jmespath_extensions::query_library::{
-    NamedQuery, ParseError, QueryLibrary, is_query_library,
-};
+pub use jpx_core::query_library::{NamedQuery, ParseError, QueryLibrary, is_query_library};
 
 /// Parse a query file path that may contain a colon-separated query name.
 ///

@@ -254,16 +254,14 @@ pub use types::{
 
 use discovery::DiscoveryRegistry as DiscoveryRegistryInner;
 use error::EngineError as EngineErrorInner;
-use jmespath::Runtime;
-use jmespath_extensions::register_all;
-use jmespath_extensions::registry::FunctionRegistry;
 use query_store::QueryStore as QueryStoreInner;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-// Re-export commonly used types from jmespath_extensions
-pub use jmespath_extensions::registry::{Category, FunctionInfo};
+// Re-export commonly used types from jpx-core
+pub use jpx_core::ast;
+pub use jpx_core::{Category, Expression, FunctionInfo, FunctionRegistry, Runtime, compile, parse};
 
 /// The JMESPath query engine.
 ///
@@ -368,12 +366,13 @@ impl JpxEngine {
     pub fn with_options(strict: bool) -> Self {
         let mut runtime = Runtime::new();
         runtime.register_builtin_functions();
-        if !strict {
-            register_all(&mut runtime);
-        }
 
         let mut registry = FunctionRegistry::new();
         registry.register_all();
+
+        if !strict {
+            registry.apply(&mut runtime);
+        }
 
         Self {
             runtime,

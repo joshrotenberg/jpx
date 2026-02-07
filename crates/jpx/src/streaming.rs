@@ -1,10 +1,9 @@
 use crate::args::Args;
 use crate::input;
 use anyhow::{Context, Result};
-use jmespath::{Runtime, Variable};
-use jmespath_extensions::register_all;
+use jpx_core::{FunctionRegistry, Runtime};
+use serde_json::Value;
 use std::io::{self, BufRead, BufWriter, Write};
-use std::rc::Rc;
 
 /// Run streaming mode - process input line by line (NDJSON/JSON Lines)
 pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
@@ -25,7 +24,9 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
     let mut runtime = Runtime::new();
     runtime.register_builtin_functions();
     if !args.strict {
-        register_all(&mut runtime);
+        let mut registry = FunctionRegistry::new();
+        registry.register_all();
+        registry.apply(&mut runtime);
     }
 
     // Compile expressions once
@@ -51,7 +52,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
             continue;
         }
 
-        let data = match Variable::from_json(trimmed) {
+        let data: Value = match serde_json::from_str(trimmed) {
             Ok(d) => d,
             Err(e) => {
                 if !quiet {
@@ -61,7 +62,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
             }
         };
 
-        let mut result: Rc<Variable> = Rc::new(data);
+        let mut result: Value = data;
         for expr in &compiled {
             result = match expr.search(&result) {
                 Ok(r) => r,
@@ -79,13 +80,13 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
         }
 
         let output = if raw {
-            if let Some(s) = result.as_string() {
+            if let Some(s) = result.as_str() {
                 s.to_string()
             } else {
-                serde_json::to_string(&*result)?
+                serde_json::to_string(&result)?
             }
         } else {
-            serde_json::to_string(&*result)?
+            serde_json::to_string(&result)?
         };
 
         writeln!(writer, "{}", output)?;
