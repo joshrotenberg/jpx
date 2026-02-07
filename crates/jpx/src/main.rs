@@ -156,8 +156,8 @@ fn run() -> Result<()> {
             }
             println!();
 
-            let ast = jmespath::parse(expression)
-                .with_context(|| format!("Failed to parse expression: {}", expression))?;
+            let ast =
+                jmespath::parse(expression).map_err(|e| input::expression_error(expression, e))?;
 
             explain::print_ast(&ast, 0);
             println!();
@@ -237,7 +237,7 @@ fn run() -> Result<()> {
 
         let expr = runtime
             .compile(expression)
-            .with_context(|| format!("Failed to compile expression: {}", expression))?;
+            .map_err(|e| input::expression_error(expression, e))?;
 
         let step_start = Instant::now();
         result = match expr.search(&result) {

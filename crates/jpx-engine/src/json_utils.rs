@@ -143,7 +143,7 @@ impl JpxEngine {
             serde_json::from_str(patch).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
 
         json_patch::patch(&mut doc, &patch)
-            .map_err(|e| EngineError::EvaluationFailed(e.to_string()))?;
+            .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
 
         Ok(doc)
     }

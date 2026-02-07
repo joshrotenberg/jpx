@@ -1,4 +1,5 @@
 use crate::args::Args;
+use crate::input;
 use anyhow::{Context, Result};
 use jmespath::{Runtime, Variable};
 use jmespath_extensions::register_all;
@@ -10,8 +11,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
     // Set up input reader
     let input: Box<dyn BufRead> = match &args.file {
         Some(path) => {
-            let file = std::fs::File::open(path)
-                .with_context(|| format!("Failed to open file: {}", path))?;
+            let file = std::fs::File::open(path).map_err(|e| input::file_read_error(path, &e))?;
             Box::new(std::io::BufReader::new(file))
         }
         None => Box::new(std::io::BufReader::new(io::stdin())),
@@ -34,7 +34,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args) -> Result<()> {
         .map(|expr| {
             runtime
                 .compile(expr)
-                .with_context(|| format!("Failed to compile expression: {}", expr))
+                .map_err(|e| input::expression_error(expr, e))
         })
         .collect::<Result<Vec<_>>>()?;
 

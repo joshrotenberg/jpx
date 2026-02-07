@@ -6,7 +6,7 @@
 //! # Error Handling
 //!
 //! ```rust
-//! use jpx_engine::{JpxEngine, EngineError};
+//! use jpx_engine::{JpxEngine, EngineError, EvaluationErrorKind};
 //!
 //! let engine = JpxEngine::new();
 //!
@@ -19,8 +19,121 @@
 //!     Err(e) => eprintln!("Other error: {}", e),
 //! }
 //! ```
+//!
+//! # Structured Evaluation Errors
+//!
+//! [`EvaluationFailed`](EngineError::EvaluationFailed) carries an
+//! [`EvaluationErrorKind`] that lets consumers match on specific failure modes
+//! without parsing error strings:
+//!
+//! ```rust
+//! use jpx_engine::{JpxEngine, EngineError, EvaluationErrorKind};
+//!
+//! let engine = JpxEngine::strict();
+//!
+//! match engine.evaluate("sum(@)", &serde_json::json!({})) {
+//!     Err(EngineError::EvaluationFailed { kind: EvaluationErrorKind::UndefinedFunction { ref name }, .. }) => {
+//!         println!("Unknown function: {}", name);
+//!     }
+//!     _ => {}
+//! }
+//! ```
 
+use std::fmt;
 use thiserror::Error;
+
+/// Classifies the specific failure mode of an evaluation error.
+///
+/// This allows consumers to programmatically handle different error types
+/// without parsing error message strings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvaluationErrorKind {
+    /// Expression called a function that is not defined.
+    ///
+    /// Common when using extension functions in strict mode, or typos
+    /// in function names.
+    UndefinedFunction {
+        /// The function name that was not found.
+        name: String,
+    },
+    /// Wrong number of arguments passed to a function.
+    ArgumentCount {
+        /// Expected number of arguments (if parseable).
+        expected: Option<u32>,
+        /// Actual number of arguments (if parseable).
+        actual: Option<u32>,
+    },
+    /// Argument type does not match what the function expects.
+    TypeError {
+        /// Description of the type mismatch.
+        detail: String,
+    },
+    /// Any other evaluation failure.
+    Other,
+}
+
+impl fmt::Display for EvaluationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EvaluationErrorKind::UndefinedFunction { name } => {
+                write!(f, "undefined function '{}'", name)
+            }
+            EvaluationErrorKind::ArgumentCount {
+                expected: Some(exp),
+                actual: Some(act),
+            } => write!(f, "expected {} arguments, found {}", exp, act),
+            EvaluationErrorKind::ArgumentCount { .. } => write!(f, "wrong number of arguments"),
+            EvaluationErrorKind::TypeError { detail } => write!(f, "type error: {}", detail),
+            EvaluationErrorKind::Other => write!(f, "evaluation error"),
+        }
+    }
+}
+
+/// Parse a jmespath runtime error message into a structured kind.
+///
+/// The jmespath crate produces predictable error message patterns:
+/// - `"Call to undefined function <name>"` for unknown functions
+/// - `"Too many arguments: expected <n>, found <m>"` for argument count errors
+/// - `"Not enough arguments: expected <n>, found <m>"` for argument count errors
+/// - `"Argument <n> expects type <expected>, given <actual>"` for type errors
+pub(crate) fn classify_evaluation_error(message: &str) -> EvaluationErrorKind {
+    // "Call to undefined function <name>"
+    if let Some(rest) = message
+        .strip_prefix("Runtime error: Call to undefined function ")
+        .or_else(|| message.strip_prefix("Call to undefined function "))
+    {
+        // The name is the next word (up to space or parens or end)
+        let name = rest.split([' ', '(']).next().unwrap_or(rest).to_string();
+        return EvaluationErrorKind::UndefinedFunction { name };
+    }
+
+    // "Too many arguments: expected <n>, found <m>"
+    // "Not enough arguments: expected <n>, found <m>"
+    if message.contains("arguments: expected") {
+        let expected = extract_number_after(message, "expected ");
+        let actual = extract_number_after(message, "found ");
+        return EvaluationErrorKind::ArgumentCount { expected, actual };
+    }
+
+    // "Argument <n> expects type <expected>, given <actual>"
+    if message.contains("expects type") {
+        let detail = message
+            .strip_prefix("Runtime error: ")
+            .unwrap_or(message)
+            .to_string();
+        return EvaluationErrorKind::TypeError { detail };
+    }
+
+    EvaluationErrorKind::Other
+}
+
+/// Extract the first number after a prefix string.
+fn extract_number_after(s: &str, prefix: &str) -> Option<u32> {
+    let idx = s.find(prefix)?;
+    let after = &s[idx + prefix.len()..];
+    let num_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+    num_str.parse().ok()
+}
 
 /// Errors that can occur during engine operations.
 ///
@@ -45,10 +158,15 @@ pub enum EngineError {
 
     /// Expression evaluation failed at runtime.
     ///
-    /// This can happen when calling undefined functions (in strict mode),
-    /// type mismatches, or other runtime errors.
-    #[error("Evaluation failed: {0}")]
-    EvaluationFailed(String),
+    /// Carries a [`kind`](EvaluationErrorKind) field for programmatic matching
+    /// on specific failure modes (undefined function, argument errors, type errors).
+    #[error("Evaluation failed: {message}")]
+    EvaluationFailed {
+        /// Human-readable error message.
+        message: String,
+        /// Structured classification of the error.
+        kind: EvaluationErrorKind,
+    },
 
     /// Requested function does not exist.
     ///
@@ -85,7 +203,81 @@ pub enum EngineError {
     ArrowError(String),
 }
 
+impl EngineError {
+    /// Create an `EvaluationFailed` error, automatically classifying the error kind
+    /// from the message string.
+    pub(crate) fn evaluation_failed(message: String) -> Self {
+        let kind = classify_evaluation_error(&message);
+        EngineError::EvaluationFailed { message, kind }
+    }
+}
+
 /// A specialized Result type for engine operations.
 ///
 /// This is defined as `std::result::Result<T, EngineError>` for convenience.
 pub type Result<T> = std::result::Result<T, EngineError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_undefined_function() {
+        let kind = classify_evaluation_error(
+            "Runtime error: Call to undefined function foo_bar (line 0, column 7)",
+        );
+        assert_eq!(
+            kind,
+            EvaluationErrorKind::UndefinedFunction {
+                name: "foo_bar".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_classify_too_many_arguments() {
+        let kind = classify_evaluation_error(
+            "Runtime error: Too many arguments: expected 1, found 2 (line 0, column 6)",
+        );
+        assert_eq!(
+            kind,
+            EvaluationErrorKind::ArgumentCount {
+                expected: Some(1),
+                actual: Some(2)
+            }
+        );
+    }
+
+    #[test]
+    fn test_classify_not_enough_arguments() {
+        let kind = classify_evaluation_error(
+            "Runtime error: Not enough arguments: expected 2, found 1 (line 0, column 4)",
+        );
+        assert_eq!(
+            kind,
+            EvaluationErrorKind::ArgumentCount {
+                expected: Some(2),
+                actual: Some(1)
+            }
+        );
+    }
+
+    #[test]
+    fn test_classify_type_error() {
+        let kind = classify_evaluation_error(
+            "Runtime error: Argument 0 expects type array[number], given object (line 0, column 3)",
+        );
+        match kind {
+            EvaluationErrorKind::TypeError { detail } => {
+                assert!(detail.contains("expects type"));
+            }
+            other => panic!("Expected TypeError, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_classify_other() {
+        let kind = classify_evaluation_error("Some unknown error");
+        assert_eq!(kind, EvaluationErrorKind::Other);
+    }
+}
