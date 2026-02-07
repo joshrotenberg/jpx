@@ -361,14 +361,14 @@ mod tests {
         let input = json!([
             {
                 "int_val": 42,
-                "float_val": 3.14,
+                "float_val": 3.125,
                 "string_val": "hello",
                 "bool_val": true,
                 "null_val": null
             },
             {
                 "int_val": -100,
-                "float_val": 2.718,
+                "float_val": 2.75,
                 "string_val": "world",
                 "bool_val": false,
                 "null_val": null

@@ -1500,6 +1500,7 @@ name = "jpx-engine"
 version = "0.2.0"
 dependencies = [
  "arrow",
+ "dirs",
  "jpx-core",
  "json-patch",
  "schemars",
@@ -1508,6 +1509,7 @@ dependencies = [
  "strsim",
  "thiserror 2.0.18",
  "tokio",
+ "toml",
 ]
 
 [[package]]

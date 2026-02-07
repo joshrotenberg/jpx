@@ -89,9 +89,9 @@ impl fmt::Display for EvaluationErrorKind {
     }
 }
 
-/// Parse a jmespath runtime error message into a structured kind.
+/// Parse a jpx-core runtime error message into a structured kind.
 ///
-/// The jmespath crate produces predictable error message patterns:
+/// The jpx-core runtime produces predictable error message patterns:
 /// - `"Call to undefined function <name>"` for unknown functions
 /// - `"Too many arguments: expected <n>, found <m>"` for argument count errors
 /// - `"Not enough arguments: expected <n>, found <m>"` for argument count errors
@@ -187,6 +187,12 @@ pub enum EngineError {
     /// or conflicts with an existing registration.
     #[error("Registration failed: {0}")]
     RegistrationFailed(String),
+
+    /// Configuration error (parse failure, invalid settings, etc.).
+    ///
+    /// Returned when loading or merging configuration files fails.
+    #[error("Config error: {0}")]
+    ConfigError(String),
 
     /// Internal error (lock poisoning, serialization failure, etc.).
     ///
