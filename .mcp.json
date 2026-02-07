@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "jpx": {
+      "command": "cargo",
+      "args": ["run", "--quiet", "-p", "jpx-mcp"]
+    }
+  }
+}
