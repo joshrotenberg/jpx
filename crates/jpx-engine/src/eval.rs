@@ -207,4 +207,54 @@ mod tests {
         assert!(!invalid.valid);
         assert!(invalid.error.is_some());
     }
+
+    #[test]
+    fn test_evaluate_extension_function() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .evaluate("upper(name)", &json!({"name": "alice"}))
+            .unwrap();
+        assert_eq!(result, json!("ALICE"));
+    }
+
+    #[test]
+    fn test_evaluate_strict_rejects_extensions() {
+        let engine = JpxEngine::strict();
+        let result = engine.evaluate("upper(name)", &json!({"name": "alice"}));
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(crate::EngineError::EvaluationFailed { .. })
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_invalid_expression() {
+        let engine = JpxEngine::new();
+        let result = engine.evaluate("users[*.name", &json!({}));
+        assert!(matches!(
+            result,
+            Err(crate::EngineError::InvalidExpression(_))
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_str_invalid_json() {
+        let engine = JpxEngine::new();
+        let result = engine.evaluate_str("@", "not json");
+        assert!(matches!(result, Err(crate::EngineError::InvalidJson(_))));
+    }
+
+    #[test]
+    fn test_batch_evaluate_with_errors() {
+        let engine = JpxEngine::new();
+        let exprs = vec!["a".to_string(), "invalid[".to_string()];
+        let result = engine.batch_evaluate(&exprs, &json!({"a": 1}));
+
+        assert_eq!(result.results.len(), 2);
+        assert!(result.results[0].result.is_some());
+        assert!(result.results[0].error.is_none());
+        assert!(result.results[1].result.is_none());
+        assert!(result.results[1].error.is_some());
+    }
 }

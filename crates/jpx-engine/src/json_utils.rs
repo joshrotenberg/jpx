@@ -105,7 +105,28 @@ pub struct PathInfo {
 // =============================================================================
 
 impl JpxEngine {
-    /// Format JSON with indentation.
+    /// Format JSON with configurable indentation.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON string to format
+    /// * `indent` - Number of spaces per indentation level (0 = compact/minified)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    ///
+    /// // Pretty-print with 2-space indent
+    /// let pretty = engine.format_json(r#"{"a":1,"b":2}"#, 2).unwrap();
+    /// assert!(pretty.contains('\n'));
+    ///
+    /// // Compact/minified
+    /// let compact = engine.format_json(r#"{"a":  1, "b": 2}"#, 0).unwrap();
+    /// assert!(!compact.contains('\n'));
+    /// ```
     pub fn format_json(&self, input: &str, indent: usize) -> Result<String> {
         let value: Value =
             serde_json::from_str(input).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -125,6 +146,25 @@ impl JpxEngine {
     }
 
     /// Generate a JSON Patch (RFC 6902) from source to target.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - Original JSON string
+    /// * `target` - Modified JSON string
+    ///
+    /// # Returns
+    ///
+    /// A JSON array of patch operations that transform `source` into `target`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let patch = engine.diff(r#"{"a": 1}"#, r#"{"a": 2}"#).unwrap();
+    /// assert!(!patch.as_array().unwrap().is_empty());
+    /// ```
     pub fn diff(&self, source: &str, target: &str) -> Result<Value> {
         let source_val: Value =
             serde_json::from_str(source).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -136,6 +176,25 @@ impl JpxEngine {
     }
 
     /// Apply a JSON Patch (RFC 6902) to a document.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON document to patch
+    /// * `patch` - JSON array of patch operations
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    /// use serde_json::json;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let result = engine.patch(
+    ///     r#"{"a": 1}"#,
+    ///     r#"[{"op": "replace", "path": "/a", "value": 2}]"#,
+    /// ).unwrap();
+    /// assert_eq!(result, json!({"a": 2}));
+    /// ```
     pub fn patch(&self, input: &str, patch: &str) -> Result<Value> {
         let mut doc: Value =
             serde_json::from_str(input).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -149,6 +208,30 @@ impl JpxEngine {
     }
 
     /// Apply a JSON Merge Patch (RFC 7396) to a document.
+    ///
+    /// Unlike JSON Patch (RFC 6902), merge patch uses a simple object overlay:
+    /// - Present keys with non-null values are set
+    /// - Present keys with null values are removed
+    /// - Absent keys are unchanged
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON document to merge into
+    /// * `patch` - JSON merge patch object
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    /// use serde_json::json;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let result = engine.merge(
+    ///     r#"{"a": 1, "b": 2}"#,
+    ///     r#"{"b": 3, "c": 4}"#,
+    /// ).unwrap();
+    /// assert_eq!(result, json!({"a": 1, "b": 3, "c": 4}));
+    /// ```
     pub fn merge(&self, input: &str, patch: &str) -> Result<Value> {
         let mut doc: Value =
             serde_json::from_str(input).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -160,6 +243,27 @@ impl JpxEngine {
     }
 
     /// Extract keys from a JSON object.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON string (must be an object for non-recursive mode)
+    /// * `recursive` - If `true`, extracts all nested paths in dot notation
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    ///
+    /// // Top-level keys (sorted)
+    /// let keys = engine.keys(r#"{"b": 1, "a": {"c": 2}}"#, false).unwrap();
+    /// assert_eq!(keys, vec!["a", "b"]);
+    ///
+    /// // Recursive (dot-notation paths)
+    /// let keys = engine.keys(r#"{"a": {"c": 2}, "b": 1}"#, true).unwrap();
+    /// assert!(keys.contains(&"a.c".to_string()));
+    /// ```
     pub fn keys(&self, input: &str, recursive: bool) -> Result<Vec<String>> {
         let value: Value =
             serde_json::from_str(input).map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -174,7 +278,26 @@ impl JpxEngine {
         Ok(keys)
     }
 
-    /// Extract all paths from JSON data.
+    /// Extract all paths from a JSON document.
+    ///
+    /// Enumerates every path in the JSON structure, optionally including
+    /// type information and leaf values.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON string to analyze
+    /// * `include_types` - If `true`, each path includes its JSON type
+    /// * `include_values` - If `true`, leaf paths include their values
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let paths = engine.paths(r#"{"user": {"name": "alice"}}"#, true, false).unwrap();
+    /// assert!(paths.iter().any(|p| p.path == "user.name"));
+    /// ```
     pub fn paths(
         &self,
         input: &str,
@@ -189,7 +312,26 @@ impl JpxEngine {
         Ok(paths)
     }
 
-    /// Analyze JSON data and return statistics.
+    /// Analyze JSON data and return structural statistics.
+    ///
+    /// Returns type information, size, depth, and for arrays of objects,
+    /// per-field analysis including type distribution and null counts.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - JSON string to analyze
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let stats = engine.stats(r#"[{"name": "alice"}, {"name": "bob"}]"#).unwrap();
+    /// assert_eq!(stats.root_type, "array");
+    /// assert_eq!(stats.length, Some(2));
+    /// assert!(stats.fields.is_some());
+    /// ```
     pub fn stats(&self, input: &str) -> Result<StatsResult> {
         let value: Value =
             serde_json::from_str(input).map_err(|e| EngineError::InvalidJson(e.to_string()))?;

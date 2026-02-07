@@ -15,6 +15,7 @@
 //! | **Introspection** | List functions, search by keyword, describe, find similar |
 //! | **Discovery** | Cross-server tool discovery with BM25 search indexing |
 //! | **Query Store** | Named queries for session-scoped reuse |
+//! | **Configuration** | Declarative `jpx.toml` config with layered discovery and merge |
 //! | **JSON Utilities** | Format, diff, patch, merge, stats, paths, keys |
 //! | **Arrow** | Apache Arrow conversion (optional, via `arrow` feature) |
 //!
@@ -23,6 +24,10 @@
 //! - **`arrow`** - Enables Apache Arrow support for columnar data conversion.
 //!   This adds the `arrow` module with functions to convert between Arrow
 //!   RecordBatches and JSON Values. Used by the CLI for Parquet I/O.
+//! - **`let-expr`** - Enables `let` expression support (variable bindings in
+//!   JMESPath expressions). Forwarded from jpx-core. Enabled by default.
+//! - **`schema`** - Derives `JsonSchema` on discovery types for JSON Schema
+//!   generation. Used by the MCP server for tool schemas.
 //!
 //! ## Quick Start
 //!
@@ -161,6 +166,27 @@
 //! assert_eq!(queries.len(), 1);
 //! ```
 //!
+//! ## Configuration
+//!
+//! Load engine settings from `jpx.toml` files with layered discovery:
+//!
+//! ```rust
+//! use jpx_engine::{JpxEngine, EngineConfig};
+//!
+//! // Discover config from standard locations
+//! // (~/.config/jpx/jpx.toml, ./jpx.toml, $JPX_CONFIG)
+//! let config = EngineConfig::discover().unwrap();
+//! let engine = JpxEngine::from_config(config).unwrap();
+//!
+//! // Or use the builder for programmatic configuration
+//! let engine = JpxEngine::builder()
+//!     .strict(false)
+//!     .disable_category("geo")
+//!     .disable_function("env")
+//!     .build()
+//!     .unwrap();
+//! ```
+//!
 //! ## Tool Discovery
 //!
 //! Register and search tools across multiple servers (for MCP integration):
@@ -209,13 +235,13 @@
 //! ## Architecture
 //!
 //! ```text
-//! jmespath-extensions    (400+ functions, registry)
+//!    jpx-core           (parser, runtime, 400+ functions, registry)
 //!         |
-//!    jpx-engine          (this crate - evaluation, search, discovery)
+//!    jpx-engine         (this crate - evaluation, search, discovery, config)
 //!         |
 //!    +----+----+
 //!    |         |
-//!   jpx    jpx-mcp    (CLI and MCP transport)
+//!   jpx    jpx-mcp     (CLI and MCP transport)
 //! ```
 //!
 //! ## Thread Safety
@@ -225,6 +251,7 @@
 //! registry is immutable after construction.
 
 mod bm25;
+pub mod config;
 mod discovery;
 mod error;
 mod eval;
@@ -238,6 +265,7 @@ mod types;
 pub mod arrow;
 
 pub use bm25::{Bm25Index, DocInfo, IndexOptions, SearchResult as Bm25SearchResult, TermInfo};
+pub use config::{EngineBuilder, EngineConfig, EngineSection, FunctionsSection, QueriesSection};
 pub use discovery::{
     CategoryInfo, CategorySummary, DiscoveryRegistry, DiscoverySpec, ExampleSpec, IndexStats,
     ParamSpec, RegistrationResult, ReturnSpec, ServerInfo, ServerSummary, ToolQueryResult,
@@ -401,6 +429,55 @@ impl JpxEngine {
     /// ```
     pub fn strict() -> Self {
         Self::with_options(true)
+    }
+
+    /// Creates a new engine from an [`EngineConfig`].
+    ///
+    /// Applies function filtering, loads query libraries and inline queries,
+    /// and sets engine options from the config.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::{JpxEngine, EngineConfig};
+    ///
+    /// let config = EngineConfig::default();
+    /// let engine = JpxEngine::from_config(config).unwrap();
+    /// ```
+    pub fn from_config(config: EngineConfig) -> Result<Self> {
+        let strict = config.engine.strict;
+        let (runtime, registry) = config::build_runtime_from_config(&config.functions, strict);
+
+        let discovery = Arc::new(RwLock::new(DiscoveryRegistryInner::new()));
+        let queries = Arc::new(RwLock::new(QueryStoreInner::new()));
+
+        // Load queries from config
+        config::load_queries_into_store(&config.queries, &runtime, &queries)?;
+
+        Ok(Self {
+            runtime,
+            registry,
+            discovery,
+            queries,
+            strict,
+        })
+    }
+
+    /// Returns a builder for constructing a `JpxEngine` with programmatic overrides.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::builder()
+    ///     .strict(false)
+    ///     .disable_category("geo")
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn builder() -> config::EngineBuilder {
+        config::EngineBuilder::new()
     }
 
     /// Returns `true` if the engine is in strict mode.
