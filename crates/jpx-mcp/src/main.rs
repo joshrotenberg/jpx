@@ -68,8 +68,15 @@ async fn main() -> anyhow::Result<()> {
         "Starting jpx-mcp server"
     );
 
+    // Load engine config (jpx.toml discovery) and merge CLI flags
+    let mut engine_config = jpx_engine::config::EngineConfig::discover().unwrap_or_default();
+    if args.strict {
+        engine_config.engine.strict = true;
+    }
+
     // Build the router
-    let router = tools::build_router(args.strict).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let router =
+        tools::build_router_from_config(engine_config).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     match args.transport {
         Transport::Stdio => {

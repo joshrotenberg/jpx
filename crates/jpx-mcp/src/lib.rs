@@ -5,4 +5,4 @@
 
 mod tools;
 
-pub use tools::build_router;
+pub use tools::{build_router, build_router_from_config};
