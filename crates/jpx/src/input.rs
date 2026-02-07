@@ -109,12 +109,12 @@ pub(crate) fn file_read_error(path: &str, err: &io::Error) -> anyhow::Error {
     }
 
     // For "not found" errors, suggest similar files
-    if err.kind() == io::ErrorKind::NotFound {
-        if let Some(parent) = resolved.parent() {
-            let suggestions = find_similar_files(parent, path);
-            if !suggestions.is_empty() {
-                parts.push(format!("  Similar files: {}", suggestions.join(", ")));
-            }
+    if err.kind() == io::ErrorKind::NotFound
+        && let Some(parent) = resolved.parent()
+    {
+        let suggestions = find_similar_files(parent, path);
+        if !suggestions.is_empty() {
+            parts.push(format!("  Similar files: {}", suggestions.join(", ")));
         }
     }
 
