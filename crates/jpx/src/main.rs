@@ -239,6 +239,17 @@ fn run() -> Result<()> {
             .compile(expression)
             .map_err(|e| input::expression_error(expression, e))?;
 
+        #[cfg(feature = "let-expr")]
+        if args.strict {
+            use jpx_engine::has_let_nodes;
+            if has_let_nodes(expr.as_ast()) {
+                return Err(anyhow::anyhow!(
+                    "Let expressions are not allowed in strict mode (standard JMESPath only).\n\
+                     Remove --strict or unset JPX_STRICT to use let expressions."
+                ));
+            }
+        }
+
         let step_start = Instant::now();
         result = match expr.search(&result) {
             Ok(r) => r,

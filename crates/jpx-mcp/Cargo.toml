@@ -17,6 +17,10 @@ path = "src/lib.rs"
 name = "jpx-mcp"
 path = "src/main.rs"
 
+[features]
+default = ["let-expr"]
+let-expr = ["jpx-engine/let-expr"]
+
 [dependencies]
 # Engine
 jpx-engine = { workspace = true, features = ["schema"] }

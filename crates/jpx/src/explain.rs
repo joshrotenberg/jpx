@@ -156,5 +156,24 @@ pub(crate) fn print_ast(node: &Ast, indent: usize) {
             println!("{}{}Expression reference (&):", prefix, connector);
             print_ast(ast, indent + 1);
         }
+        #[cfg(feature = "let-expr")]
+        Ast::VariableRef { name, .. } => {
+            println!("{}{}Variable: ${}", prefix, connector, name);
+        }
+        #[cfg(feature = "let-expr")]
+        Ast::Let { bindings, expr, .. } => {
+            println!(
+                "{}{}Let ({} binding(s)):",
+                prefix,
+                connector,
+                bindings.len()
+            );
+            for (name, value) in bindings {
+                println!("{}  ${} =", prefix, name);
+                print_ast(value, indent + 2);
+            }
+            println!("{}  in:", prefix);
+            print_ast(expr, indent + 2);
+        }
     }
 }

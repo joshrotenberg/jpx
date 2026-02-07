@@ -281,6 +281,32 @@ fn walk_ast(node: &Ast, functions: &mut Vec<String>) -> ExplainStep {
                 children: vec![inner],
             }
         }
+        #[cfg(feature = "let-expr")]
+        Ast::VariableRef { name, .. } => ExplainStep {
+            node_type: "variable_ref".into(),
+            description: format!("Reference variable ${}", name),
+            children: vec![],
+        },
+        #[cfg(feature = "let-expr")]
+        Ast::Let { bindings, expr, .. } => {
+            let mut children: Vec<ExplainStep> = bindings
+                .iter()
+                .map(|(name, value)| {
+                    let mut step = walk_ast(value, functions);
+                    step.description = format!("Bind ${} = {}", name, step.description);
+                    step
+                })
+                .collect();
+            children.push(walk_ast(expr, functions));
+            ExplainStep {
+                node_type: "let".into(),
+                description: format!(
+                    "Let binding: bind {} variable(s), then evaluate body",
+                    bindings.len()
+                ),
+                children,
+            }
+        }
     }
 }
 
@@ -327,6 +353,17 @@ fn ast_depth(node: &Ast) -> usize {
                 .unwrap_or(0)
         }
         Ast::Expref { ast, .. } => 1 + ast_depth(ast),
+        #[cfg(feature = "let-expr")]
+        Ast::VariableRef { .. } => 1,
+        #[cfg(feature = "let-expr")]
+        Ast::Let { bindings, expr, .. } => {
+            let binding_max = bindings
+                .iter()
+                .map(|(_, v)| ast_depth(v))
+                .max()
+                .unwrap_or(0);
+            1 + binding_max.max(ast_depth(expr))
+        }
     }
 }
 
@@ -354,6 +391,16 @@ fn count_functions(node: &Ast) -> usize {
             elements.iter().map(|kvp| count_functions(&kvp.value)).sum()
         }
         Ast::Expref { ast, .. } => count_functions(ast),
+        #[cfg(feature = "let-expr")]
+        Ast::VariableRef { .. } => 0,
+        #[cfg(feature = "let-expr")]
+        Ast::Let { bindings, expr, .. } => {
+            bindings
+                .iter()
+                .map(|(_, v)| count_functions(v))
+                .sum::<usize>()
+                + count_functions(expr)
+        }
     }
 }
 
@@ -377,6 +424,40 @@ fn uses_filter(node: &Ast) -> bool {
         Ast::MultiList { elements, .. } => elements.iter().any(uses_filter),
         Ast::MultiHash { elements, .. } => elements.iter().any(|kvp| uses_filter(&kvp.value)),
         Ast::Expref { ast, .. } => uses_filter(ast),
+        #[cfg(feature = "let-expr")]
+        Ast::VariableRef { .. } => false,
+        #[cfg(feature = "let-expr")]
+        Ast::Let { bindings, expr, .. } => {
+            bindings.iter().any(|(_, v)| uses_filter(v)) || uses_filter(expr)
+        }
+    }
+}
+
+/// Check if an AST contains any let expression or variable reference nodes.
+#[cfg(feature = "let-expr")]
+pub fn has_let_nodes(node: &Ast) -> bool {
+    match node {
+        Ast::VariableRef { .. } | Ast::Let { .. } => true,
+        Ast::Identity { .. }
+        | Ast::Field { .. }
+        | Ast::Index { .. }
+        | Ast::Slice { .. }
+        | Ast::Literal { .. } => false,
+        Ast::Subexpr { lhs, rhs, .. }
+        | Ast::Projection { lhs, rhs, .. }
+        | Ast::And { lhs, rhs, .. }
+        | Ast::Or { lhs, rhs, .. }
+        | Ast::Comparison { lhs, rhs, .. } => has_let_nodes(lhs) || has_let_nodes(rhs),
+        Ast::Condition {
+            predicate, then, ..
+        } => has_let_nodes(predicate) || has_let_nodes(then),
+        Ast::Not { node, .. } | Ast::Flatten { node, .. } | Ast::ObjectValues { node, .. } => {
+            has_let_nodes(node)
+        }
+        Ast::Function { args, .. } => args.iter().any(has_let_nodes),
+        Ast::MultiList { elements, .. } => elements.iter().any(has_let_nodes),
+        Ast::MultiHash { elements, .. } => elements.iter().any(|kvp| has_let_nodes(&kvp.value)),
+        Ast::Expref { ast, .. } => has_let_nodes(ast),
     }
 }
 
@@ -460,5 +541,34 @@ mod tests {
         let result = engine().explain("items[]").unwrap();
         // flatten wraps a field access
         assert!(!result.steps.is_empty());
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_explain_let_expression() {
+        let result = engine().explain("let $x = name in upper($x)").unwrap();
+        assert_eq!(result.steps[0].node_type, "let");
+        assert!(result.steps[0].description.contains("1 variable"));
+        assert!(result.functions_used.contains(&"upper".to_string()));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_explain_variable_ref() {
+        let result = engine().explain("let $x = `1` in $x").unwrap();
+        let let_step = &result.steps[0];
+        assert_eq!(let_step.node_type, "let");
+        // Body child should be a variable ref
+        let body = let_step.children.last().unwrap();
+        assert_eq!(body.node_type, "variable_ref");
+        assert!(body.description.contains("$x"));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_let_complexity() {
+        // A let expression with a function should be at least moderate
+        let result = engine().explain("let $x = name in upper($x)").unwrap();
+        assert!(result.complexity == "moderate" || result.complexity == "complex");
     }
 }

@@ -2411,6 +2411,43 @@ mod cli_diff_patch_merge {
     }
 }
 
+#[cfg(feature = "let-expr")]
+mod let_expressions {
+    use super::*;
+
+    #[test]
+    fn test_let_basic() {
+        let result = run_query(r#"{"name": "alice"}"#, "let $n = name in upper($n)");
+        assert_eq!(result, r#""ALICE""#);
+    }
+
+    #[test]
+    fn test_let_with_filter() {
+        let result = run_query(
+            r#"{"nums": [1, 2, 3, 4, 5]}"#,
+            "let $threshold = `3` in nums[? @ > $threshold]",
+        );
+        assert_eq!(result, "[\n  4,\n  5\n]");
+    }
+
+    #[test]
+    fn test_let_multiple_bindings() {
+        let result = run_query(
+            r#"{"first": "alice", "last": "smith"}"#,
+            "let $f = first, $l = last in join(' ', [$f, $l])",
+        );
+        assert_eq!(result, r#""alice smith""#);
+    }
+
+    #[test]
+    fn test_let_strict_mode_rejected() {
+        let output = run_with_args(&["--strict", "let $x = `1` in $x"], r#"{}"#);
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("strict mode"));
+    }
+}
+
 mod cli_query_file {
     use std::io::Write;
     use tempfile::NamedTempFile;

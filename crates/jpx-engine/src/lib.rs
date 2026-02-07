@@ -244,6 +244,8 @@ pub use discovery::{
     ToolSpec,
 };
 pub use error::{EngineError, EvaluationErrorKind, Result};
+#[cfg(feature = "let-expr")]
+pub use explain::has_let_nodes;
 pub use explain::{ExplainResult, ExplainStep};
 pub use introspection::{FunctionDetail, SearchResult, SimilarFunctionsResult};
 pub use json_utils::{FieldAnalysis, PathInfo, StatsResult};

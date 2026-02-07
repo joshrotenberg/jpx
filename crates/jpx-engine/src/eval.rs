@@ -49,6 +49,15 @@ impl JpxEngine {
             .compile(expression)
             .map_err(|e| EngineError::InvalidExpression(e.to_string()))?;
 
+        #[cfg(feature = "let-expr")]
+        if self.strict && crate::explain::has_let_nodes(expr.as_ast()) {
+            return Err(EngineError::InvalidExpression(
+                "Let expressions are not allowed in strict mode (standard JMESPath only). \
+                 Remove --strict or unset JPX_STRICT to use let expressions."
+                    .to_string(),
+            ));
+        }
+
         // Convert input Value to Variable for jmespath
         let var = jmespath::Variable::from_json(&input.to_string())
             .map_err(|e| EngineError::InvalidJson(e.to_string()))?;
@@ -214,5 +223,49 @@ mod tests {
         let invalid = engine.validate("users[*.name");
         assert!(!invalid.valid);
         assert!(invalid.error.is_some());
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_let_expression_evaluation() {
+        let engine = JpxEngine::new();
+        let input = json!({"name": "alice"});
+        let result = engine
+            .evaluate("let $n = name in upper($n)", &input)
+            .unwrap();
+        assert_eq!(result, json!("ALICE"));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_nested_let() {
+        let engine = JpxEngine::new();
+        let input = json!({"a": 1, "b": 2});
+        let result = engine
+            .evaluate("let $x = a, $y = b in add($x, $y)", &input)
+            .unwrap();
+        assert_eq!(result, json!(3.0));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_let_with_functions() {
+        let engine = JpxEngine::new();
+        let input = json!({"items": [1, 2, 3, 4, 5]});
+        let result = engine
+            .evaluate("let $threshold = `3` in items[? @ > $threshold]", &input)
+            .unwrap();
+        assert_eq!(result, json!([4, 5]));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn test_let_strict_mode_rejected() {
+        let engine = JpxEngine::strict();
+        let input = json!({});
+        let result = engine.evaluate("let $x = `1` in $x", &input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("strict mode"));
     }
 }

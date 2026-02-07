@@ -32,9 +32,10 @@ schemars = { workspace = true, optional = true }
 arrow = { version = "54", optional = true, default-features = false, features = ["json"] }
 
 [features]
-default = []
+default = ["let-expr"]
 arrow = ["dep:arrow"]
 schema = ["schemars"]
+let-expr = ["jmespath/let-expr"]
 
 [dev-dependencies]
 tokio = { workspace = true }

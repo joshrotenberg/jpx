@@ -50,8 +50,9 @@ tabled = "0.17"
 parquet = { version = "54", optional = true, default-features = false, features = ["arrow", "snap"] }
 
 [features]
-default = []
+default = ["let-expr"]
 parquet = ["dep:parquet", "jpx-engine/arrow"]
+let-expr = ["jpx-engine/let-expr"]
 
 [dev-dependencies]
 tempfile = "3"

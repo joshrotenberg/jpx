@@ -904,6 +904,7 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
                     "name": "jpx-mcp",
                     "version": env!("CARGO_PKG_VERSION"),
                     "strict_mode": engine.is_strict(),
+                    "let_expressions": cfg!(feature = "let-expr"),
                     "function_count": function_count,
                     "category_count": category_count,
                     "stored_queries": stored_queries,
@@ -928,6 +929,7 @@ pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
             \n\nQUERYING: Use 'evaluate' to run JMESPath queries, 'evaluate_file' to query JSON files directly, \
             'batch_evaluate' for multiple expressions against the same input, 'validate' to check expression syntax, \
             'explain' to get a step-by-step breakdown of what an expression does. \
+            Let expressions (JEP-18) are supported: 'let $var = expr in body' for variable bindings. \
             \n\nJSON UTILITIES: Use 'format' to pretty-print JSON, 'diff' to generate RFC 6902 JSON Patches, \
             'patch' to apply RFC 6902 patches, 'merge' to apply RFC 7396 JSON Merge Patches."
         )

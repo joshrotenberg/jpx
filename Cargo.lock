@@ -1291,9 +1291,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jmespath"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f40cd1816d6f52b8c97bfd9bfca82af01653ecbf53a5d341968cc4cfeb65c0c"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1303,8 +1301,6 @@ dependencies = [
 [[package]]
 name = "jmespath_extensions"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c21ba439f5c8c533cbb1c14c8a32515016a74a140e2eea8eede0b74fc41d23c8"
 dependencies = [
  "aho-corasick",
  "base64",
