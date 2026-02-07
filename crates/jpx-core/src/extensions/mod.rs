@@ -6,53 +6,33 @@
 //!
 //! Extension functions are gated behind the `extensions` compile-time feature.
 
-// Extension modules will be added here as they are ported in Phase 6.
-// Each module exposes:
-//   pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>)
-
-// Stub modules for compilation - these will be replaced with real implementations.
-// For now, each just provides an empty register_filtered function.
-
-macro_rules! stub_module {
-    ($name:ident) => {
-        pub mod $name {
-            use crate::Runtime;
-            use std::collections::HashSet;
-
-            pub fn register_filtered(_runtime: &mut Runtime, _enabled: &HashSet<&str>) {
-                // Will be implemented in Phase 6
-            }
-        }
-    };
-}
-
-stub_module!(string);
-stub_module!(array);
-stub_module!(object);
-stub_module!(math);
-stub_module!(type_conv);
-stub_module!(utility);
-stub_module!(validation);
-stub_module!(path);
-stub_module!(expression);
-stub_module!(text);
-stub_module!(hash);
-stub_module!(encoding);
-stub_module!(regex_fns);
-stub_module!(url_fns);
-stub_module!(random);
-stub_module!(datetime);
-stub_module!(fuzzy);
-stub_module!(phonetic);
-stub_module!(geo);
-stub_module!(semver_fns);
-stub_module!(network);
-stub_module!(ids);
-stub_module!(duration);
-stub_module!(color);
-stub_module!(computing);
-stub_module!(multi_match);
-stub_module!(jsonpatch);
-stub_module!(format);
-stub_module!(language);
-stub_module!(discovery);
+pub mod array;
+pub mod color;
+pub mod computing;
+pub mod datetime;
+pub mod discovery;
+pub mod duration;
+pub mod encoding;
+pub mod expression;
+pub mod format;
+pub mod fuzzy;
+pub mod geo;
+pub mod hash;
+pub mod ids;
+pub mod jsonpatch;
+pub mod language;
+pub mod math;
+pub mod multi_match;
+pub mod network;
+pub mod object;
+pub mod path;
+pub mod phonetic;
+pub mod random;
+pub mod regex_fns;
+pub mod semver_fns;
+pub mod string;
+pub mod text;
+pub mod type_conv;
+pub mod url_fns;
+pub mod utility;
+pub mod validation;

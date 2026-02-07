@@ -5,7 +5,7 @@
 
 use crate::JpxEngine;
 use crate::error::{EngineError, Result};
-use jmespath::ast::{Ast, Comparator};
+use jpx_core::ast::{Ast, Comparator};
 use serde::{Deserialize, Serialize};
 
 /// Step-by-step breakdown of a JMESPath expression.
@@ -73,7 +73,7 @@ impl JpxEngine {
     /// assert!(err.is_err());
     /// ```
     pub fn explain(&self, expression: &str) -> Result<ExplainResult> {
-        let ast = jmespath::parse(expression)
+        let ast = jpx_core::parse(expression)
             .map_err(|e| EngineError::InvalidExpression(e.to_string()))?;
 
         let mut functions = Vec::new();
@@ -167,7 +167,7 @@ fn walk_ast(node: &Ast, functions: &mut Vec<String>) -> ExplainStep {
             }
         }
         Ast::Literal { value, .. } => {
-            let json = serde_json::to_string(&**value).unwrap_or_else(|_| "?".into());
+            let json = serde_json::to_string(value).unwrap_or_else(|_| "?".into());
             ExplainStep {
                 node_type: "literal".into(),
                 description: format!("Literal value: {}", json),
@@ -281,6 +281,27 @@ fn walk_ast(node: &Ast, functions: &mut Vec<String>) -> ExplainStep {
                 children: vec![inner],
             }
         }
+        Ast::VariableRef { name, .. } => ExplainStep {
+            node_type: "variable_ref".into(),
+            description: format!("Reference variable ${}", name),
+            children: vec![],
+        },
+        Ast::Let { bindings, expr, .. } => {
+            let mut children: Vec<ExplainStep> = bindings
+                .iter()
+                .map(|(name, ast)| {
+                    let mut step = walk_ast(ast, functions);
+                    step.description = format!("${} = {}", name, step.description);
+                    step
+                })
+                .collect();
+            children.push(walk_ast(expr, functions));
+            ExplainStep {
+                node_type: "let".into(),
+                description: format!("Bind {} variable(s) and evaluate body", bindings.len()),
+                children,
+            }
+        }
     }
 }
 
@@ -327,6 +348,15 @@ fn ast_depth(node: &Ast) -> usize {
                 .unwrap_or(0)
         }
         Ast::Expref { ast, .. } => 1 + ast_depth(ast),
+        Ast::VariableRef { .. } => 1,
+        Ast::Let { bindings, expr, .. } => {
+            let binding_depth = bindings
+                .iter()
+                .map(|(_, ast)| ast_depth(ast))
+                .max()
+                .unwrap_or(0);
+            1 + binding_depth.max(ast_depth(expr))
+        }
     }
 }
 
@@ -354,6 +384,14 @@ fn count_functions(node: &Ast) -> usize {
             elements.iter().map(|kvp| count_functions(&kvp.value)).sum()
         }
         Ast::Expref { ast, .. } => count_functions(ast),
+        Ast::VariableRef { .. } => 0,
+        Ast::Let { bindings, expr, .. } => {
+            bindings
+                .iter()
+                .map(|(_, ast)| count_functions(ast))
+                .sum::<usize>()
+                + count_functions(expr)
+        }
     }
 }
 
@@ -377,6 +415,10 @@ fn uses_filter(node: &Ast) -> bool {
         Ast::MultiList { elements, .. } => elements.iter().any(uses_filter),
         Ast::MultiHash { elements, .. } => elements.iter().any(|kvp| uses_filter(&kvp.value)),
         Ast::Expref { ast, .. } => uses_filter(ast),
+        Ast::VariableRef { .. } => false,
+        Ast::Let { bindings, expr, .. } => {
+            bindings.iter().any(|(_, ast)| uses_filter(ast)) || uses_filter(expr)
+        }
     }
 }
 

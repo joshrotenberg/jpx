@@ -1,6 +1,6 @@
 use crate::args::Args;
 use anyhow::{Context, Result};
-use jmespath::Variable;
+use serde_json::Value;
 use std::io::{self, Read};
 use std::path::Path;
 
@@ -121,8 +121,8 @@ pub(crate) fn file_read_error(path: &str, err: &io::Error) -> anyhow::Error {
     anyhow::anyhow!("{}", parts.join("\n"))
 }
 
-/// Read input (from file or stdin) and parse as Variable
-pub(crate) fn read_input_as_variable(args: &Args) -> Result<Variable> {
+/// Read input (from file or stdin) and parse as Value
+pub(crate) fn read_input_as_value(args: &Args) -> Result<Value> {
     let input = match &args.file {
         Some(path) => std::fs::read_to_string(path).map_err(|e| file_read_error(path, &e))?,
         None => {
@@ -137,26 +137,23 @@ pub(crate) fn read_input_as_variable(args: &Args) -> Result<Variable> {
     if args.slurp {
         parse_slurp(&input)
     } else {
-        Variable::from_json(&input).map_err(|e| json_parse_error(&input, e))
+        serde_json::from_str(&input).map_err(|e| json_parse_error(&input, e))
     }
 }
 
 /// Parse multiple JSON values from input into an array
-fn parse_slurp(input: &str) -> Result<Variable> {
+fn parse_slurp(input: &str) -> Result<Value> {
     use serde_json::Deserializer;
 
-    let mut values: Vec<serde_json::Value> = Vec::new();
-    let stream = Deserializer::from_str(input).into_iter::<serde_json::Value>();
+    let mut values: Vec<Value> = Vec::new();
+    let stream = Deserializer::from_str(input).into_iter::<Value>();
 
     for result in stream {
         let value = result.context("Failed to parse JSON in slurp mode")?;
         values.push(value);
     }
 
-    // Convert the collected values directly to Variable
-    let array_value = serde_json::Value::Array(values);
-    Variable::from_json(&array_value.to_string())
-        .map_err(|e| anyhow::anyhow!("Failed to create array: {}", e))
+    Ok(Value::Array(values))
 }
 
 /// Read JSON from a file or stdin

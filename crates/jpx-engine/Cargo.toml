@@ -11,8 +11,7 @@ categories = ["data-structures", "parsing"]
 
 [dependencies]
 # Core
-jmespath_extensions = { workspace = true }
-jmespath = { workspace = true }
+jpx-core = { workspace = true, features = ["extensions"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
@@ -33,6 +32,7 @@ arrow = { version = "54", optional = true, default-features = false, features = 
 
 [features]
 default = []
+let-expr = ["jpx-core/let-expr"]
 arrow = ["dep:arrow"]
 schema = ["schemars"]
 

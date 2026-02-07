@@ -20,6 +20,7 @@ pub mod ast;
 #[cfg(feature = "extensions")]
 pub mod extensions;
 pub mod functions;
+pub mod query_library;
 pub mod registry;
 pub mod value_ext;
 
@@ -31,7 +32,7 @@ pub use crate::runtime::{Runtime, RuntimeBuilder};
 pub use crate::value_ext::{JmespathType, ValueExt};
 
 mod error;
-mod interpreter;
+pub mod interpreter;
 mod lexer;
 mod parser;
 mod runtime;
@@ -207,7 +208,7 @@ pub(crate) fn make_expref_sentinel(id: usize) -> Value {
 }
 
 /// Extracts the expref ID from a sentinel value.
-pub(crate) fn get_expref_id(value: &Value) -> Option<usize> {
+pub fn get_expref_id(value: &Value) -> Option<usize> {
     value
         .as_object()
         .and_then(|m| m.get("__jpx_expref__"))

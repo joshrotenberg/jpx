@@ -83,18 +83,19 @@ impl fmt::Display for ArgumentType {
     }
 }
 
+#[macro_export]
 macro_rules! arg {
-    (any) => (ArgumentType::Any);
-    (null) => (ArgumentType::Null);
-    (string) => (ArgumentType::String);
-    (bool) => (ArgumentType::Bool);
-    (number) => (ArgumentType::Number);
-    (object) => (ArgumentType::Object);
-    (expref) => (ArgumentType::Expref);
-    (array_number) => (ArgumentType::TypedArray(Box::new(ArgumentType::Number)));
-    (array_string) => (ArgumentType::TypedArray(Box::new(ArgumentType::String)));
-    (array) => (ArgumentType::Array);
-    ($($x:ident) | *) => (ArgumentType::Union(vec![$(arg!($x)), *]));
+    (any) => ($crate::functions::ArgumentType::Any);
+    (null) => ($crate::functions::ArgumentType::Null);
+    (string) => ($crate::functions::ArgumentType::String);
+    (bool) => ($crate::functions::ArgumentType::Bool);
+    (number) => ($crate::functions::ArgumentType::Number);
+    (object) => ($crate::functions::ArgumentType::Object);
+    (expref) => ($crate::functions::ArgumentType::Expref);
+    (array_number) => ($crate::functions::ArgumentType::TypedArray(Box::new($crate::functions::ArgumentType::Number)));
+    (array_string) => ($crate::functions::ArgumentType::TypedArray(Box::new($crate::functions::ArgumentType::String)));
+    (array) => ($crate::functions::ArgumentType::Array);
+    ($($x:ident) | *) => ($crate::functions::ArgumentType::Union(vec![$($crate::arg!($x)), *]));
 }
 
 type InvokedFunction = dyn Fn(&[Value], &mut Context<'_>) -> SearchResult + Sync + Send;
@@ -210,14 +211,37 @@ fn get_expref_ast<'a>(value: &Value, ctx: &'a Context<'_>) -> Option<&'a Ast> {
 }
 
 /// Helper to create a number Value from f64, returning Null on NaN/Inf.
-fn number_value(n: f64) -> Value {
+pub fn number_value(n: f64) -> Value {
     Number::from_f64(n).map_or(Value::Null, Value::Number)
 }
 
+/// Creates a JmespathError for a custom runtime error message.
+pub fn custom_error(ctx: &Context<'_>, message: &str) -> JmespathError {
+    JmespathError::from_ctx(ctx, ErrorReason::Parse(message.to_owned()))
+}
+
+/// Creates a JmespathError for an invalid argument type at a given position.
+pub fn invalid_type_error(
+    ctx: &Context<'_>,
+    position: usize,
+    expected: &str,
+    actual: &Value,
+) -> JmespathError {
+    JmespathError::from_ctx(
+        ctx,
+        ErrorReason::Runtime(RuntimeError::InvalidType {
+            expected: expected.to_owned(),
+            actual: actual.jmespath_type().to_string(),
+            position,
+        }),
+    )
+}
+
+#[macro_export]
 macro_rules! defn {
     ($name:ident, $args:expr, $variadic:expr) => {
         pub struct $name {
-            signature: Signature,
+            signature: $crate::functions::Signature,
         }
 
         impl Default for $name {
@@ -229,7 +253,7 @@ macro_rules! defn {
         impl $name {
             pub fn new() -> $name {
                 $name {
-                    signature: Signature::new($args, $variadic),
+                    signature: $crate::functions::Signature::new($args, $variadic),
                 }
             }
         }

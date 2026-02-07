@@ -1417,20 +1417,44 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jmespath"
-version = "0.4.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f40cd1816d6f52b8c97bfd9bfca82af01653ecbf53a5d341968cc4cfeb65c0c"
+checksum = "017f8f53dd3b8ada762acb1f850da2a742d0ef3f921c60849a644380de1d683a"
 dependencies = [
+ "lazy_static",
  "serde",
  "serde_json",
  "slug",
 ]
 
 [[package]]
-name = "jmespath_extensions"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c21ba439f5c8c533cbb1c14c8a32515016a74a140e2eea8eede0b74fc41d23c8"
+name = "jpx"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "atty",
+ "clap",
+ "clap_complete",
+ "colored",
+ "colored_json",
+ "csv",
+ "dirs",
+ "jpx-core",
+ "jpx-engine",
+ "json-patch",
+ "parquet",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tabled",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
+name = "jpx-core"
+version = "0.1.0"
 dependencies = [
  "aho-corasick",
  "base64",
@@ -1438,6 +1462,7 @@ dependencies = [
  "chrono-english",
  "chrono-tz",
  "crc32fast",
+ "criterion",
  "csv",
  "dateparser",
  "geoutils",
@@ -1460,6 +1485,7 @@ dependencies = [
  "sha2",
  "stop-words",
  "strsim",
+ "thiserror 2.0.18",
  "toml",
  "ulid",
  "unicode-normalization",
@@ -1470,50 +1496,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "jpx"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "atty",
- "clap",
- "clap_complete",
- "colored",
- "colored_json",
- "csv",
- "dirs",
- "jmespath",
- "jmespath_extensions",
- "jpx-engine",
- "json-patch",
- "parquet",
- "rustyline",
- "serde",
- "serde_json",
- "serde_yaml",
- "tabled",
- "tempfile",
- "toml",
-]
-
-[[package]]
-name = "jpx-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "jmespath",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "toml",
-]
-
-[[package]]
 name = "jpx-engine"
 version = "0.2.0"
 dependencies = [
  "arrow",
- "jmespath",
- "jmespath_extensions",
+ "jpx-core",
  "json-patch",
  "schemars",
  "serde",

@@ -16,11 +16,9 @@ use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use clap_complete::generate;
 use colored::Colorize;
-use jmespath::{Runtime, Variable};
-use jmespath_extensions::register_all;
-use jmespath_extensions::registry::FunctionRegistry;
+use jpx_core::{FunctionRegistry, Runtime};
+use serde_json::Value;
 use std::io::{self, Write};
-use std::rc::Rc;
 use std::time::Instant;
 
 fn main() {
@@ -54,6 +52,7 @@ fn run() -> Result<()> {
     // Create registry for introspection
     let mut registry = FunctionRegistry::new();
     registry.register_all();
+    // Note: registry.apply(&runtime) is called below when creating the runtime
 
     if args.list_functions {
         discovery::print_functions(&registry);
@@ -157,7 +156,7 @@ fn run() -> Result<()> {
             println!();
 
             let ast =
-                jmespath::parse(expression).map_err(|e| input::expression_error(expression, e))?;
+                jpx_core::parse(expression).map_err(|e| input::expression_error(expression, e))?;
 
             explain::print_ast(&ast, 0);
             println!();
@@ -171,35 +170,32 @@ fn run() -> Result<()> {
     }
 
     // Get input data
-    let data = if args.null_input {
+    let data: Value = if args.null_input {
         // Null input mode - don't read anything
-        Variable::Null
+        Value::Null
     } else {
         // Check for parquet input
         #[cfg(feature = "parquet")]
         if let Some(path) = &args.file {
             if path.ends_with(".parquet") || path.ends_with(".pq") {
-                let json_value =
-                    jpx::parquet_support::read_parquet_to_json(std::path::Path::new(path))
-                        .with_context(|| format!("Failed to read parquet file: {}", path))?;
-                let json_str = serde_json::to_string(&json_value)?;
-                Variable::from_json(&json_str).map_err(|e| input::json_parse_error(&json_str, e))?
+                jpx::parquet_support::read_parquet_to_json(std::path::Path::new(path))
+                    .with_context(|| format!("Failed to read parquet file: {}", path))?
             } else {
-                input::read_input_as_variable(&args)?
+                input::read_input_as_value(&args)?
             }
         } else {
-            input::read_input_as_variable(&args)?
+            input::read_input_as_value(&args)?
         }
 
         #[cfg(not(feature = "parquet"))]
-        input::read_input_as_variable(&args)?
+        input::read_input_as_value(&args)?
     };
 
     // Create runtime with extensions (unless strict mode)
     let mut runtime = Runtime::new();
     runtime.register_builtin_functions();
     if !args.strict {
-        register_all(&mut runtime);
+        registry.apply(&mut runtime);
     }
 
     // Verbose mode: show input info
@@ -207,7 +203,7 @@ fn run() -> Result<()> {
         if args.strict {
             eprintln!("Mode: strict (standard JMESPath only)");
         }
-        eprintln!("Input: {}", explain::describe_value(&Rc::new(data.clone())));
+        eprintln!("Input: {}", explain::describe_value(&data));
         if expressions.len() > 1 {
             eprintln!("Expressions: {} (chained)", expressions.len());
         }
@@ -228,7 +224,7 @@ fn run() -> Result<()> {
 
     // Compile and execute expression(s)
     let start = Instant::now();
-    let mut result: Rc<Variable> = Rc::new(data.clone());
+    let mut result: Value = data.clone();
 
     for (i, expression) in expressions.iter().enumerate() {
         if args.verbose {
@@ -280,14 +276,14 @@ fn run() -> Result<()> {
 
     #[allow(clippy::collapsible_if)]
     if args.raw {
-        if let Some(s) = result.as_string() {
+        if let Some(s) = result.as_str() {
             println!("{}", s);
             return Ok(());
         }
     }
 
-    // Convert to serde_json::Value for output formatting
-    let json_value: serde_json::Value = serde_json::to_value(&*result)?;
+    // Result is already a serde_json::Value
+    let json_value = result;
 
     // Handle alternative output formats
     if args.yaml {

@@ -2,16 +2,16 @@ use crate::args::ColorMode;
 use crate::stats::{format_bytes_human, format_with_commas};
 use anyhow::{Context, Result};
 use colored::Colorize;
-use jmespath::{Runtime, Variable};
+use jpx_core::Runtime;
+use serde_json::Value;
 use std::io::{self, Write};
-use std::rc::Rc;
 use std::time::Instant;
 
 /// Run benchmark for expression(s)
 pub(crate) fn run_benchmark(
     runtime: &Runtime,
     expressions: &[String],
-    data: &Variable,
+    data: &Value,
     iterations: u32,
     warmup: u32,
     color_mode: &ColorMode,
@@ -59,8 +59,8 @@ pub(crate) fn run_benchmark(
     let input_json = serde_json::to_string(data)?;
     let input_size = input_json.len();
     let item_count = match data {
-        Variable::Array(arr) => Some(arr.len()),
-        Variable::Object(obj) => Some(obj.len()),
+        Value::Array(arr) => Some(arr.len()),
+        Value::Object(obj) => Some(obj.len()),
         _ => None,
     };
 
@@ -108,7 +108,7 @@ pub(crate) fn run_benchmark(
         print!("{} {} iterations... ", label("Warmup:"), warmup);
         io::stdout().flush()?;
         for _ in 0..warmup {
-            let mut result: Rc<Variable> = Rc::new(data.clone());
+            let mut result: Value = data.clone();
             for expr in &compiled {
                 result = expr.search(&result).map_err(|e| anyhow::anyhow!("{}", e))?;
             }
@@ -127,7 +127,7 @@ pub(crate) fn run_benchmark(
     let mut timings: Vec<f64> = Vec::with_capacity(iterations as usize);
 
     for _ in 0..iterations {
-        let mut result: Rc<Variable> = Rc::new(data.clone());
+        let mut result: Value = data.clone();
         let start = Instant::now();
         for expr in &compiled {
             result = expr.search(&result).map_err(|e| anyhow::anyhow!("{}", e))?;

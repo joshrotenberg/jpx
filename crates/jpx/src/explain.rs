@@ -1,23 +1,21 @@
-use jmespath::Variable;
-use jmespath::ast::Ast;
-use std::rc::Rc;
+use jpx_core::ast::{Ast, Comparator};
+use serde_json::Value;
 
-/// Describe a Variable value for verbose output
-pub(crate) fn describe_value(value: &Rc<Variable>) -> String {
-    match value.as_ref() {
-        Variable::Null => "null".to_string(),
-        Variable::Bool(b) => format!("bool ({})", b),
-        Variable::Number(n) => format!("number ({})", n),
-        Variable::String(s) => {
+/// Describe a Value for verbose output
+pub(crate) fn describe_value(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(b) => format!("bool ({})", b),
+        Value::Number(n) => format!("number ({})", n),
+        Value::String(s) => {
             if s.len() > 50 {
                 format!("string ({} chars)", s.len())
             } else {
                 format!("string \"{}\"", s)
             }
         }
-        Variable::Array(arr) => format!("array ({} items)", arr.len()),
-        Variable::Object(obj) => format!("object ({} keys)", obj.len()),
-        Variable::Expref(_) => "expression reference".to_string(),
+        Value::Array(arr) => format!("array ({} items)", arr.len()),
+        Value::Object(obj) => format!("object ({} keys)", obj.len()),
     }
 }
 
@@ -74,7 +72,7 @@ pub(crate) fn print_ast(node: &Ast, indent: usize) {
             }
         }
         Ast::Literal { value, .. } => {
-            let json = serde_json::to_string(&**value).unwrap_or_else(|_| "?".to_string());
+            let json = serde_json::to_string(value).unwrap_or_else(|_| "?".to_string());
             println!("{}{}Literal: `{}`", prefix, connector, json);
         }
         Ast::Comparison {
@@ -84,12 +82,12 @@ pub(crate) fn print_ast(node: &Ast, indent: usize) {
             ..
         } => {
             let op = match comparator {
-                jmespath::ast::Comparator::Equal => "==",
-                jmespath::ast::Comparator::NotEqual => "!=",
-                jmespath::ast::Comparator::LessThan => "<",
-                jmespath::ast::Comparator::LessThanEqual => "<=",
-                jmespath::ast::Comparator::GreaterThan => ">",
-                jmespath::ast::Comparator::GreaterThanEqual => ">=",
+                Comparator::Equal => "==",
+                Comparator::NotEqual => "!=",
+                Comparator::LessThan => "<",
+                Comparator::LessThanEqual => "<=",
+                Comparator::GreaterThan => ">",
+                Comparator::GreaterThanEqual => ">=",
             };
             println!("{}{}Comparison: {}", prefix, connector, op);
             println!("{}  left:", prefix);
@@ -155,6 +153,23 @@ pub(crate) fn print_ast(node: &Ast, indent: usize) {
         Ast::Expref { ast, .. } => {
             println!("{}{}Expression reference (&):", prefix, connector);
             print_ast(ast, indent + 1);
+        }
+        Ast::VariableRef { name, .. } => {
+            println!("{}{}Variable: ${}", prefix, connector, name);
+        }
+        Ast::Let { bindings, expr, .. } => {
+            println!(
+                "{}{}Let ({} binding(s)):",
+                prefix,
+                connector,
+                bindings.len()
+            );
+            for (name, binding_ast) in bindings {
+                println!("{}  ${} =", prefix, name);
+                print_ast(binding_ast, indent + 2);
+            }
+            println!("{}  in:", prefix);
+            print_ast(expr, indent + 2);
         }
     }
 }

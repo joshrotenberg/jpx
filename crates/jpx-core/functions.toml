@@ -2829,6 +2829,17 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "get_path"
+category = "object"
+description = "Get value at dot-separated path with optional default"
+signature = "any, string, any? -> any"
+examples = [
+    { code = "get_path({a: {b: 1}}, 'a.b') -> 1", description = "Nested path" },
+]
+alias_of = "get"
+features = ["core"]
+
+[[functions]]
 name = "has"
 category = "object"
 description = "Check if dot-separated path exists"
@@ -2839,6 +2850,17 @@ examples = [
     { code = "has({a: 1}, 'b') -> false", description = "Key missing" },
     { code = "has({a: {b: 1}}, 'a.c') -> false", description = "Nested missing" },
 ]
+features = ["core"]
+
+[[functions]]
+name = "has_path"
+category = "object"
+description = "Check if dot-separated path exists"
+signature = "any, string -> boolean"
+examples = [
+    { code = "has_path({a: {b: 1}}, 'a.b') -> true", description = "Nested path exists" },
+]
+alias_of = "has"
 features = ["core"]
 
 [[functions]]
