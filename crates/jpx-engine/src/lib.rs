@@ -289,6 +289,7 @@ use std::sync::{Arc, RwLock};
 
 // Re-export commonly used types from jpx-core
 pub use jpx_core::ast;
+pub use jpx_core::query_library;
 pub use jpx_core::{Category, Expression, FunctionInfo, FunctionRegistry, Runtime, compile, parse};
 
 /// The JMESPath query engine.

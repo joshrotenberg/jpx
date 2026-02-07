@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
-use jpx_core::registry::{Category, FunctionInfo, FunctionRegistry};
+use jpx_engine::{Category, FunctionInfo, FunctionRegistry};
 
 pub(crate) fn print_functions(registry: &FunctionRegistry) {
     println!(

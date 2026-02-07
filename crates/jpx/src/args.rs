@@ -571,12 +571,12 @@ pub(crate) struct Args {
     pub(crate) warmup: u32,
 }
 
-/// Create a JMESPath runtime with all extension functions registered.
-pub(crate) fn create_runtime() -> jpx_core::Runtime {
-    let mut runtime = jpx_core::Runtime::new();
-    runtime.register_builtin_functions();
-    let mut registry = jpx_core::FunctionRegistry::new();
-    registry.register_all();
-    registry.apply(&mut runtime);
-    runtime
+/// Create a configured runtime and registry from engine config.
+/// If strict is true, extension functions are not applied to the runtime.
+pub(crate) fn create_configured_runtime(
+    engine_config: &jpx_engine::config::EngineConfig,
+    strict: bool,
+) -> (jpx_engine::Runtime, jpx_engine::FunctionRegistry) {
+    let effective_strict = strict || engine_config.engine.strict;
+    jpx_engine::config::build_runtime_from_config(&engine_config.functions, effective_strict)
 }

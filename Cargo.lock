@@ -1439,7 +1439,6 @@ dependencies = [
  "colored_json",
  "csv",
  "dirs",
- "jpx-core",
  "jpx-engine",
  "json-patch",
  "parquet",
