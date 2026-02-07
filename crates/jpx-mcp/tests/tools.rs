@@ -48,8 +48,8 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    // Should have 31 tools
-    assert_eq!(tools.len(), 31, "Expected 31 tools, got {}", tools.len());
+    // Should have 32 tools
+    assert_eq!(tools.len(), 32, "Expected 32 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()

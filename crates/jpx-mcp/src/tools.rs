@@ -2,7 +2,9 @@
 //!
 //! This module wraps jpx_engine functionality in MCP tool handlers.
 
-use jpx_engine::{Category, DiscoverySpec, JpxEngine, ServerInfo as DiscoveryServerInfo, ToolSpec};
+use jpx_engine::{
+    Category, DiscoverySpec, EngineConfig, JpxEngine, ServerInfo as DiscoveryServerInfo, ToolSpec,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -278,12 +280,23 @@ fn error_result(message: impl Into<String>) -> CallToolResult {
 // =============================================================================
 
 /// Build the MCP router with all jpx tools registered.
+///
+/// For simple use, pass `strict: true/false`. For full config support
+/// (function filtering, query libraries, etc.), use [`build_router_from_config`].
+#[allow(dead_code)]
 pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
-    let engine = if strict {
-        JpxEngine::strict()
-    } else {
-        JpxEngine::new()
-    };
+    let mut config = EngineConfig::default();
+    config.engine.strict = strict;
+    build_router_from_config(config)
+}
+
+/// Build the MCP router from an [`EngineConfig`].
+///
+/// This applies function filtering, query libraries, and other settings
+/// from the config. Use [`EngineConfig::discover`] to load from `jpx.toml`.
+pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxError> {
+    let engine = JpxEngine::from_config(config)
+        .map_err(|e| -> BoxError { format!("Failed to build engine: {}", e).into() })?;
     let engine = Arc::new(engine);
 
     // -- evaluate
