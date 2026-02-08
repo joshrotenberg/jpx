@@ -1138,13 +1138,7 @@ mod tests {
     // tokenize tests
     // =========================================================================
 
-    // NOTE: tokenize tests are ignored because the multimatch category in
-    // functions.toml also has a "tokenize" entry which overwrites the text
-    // category's entry in the registry HashMap, preventing text::tokenize
-    // from being registered. Same issue as mm_tokenize in multi_match.rs.
-
     #[test]
-    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
     fn test_tokenize_default() {
         let runtime = setup_runtime();
         let data = json!("Hello, World!");
@@ -1157,7 +1151,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
     fn test_tokenize_preserve_case() {
         let runtime = setup_runtime();
         let data = json!("Hello, World!");
@@ -1172,7 +1165,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
     fn test_tokenize_upper_case() {
         let runtime = setup_runtime();
         let data = json!("Hello, World!");
@@ -1187,7 +1179,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
     fn test_tokenize_keep_punctuation() {
         let runtime = setup_runtime();
         let data = json!("Hello, World!");
@@ -1202,7 +1193,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
     fn test_tokenize_preserve_case_keep_punctuation() {
         let runtime = setup_runtime();
         let data = json!("Hello, World!");

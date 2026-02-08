@@ -1477,6 +1477,16 @@ aliases = ["fold"]
 features = ["core", "fp"]
 
 [[functions]]
+name = "fold"
+category = "expression"
+description = "Alias for reduce_expr - reduce array to single value using accumulator expression"
+signature = "string, array, any -> any"
+examples = [
+    { code = "fold(&add(accumulator, current), [1, 2, 3], `0`) -> 6", description = "Sum numbers" },
+]
+features = ["core", "fp"]
+
+[[functions]]
 name = "reject"
 category = "expression"
 description = "Keep elements where expression is falsy (inverse of filter_expr)"
@@ -2459,6 +2469,50 @@ examples = [
 ]
 features = ["core"]
 
+[[functions]]
+name = "histogram"
+category = "math"
+description = "Compute histogram bins for an array of numbers"
+signature = "array, number -> array[object]"
+examples = [
+    { code = "histogram([1, 2, 3, 4, 5], `3`) -> [{min: 1.0, max: 2.33, count: 2}, ...]", description = "3 bins" },
+    { code = "histogram([10, 20, 30], `2`) -> [{min: 10.0, max: 20.0, count: 2}, {min: 20.0, max: 30.0, count: 1}]", description = "2 bins" },
+]
+features = ["core"]
+
+[[functions]]
+name = "normalize"
+category = "math"
+description = "Min-max normalize an array of numbers to [0, 1] range"
+signature = "array -> array"
+examples = [
+    { code = "normalize([1, 3, 5]) -> [0.0, 0.5, 1.0]", description = "Basic normalization" },
+    { code = "normalize([10, 10, 10]) -> [0, 0, 0]", description = "All same values" },
+]
+features = ["core"]
+
+[[functions]]
+name = "z_score"
+category = "math"
+description = "Compute z-scores (standard scores) for an array of numbers"
+signature = "array -> array"
+examples = [
+    { code = "z_score([1, 3, 5]) -> [-1.22, 0.0, 1.22]", description = "Basic z-scores" },
+    { code = "z_score([10, 20, 30])[1] -> 0.0", description = "Middle value is 0" },
+]
+features = ["core"]
+
+[[functions]]
+name = "correlation"
+category = "math"
+description = "Compute Pearson correlation coefficient between two arrays"
+signature = "array, array -> number"
+examples = [
+    { code = "correlation([1, 2, 3], [1, 2, 3]) -> 1.0", description = "Perfect positive" },
+    { code = "correlation([1, 2, 3], [3, 2, 1]) -> -1.0", description = "Perfect negative" },
+]
+features = ["core"]
+
 # =============================================================================
 # MULTIMATCH FUNCTIONS
 # =============================================================================
@@ -2570,14 +2624,14 @@ examples = [
 features = ["core"]
 
 [[functions]]
-name = "tokenize"
+name = "mm_tokenize"
 category = "multimatch"
 description = "Smart word tokenization with optional lowercase and min_length"
 signature = "string, object? -> array[string]"
 examples = [
-    { code = '''tokenize('Hello, World!') -> [\"Hello\", \"World\"]''', description = "Basic tokenization" },
-    { code = '''tokenize('Hello, World!', {lowercase: `true`}) -> [\"hello\", \"world\"]''', description = "Lowercase option" },
-    { code = '''tokenize('a bb ccc', {min_length: `2`}) -> [\"bb\", \"ccc\"]''', description = "Minimum length" },
+    { code = '''mm_tokenize('Hello, World!') -> [\"Hello\", \"World\"]''', description = "Basic tokenization" },
+    { code = '''mm_tokenize('Hello, World!', {lowercase: `true`}) -> [\"hello\", \"world\"]''', description = "Lowercase option" },
+    { code = '''mm_tokenize('a bb ccc', {min_length: `2`}) -> [\"bb\", \"ccc\"]''', description = "Minimum length" },
 ]
 features = ["core"]
 
