@@ -280,7 +280,11 @@ pub(crate) struct Args {
         short,
         long,
         help = "Input JSON file",
-        long_help = "Input file to read JSON from. If not provided, reads from stdin.\nSupports any valid JSON file."
+        long_help = "Input file to read JSON from. If not provided, reads from stdin.\nSupports any valid JSON file.\n\n\
+            The file can also be passed as a trailing positional argument:\n  \
+            jpx 'users[*].name' data.json\n\n\
+            When the last positional argument is an existing file, it is used as input\n\
+            instead of being treated as an expression."
     )]
     pub(crate) file: Option<String>,
 
