@@ -211,6 +211,73 @@ pub(crate) fn search_functions(registry: &FunctionRegistry, query: &str) {
     );
 }
 
+/// Try to extract an unknown function name from an error message and return
+/// up to `limit` similar function suggestions as a formatted string.
+pub(crate) fn suggest_for_unknown_function(
+    registry: &FunctionRegistry,
+    err_msg: &str,
+    limit: usize,
+) -> Option<String> {
+    // Error format: "Unknown function: <name>"
+    let name = err_msg.strip_prefix("Unknown function: ").or_else(|| {
+        // Also match when wrapped in larger error messages
+        err_msg
+            .find("Unknown function: ")
+            .map(|pos| &err_msg[pos + 18..])
+    })?;
+    // Take just the function name (first word)
+    let name = name.split_whitespace().next().unwrap_or(name).trim();
+    if name.is_empty() {
+        return None;
+    }
+
+    let name_lower = name.to_lowercase();
+    let mut scored: Vec<(&FunctionInfo, i32)> = registry
+        .functions()
+        .filter_map(|f| {
+            let f_lower = f.name.to_lowercase();
+            let score = if f_lower.starts_with(&name_lower) {
+                800
+            } else if f_lower.contains(&name_lower) || name_lower.contains(&f_lower) {
+                600
+            } else if f
+                .aliases
+                .iter()
+                .any(|a| a.to_lowercase().contains(&name_lower))
+            {
+                500
+            } else {
+                // Simple character overlap heuristic
+                let common: usize = name_lower.chars().filter(|c| f_lower.contains(*c)).count();
+                let ratio = common as f64 / name_lower.len().max(f_lower.len()) as f64;
+                if ratio > 0.5 {
+                    (ratio * 400.0) as i32
+                } else {
+                    return None;
+                }
+            };
+            Some((f, score))
+        })
+        .collect();
+
+    scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+    if scored.is_empty() {
+        return None;
+    }
+
+    let mut lines = vec![String::new(), "Did you mean?".to_string()];
+    for (f, _) in scored.iter().take(limit) {
+        lines.push(format!(
+            "  - {} ({}: {})",
+            f.name,
+            f.category.name(),
+            f.description
+        ));
+    }
+    Some(lines.join("\n"))
+}
+
 pub(crate) fn print_category(registry: &FunctionRegistry, category_name: &str) -> Result<()> {
     let category = Category::all()
         .iter()
