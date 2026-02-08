@@ -145,20 +145,32 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetDiscoverySchemaParams {
-    /// Schema version (optional, defaults to latest)
+pub struct RegisterToolsParams {
+    /// Full discovery spec (use this for detailed registration with params, examples, etc.)
     #[serde(default)]
-    #[allow(dead_code)]
+    pub spec: Option<DiscoverySpec>,
+    /// Server name (simplified registration - use with `tools` field)
+    #[serde(default)]
+    pub server_name: Option<String>,
+    /// Server version (simplified registration)
+    #[serde(default)]
     pub version: Option<String>,
+    /// Simple tool list (simplified registration - use with `server_name`)
+    #[serde(default)]
+    pub tools: Option<Vec<SimpleTool>>,
+    /// Replace existing registration if server already registered (default: true)
+    #[serde(default = "default_true")]
+    pub replace: bool,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct RegisterDiscoveryParams {
-    /// The discovery spec with server info and tool definitions
-    pub spec: DiscoverySpec,
-    /// Replace existing registration if server already registered (default: false)
+pub struct EngineInfoParams {
+    /// Include discovery JSON schema in the response
     #[serde(default)]
-    pub replace: bool,
+    pub include_schema: bool,
+    /// Include discovery index statistics in the response
+    #[serde(default)]
+    pub include_index_stats: bool,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -203,17 +215,6 @@ pub struct SimpleTool {
     /// Tags for categorization and search (optional)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct RegisterToolsSimpleParams {
-    /// Server name (required)
-    pub server_name: String,
-    /// Server version (optional)
-    #[serde(default)]
-    pub version: Option<String>,
-    /// List of tools to register
-    pub tools: Vec<SimpleTool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -608,86 +609,66 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // Discovery tools
     // =========================================================================
 
-    // -- get_discovery_schema
+    // -- register_tools
     let e = engine.clone();
-    let get_discovery_schema = ToolBuilder::new("get_discovery_schema")
-        .description("Get the JSON schema for the MCP discovery protocol. MCP servers can use this schema to register their tools with jpx for cross-server discovery and search.")
-        .read_only()
-        .handler(move |_params: GetDiscoverySchemaParams| {
+    let register_tools = ToolBuilder::new("register_tools")
+        .description("Register an MCP server's tools for cross-server discovery. Accepts either a full discovery spec (via 'spec') or a simplified format (via 'server_name' + 'tools'). Tools are indexed for full-text search across name, description, tags, and parameters.")
+        .handler(move |params: RegisterToolsParams| {
             let engine = e.clone();
             async move {
-                let schema = engine.get_discovery_schema();
-                json_result(&schema)
-            }
-        })
-        .build();
+                let spec = if let Some(spec) = params.spec {
+                    // Full spec provided
+                    if spec.server.name.is_empty() {
+                        return Err(Error::tool(
+                            "server.name is required and cannot be empty",
+                        ));
+                    }
+                    spec
+                } else if let Some(server_name) = params.server_name {
+                    // Simplified format
+                    if server_name.is_empty() {
+                        return Err(Error::tool(
+                            "server_name is required and cannot be empty",
+                        ));
+                    }
+                    let tools: Vec<ToolSpec> = params
+                        .tools
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|t| ToolSpec {
+                            name: t.name,
+                            aliases: vec![],
+                            category: None,
+                            subcategory: None,
+                            tags: t.tags,
+                            summary: t.description.clone(),
+                            description: t.description,
+                            params: vec![],
+                            returns: None,
+                            examples: vec![],
+                            related: vec![],
+                            since: None,
+                            stability: None,
+                        })
+                        .collect();
 
-    // -- register_discovery
-    let e = engine.clone();
-    let register_discovery = ToolBuilder::new("register_discovery")
-        .description("Register an MCP server's capabilities for discovery. Accepts a discovery spec with server info and tool definitions. Tools are indexed for full-text search across name, description, tags, and parameters.")
-        .handler(move |params: RegisterDiscoveryParams| {
-            let engine = e.clone();
-            async move {
-                if params.spec.server.name.is_empty() {
+                    DiscoverySpec {
+                        schema: None,
+                        server: DiscoveryServerInfo {
+                            name: server_name,
+                            version: params.version,
+                            description: None,
+                        },
+                        tools,
+                        categories: std::collections::HashMap::new(),
+                    }
+                } else {
                     return Err(Error::tool(
-                        "server.name is required and cannot be empty",
+                        "Provide either 'spec' (full format) or 'server_name' + 'tools' (simplified format)",
                     ));
-                }
-
-                match engine.register_discovery(params.spec, params.replace) {
-                    Ok(result) => json_result(&result),
-                    Err(e) => Err(Error::tool(e.to_string())),
-                }
-            }
-        })
-        .build();
-
-    // -- register_tools_simple
-    let e = engine.clone();
-    let register_tools_simple = ToolBuilder::new("register_tools_simple")
-        .description("Register tools using a simplified format. Just provide server name and a list of tools with name, description, and tags. Easier than the full discovery spec for simple use cases.")
-        .handler(move |params: RegisterToolsSimpleParams| {
-            let engine = e.clone();
-            async move {
-                if params.server_name.is_empty() {
-                    return Err(Error::tool(
-                        "server_name is required and cannot be empty",
-                    ));
-                }
-
-                let tools: Vec<ToolSpec> = params
-                    .tools
-                    .into_iter()
-                    .map(|t| ToolSpec {
-                        name: t.name,
-                        aliases: vec![],
-                        category: None,
-                        subcategory: None,
-                        tags: t.tags,
-                        summary: t.description.clone(),
-                        description: t.description,
-                        params: vec![],
-                        returns: None,
-                        examples: vec![],
-                        related: vec![],
-                        since: None,
-                        stability: None,
-                    })
-                    .collect();
-
-                let spec = DiscoverySpec {
-                    schema: None,
-                    server: DiscoveryServerInfo {
-                        name: params.server_name,
-                        version: params.version,
-                        description: None,
-                    },
-                    tools,
-                    categories: std::collections::HashMap::new(),
                 };
 
-                match engine.register_discovery(spec, true) {
+                match engine.register_discovery(spec, params.replace) {
                     Ok(result) => json_result(&result),
                     Err(e) => Err(Error::tool(e.to_string())),
                 }
@@ -774,23 +755,6 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
             async move {
                 match engine.list_discovery_categories() {
                     Ok(categories) => json_result(&categories),
-                    Err(e) => Err(Error::tool(e.to_string())),
-                }
-            }
-        })
-        .build();
-
-    // -- inspect_discovery_index
-    let e = engine.clone();
-    let inspect_discovery_index = ToolBuilder::new("inspect_discovery_index")
-        .description("Get statistics about the discovery index including document count, term count, average document length, and top indexed terms. Useful for understanding what's been indexed.")
-        .read_only()
-        .handler(move |_params: EmptyParams| {
-            let engine = e.clone();
-            async move {
-                match engine.discovery_index_stats() {
-                    Ok(Some(stats)) => json_result(&stats),
-                    Ok(None) => json_result(&serde_json::json!({"message": "No tools indexed yet"})),
                     Err(e) => Err(Error::tool(e.to_string())),
                 }
             }
@@ -903,9 +867,9 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- engine_info
     let e = engine.clone();
     let engine_info = ToolBuilder::new("engine_info")
-        .description("Get information about the jpx engine including version, mode, function count, and current session state.")
+        .description("Get information about the jpx engine including version, mode, function count, and current session state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
         .read_only()
-        .handler(move |_params: EmptyParams| {
+        .handler(move |params: EngineInfoParams| {
             let engine = e.clone();
             async move {
                 let function_count = engine.functions(None).len();
@@ -913,7 +877,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 let stored_queries = engine.list_queries().unwrap_or_default().len();
                 let discovery_servers = engine.list_discovery_servers().unwrap_or_default().len();
 
-                json_result(&serde_json::json!({
+                let mut info = serde_json::json!({
                     "name": "jpx-mcp",
                     "version": env!("CARGO_PKG_VERSION"),
                     "strict_mode": engine.is_strict(),
@@ -921,7 +885,21 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                     "category_count": category_count,
                     "stored_queries": stored_queries,
                     "registered_discovery_servers": discovery_servers
-                }))
+                });
+
+                if params.include_schema {
+                    info["discovery_schema"] = engine.get_discovery_schema();
+                }
+
+                if params.include_index_stats {
+                    info["index_stats"] = match engine.discovery_index_stats() {
+                        Ok(Some(stats)) => serde_json::to_value(stats).unwrap_or_default(),
+                        Ok(None) => serde_json::json!({"message": "No tools indexed yet"}),
+                        Err(e) => serde_json::json!({"error": e.to_string()}),
+                    };
+                }
+
+                json_result(&info)
             }
         })
         .build();
@@ -961,15 +939,12 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .tool(similar)
         .tool(stats)
         .tool(paths)
-        .tool(get_discovery_schema)
-        .tool(register_discovery)
-        .tool(register_tools_simple)
+        .tool(register_tools)
         .tool(query_tools)
         .tool(similar_tools)
         .tool(unregister_discovery)
         .tool(list_discovery_servers)
         .tool(list_discovery_categories)
-        .tool(inspect_discovery_index)
         .tool(define_query)
         .tool(get_query)
         .tool(delete_query)

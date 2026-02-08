@@ -48,8 +48,8 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    // Should have 32 tools
-    assert_eq!(tools.len(), 32, "Expected 32 tools, got {}", tools.len());
+    // Should have 29 tools (consolidated from 32)
+    assert_eq!(tools.len(), 29, "Expected 29 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -86,15 +86,12 @@ async fn test_list_tools() {
     assert!(tool_names.contains(&"run_query"));
 
     // Discovery
-    assert!(tool_names.contains(&"register_discovery"));
+    assert!(tool_names.contains(&"register_tools"));
     assert!(tool_names.contains(&"query_tools"));
     assert!(tool_names.contains(&"similar_tools"));
     assert!(tool_names.contains(&"unregister_discovery"));
     assert!(tool_names.contains(&"list_discovery_servers"));
     assert!(tool_names.contains(&"list_discovery_categories"));
-    assert!(tool_names.contains(&"inspect_discovery_index"));
-    assert!(tool_names.contains(&"get_discovery_schema"));
-    assert!(tool_names.contains(&"register_tools_simple"));
 
     // Engine info
     assert!(tool_names.contains(&"engine_info"));
@@ -590,7 +587,7 @@ async fn test_discovery_lifecycle() {
     // Register a server
     let result = client
         .call_tool(
-            "register_tools_simple",
+            "register_tools",
             json!({
                 "server_name": "test-server",
                 "version": "1.0.0",
@@ -633,24 +630,30 @@ async fn test_discovery_lifecycle() {
 }
 
 #[tokio::test]
-async fn test_get_discovery_schema() {
+async fn test_engine_info_with_schema() {
     let mut client = create_client().await;
 
-    let result = client.call_tool("get_discovery_schema", json!({})).await;
+    let result = client
+        .call_tool("engine_info", json!({"include_schema": true}))
+        .await;
 
     assert!(!result.is_error);
     let text = result.first_text().unwrap();
+    assert!(text.contains("discovery_schema"));
     assert!(text.contains("server") || text.contains("tools"));
 }
 
 #[tokio::test]
-async fn test_inspect_discovery_index_empty() {
+async fn test_engine_info_with_index_stats() {
     let mut client = create_client().await;
 
-    let result = client.call_tool("inspect_discovery_index", json!({})).await;
+    let result = client
+        .call_tool("engine_info", json!({"include_index_stats": true}))
+        .await;
 
     assert!(!result.is_error);
-    // Should work even when empty
+    let text = result.first_text().unwrap();
+    assert!(text.contains("index_stats"));
 }
 
 // =============================================================================
@@ -885,7 +888,7 @@ async fn test_list_discovery_categories() {
     // Register a server with a categorized tool
     client
         .call_tool(
-            "register_discovery",
+            "register_tools",
             json!({
                 "spec": {
                     "server": {"name": "cat-test-server", "version": "1.0"},
@@ -920,7 +923,7 @@ async fn test_similar_tools_discovery() {
     // Register two related tools
     client
         .call_tool(
-            "register_tools_simple",
+            "register_tools",
             json!({
                 "server_name": "sim-test",
                 "tools": [
