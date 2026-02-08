@@ -403,6 +403,27 @@ jpx '{
 
 ---
 
+## Using Query Libraries
+
+Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/nobel-prize.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/nobel-prize.jpx) for a ready-to-use library:
+
+```bash
+# List available queries
+jpx -Q examples/nobel-prize.jpx --list-queries
+
+# Run common analyses
+jpx -Q examples/nobel-prize.jpx:summary-by-category laureates.json
+jpx -Q examples/nobel-prize.jpx:female laureates.json
+jpx -Q examples/nobel-prize.jpx:age-at-award laureates.json
+
+# Export as CSV
+jpx --csv -Q examples/nobel-prize.jpx:flatten-export laureates.json
+```
+
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
+
+---
+
 ## Try It Yourself
 
 1. **Explore the API**:

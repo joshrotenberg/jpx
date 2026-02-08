@@ -1,0 +1,141 @@
+-- :name names
+-- :desc List all asteroid names
+near_earth_objects[*].name
+
+-- :name short-names
+-- :desc List short/common names
+near_earth_objects[*].name_limited
+
+-- :name total-count
+-- :desc Total known NEOs from page metadata
+page.total_elements
+
+-- :name hazardous
+-- :desc Find potentially hazardous asteroids
+near_earth_objects[?is_potentially_hazardous_asteroid == `true`].{
+  name: name_limited,
+  diameter_km: estimated_diameter.kilometers.estimated_diameter_max
+}
+
+-- :name large
+-- :desc Find asteroids larger than 1km
+near_earth_objects[?estimated_diameter.kilometers.estimated_diameter_max > `1`].{
+  name: name,
+  max_diameter_km: estimated_diameter.kilometers.estimated_diameter_max,
+  hazardous: is_potentially_hazardous_asteroid
+}
+
+-- :name diameter-estimates
+-- :desc Diameter range estimates in km
+near_earth_objects[*].{
+  name: name_limited,
+  min_km: estimated_diameter.kilometers.estimated_diameter_min,
+  max_km: estimated_diameter.kilometers.estimated_diameter_max
+}
+
+-- :name avg-diameter
+-- :desc Calculate average diameter for each asteroid
+near_earth_objects[*].{
+  name: name_limited,
+  avg_diameter_km: divide(
+    add(
+      estimated_diameter.kilometers.estimated_diameter_min,
+      estimated_diameter.kilometers.estimated_diameter_max
+    ),
+    `2`
+  )
+}
+
+-- :name next-approach
+-- :desc Get next close approach date and distance
+near_earth_objects[*].{
+  name: name_limited,
+  next_approach: close_approach_data[0].close_approach_date,
+  miss_distance_km: close_approach_data[0].miss_distance.kilometers
+}
+
+-- :name closest-approaches
+-- :desc Sort by closest miss distance
+near_earth_objects[*].{
+  name: name_limited,
+  miss_km: to_number(close_approach_data[0].miss_distance.kilometers)
+} | sort_by(@, &miss_km) | [:10]
+
+-- :name high-speed
+-- :desc Find high-speed approaches (> 50,000 kph)
+near_earth_objects[*].{
+  name: name_limited,
+  speed_kph: to_number(close_approach_data[0].relative_velocity.kilometers_per_hour),
+  date: close_approach_data[0].close_approach_date
+} | [?speed_kph > `50000`]
+
+-- :name size-stats
+-- :desc Size statistics across all NEOs
+{
+  count: length(near_earth_objects),
+  smallest_km: min(near_earth_objects[*].estimated_diameter.kilometers.estimated_diameter_min),
+  largest_km: max(near_earth_objects[*].estimated_diameter.kilometers.estimated_diameter_max),
+  avg_max_km: round(avg(near_earth_objects[*].estimated_diameter.kilometers.estimated_diameter_max), `2`)
+}
+
+-- :name hazard-stats
+-- :desc Hazard classification statistics
+{
+  total: length(near_earth_objects),
+  hazardous: length(near_earth_objects[?is_potentially_hazardous_asteroid == `true`]),
+  safe: length(near_earth_objects[?is_potentially_hazardous_asteroid == `false`]),
+  hazard_percentage: multiply(
+    divide(
+      length(near_earth_objects[?is_potentially_hazardous_asteroid == `true`]),
+      length(near_earth_objects)
+    ),
+    `100`
+  )
+}
+
+-- :name top-5-largest
+-- :desc Top 5 largest asteroids
+sort_by(near_earth_objects, &estimated_diameter.kilometers.estimated_diameter_max)
+  | reverse(@)
+  | [:5]
+  | [*].{
+      name: name,
+      max_diameter_km: round(estimated_diameter.kilometers.estimated_diameter_max, `2`),
+      hazardous: is_potentially_hazardous_asteroid
+    }
+
+-- :name flatten-export
+-- :desc Flatten for analysis/CSV export
+near_earth_objects[*].{
+  id: id,
+  name: name_limited,
+  magnitude: absolute_magnitude_h,
+  diameter_min_km: estimated_diameter.kilometers.estimated_diameter_min,
+  diameter_max_km: estimated_diameter.kilometers.estimated_diameter_max,
+  is_hazardous: is_potentially_hazardous_asteroid,
+  next_approach_date: close_approach_data[0].close_approach_date,
+  miss_distance_km: close_approach_data[0].miss_distance.kilometers,
+  velocity_kph: close_approach_data[0].relative_velocity.kilometers_per_hour,
+  jpl_url: nasa_jpl_url
+}
+
+-- :name risk-report
+-- :desc Comprehensive risk assessment report
+{
+  report_title: `Near Earth Object Risk Assessment`,
+  total_objects: page.total_elements,
+  sample_size: length(near_earth_objects),
+  potentially_hazardous: {
+    count: length(near_earth_objects[?is_potentially_hazardous_asteroid == `true`]),
+    objects: near_earth_objects[?is_potentially_hazardous_asteroid == `true`] | [*].{
+      name: name,
+      diameter_km: round(estimated_diameter.kilometers.estimated_diameter_max, `2`),
+      next_approach: close_approach_data[0].close_approach_date,
+      miss_lunar: close_approach_data[0].miss_distance.lunar
+    }
+  },
+  largest_objects: sort_by(near_earth_objects, &estimated_diameter.kilometers.estimated_diameter_max)
+    | reverse(@)
+    | [:3]
+    | [*].{name: name_limited, km: round(estimated_diameter.kilometers.estimated_diameter_max, `1`)}
+}

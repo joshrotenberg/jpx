@@ -1,0 +1,127 @@
+-- :name titles
+-- :desc List all earthquake titles
+features[*].properties.title
+
+-- :name magnitudes
+-- :desc Get all magnitudes
+features[*].properties.mag
+
+-- :name count
+-- :desc Count total events
+length(features)
+
+-- :name major
+-- :desc Find earthquakes with magnitude 6+
+features[?properties.mag >= `6`].properties.title
+
+-- :name deep
+-- :desc Find deep earthquakes (> 100km depth)
+features[?geometry.coordinates[2] > `100`].{
+  title: properties.title,
+  depth_km: geometry.coordinates[2]
+}
+
+-- :name tsunami-alerts
+-- :desc Find earthquakes with tsunami alerts
+features[?properties.tsunami == `1`].properties.title
+
+-- :name by-location
+-- :desc Filter earthquakes near Russia
+features[?contains(properties.place, `Russia`)].properties.title
+
+-- :name mag-stats
+-- :desc Magnitude statistics summary
+{
+  count: length(features),
+  min: min(features[*].properties.mag),
+  max: max(features[*].properties.mag),
+  avg: avg(features[*].properties.mag),
+  median: median(features[*].properties.mag),
+  stddev: round(stddev(features[*].properties.mag), `3`)
+}
+
+-- :name depth-stats
+-- :desc Depth statistics summary
+{
+  shallowest: min(features[*].geometry.coordinates[2]),
+  deepest: max(features[*].geometry.coordinates[2]),
+  avg_depth: round(avg(features[*].geometry.coordinates[2]), `1`)
+}
+
+-- :name sort-by-mag
+-- :desc Sort by magnitude descending
+sort_by(features, &properties.mag) | reverse(@) | [*].{
+  mag: properties.mag,
+  place: properties.place
+}
+
+-- :name top-3-significance
+-- :desc Top 3 by significance score
+sort_by(features, &properties.sig) | reverse(@) | [:3] | [*].{
+  significance: properties.sig,
+  title: properties.title
+}
+
+-- :name coordinates
+-- :desc Extract place, latitude, longitude
+features[*].{
+  place: properties.place,
+  lat: geometry.coordinates[1],
+  lon: geometry.coordinates[0]
+}
+
+-- :name distance-from-sf
+-- :desc Distance from San Francisco sorted by proximity
+features[*].{
+  place: properties.place,
+  distance_km: round(geo_distance_km(
+    `37.7749`, `-122.4194`,
+    geometry.coordinates[1], geometry.coordinates[0]
+  ), `0`)
+} | sort_by(@, &distance_km)
+
+-- :name timestamps
+-- :desc Convert timestamps to readable dates
+features[*].{
+  title: properties.title,
+  date: from_unixtime(floor(divide(properties.time, `1000`)))
+}
+
+-- :name flatten
+-- :desc Flatten to flat structure for export
+features[*].{
+  id: id,
+  magnitude: properties.mag,
+  location: properties.place,
+  longitude: geometry.coordinates[0],
+  latitude: geometry.coordinates[1],
+  depth_km: geometry.coordinates[2],
+  timestamp: properties.time
+}
+
+-- :name summary-report
+-- :desc Comprehensive earthquake summary report
+{
+  report_title: `USGS Earthquake Summary`,
+  generated: metadata.title,
+  total_events: length(features),
+  magnitude_stats: {
+    min: min(features[*].properties.mag),
+    max: max(features[*].properties.mag),
+    average: round(avg(features[*].properties.mag), `2`),
+    median: median(features[*].properties.mag)
+  },
+  depth_stats: {
+    shallowest_km: min(features[*].geometry.coordinates[2]),
+    deepest_km: max(features[*].geometry.coordinates[2])
+  },
+  major_events: features[?properties.mag >= `5.5`] | [*].{
+    magnitude: properties.mag,
+    location: properties.place
+  },
+  by_region: {
+    russia: length(features[?contains(properties.place, `Russia`)]),
+    indonesia: length(features[?contains(properties.place, `Indonesia`)]),
+    chile: length(features[?contains(properties.place, `Chile`)])
+  }
+}

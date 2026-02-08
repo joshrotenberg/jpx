@@ -513,6 +513,24 @@ Output:
 
 ---
 
+## Using Query Libraries
+
+All the queries in this guide are available as a `.jpx` query library. See [examples/standard-jmespath.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/standard-jmespath.jpx) for a ready-to-use library:
+
+```bash
+# List available queries
+jpx -Q examples/standard-jmespath.jpx --list-queries
+
+# Run standard-only queries
+jpx -Q examples/standard-jmespath.jpx:top-3-available books.json
+jpx -Q examples/standard-jmespath.jpx:library-report books.json
+jpx -Q examples/standard-jmespath.jpx:stats books.json
+```
+
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
+
+---
+
 ## When to Use Extensions
 
 Standard JMESPath is powerful for basic transformations, but you'll want extensions for:

@@ -429,6 +429,27 @@ jpx 'near_earth_objects."2024-01-15"[*].name' neo_day.json
 
 ---
 
+## Using Query Libraries
+
+Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/nasa-neo.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/nasa-neo.jpx) for a ready-to-use library:
+
+```bash
+# List available queries
+jpx -Q examples/nasa-neo.jpx --list-queries
+
+# Run common analyses
+jpx -Q examples/nasa-neo.jpx:hazardous neo_browse.json
+jpx -Q examples/nasa-neo.jpx:risk-report neo_browse.json
+jpx -Q examples/nasa-neo.jpx:top-5-largest neo_browse.json
+
+# Output as table
+jpx -Q examples/nasa-neo.jpx:closest-approaches -t neo_browse.json
+```
+
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
+
+---
+
 ## Try It Yourself
 
 1. **Get your free API key**: [api.nasa.gov](https://api.nasa.gov/)

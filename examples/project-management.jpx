@@ -1,0 +1,95 @@
+-- :name ids
+-- :desc Get all project IDs
+[*].projectId
+
+-- :name names
+-- :desc Get all project names
+[*].details.name
+
+-- :name active
+-- :desc Filter to active projects
+[?status == 'active'].details.name
+
+-- :name no-milestones
+-- :desc Projects with no milestones defined
+[?milestones == `[]`].{id: projectId, name: details.name, status: status}
+
+-- :name status-counts
+-- :desc Count projects by status
+frequencies([*].status)
+
+-- :name all-tags
+-- :desc All unique tags sorted
+unique([*].details.tags[]) | sort(@)
+
+-- :name tag-frequency
+-- :desc How often each tag appears
+frequencies([*].details.tags[])
+
+-- :name by-tag
+-- :desc Find projects with a specific tag (security)
+[?includes(details.tags, 'security')].{id: projectId, name: details.name}
+
+-- :name stale-projects
+-- :desc Projects not modified in 30+ days
+[?date_diff(now(), to_epoch(timestamps.last_modified), 'days') > `30`].details.name
+
+-- :name most-recent
+-- :desc Most recently modified project
+max_by(@, &timestamps.last_modified).details.name
+
+-- :name incomplete-milestones
+-- :desc Projects with pending milestones
+[?milestones[?completed == `false`]].{
+  project: details.name,
+  pending: milestones[?completed == `false`][].phase
+}
+
+-- :name fuzzy-search
+-- :desc Fuzzy match project names
+[?fuzzy_match(details.name, 'energy')].details.name
+
+-- :name keyword-search
+-- :desc Search descriptions for AI or machine learning
+[?contains(details.description, 'AI') || contains(details.description, 'machine learning')].details.name
+
+-- :name slugs
+-- :desc URL-friendly slugs from project names
+[*].{id: projectId, slug: kebab_case(details.name)}
+
+-- :name computed-fields
+-- :desc Add computed milestone count and incomplete flag
+[*].{
+  name: details.name,
+  status: status,
+  milestone_count: length(milestones),
+  has_incomplete: length(milestones[?completed == `false`]) > `0`
+}
+
+-- :name dashboard
+-- :desc Executive dashboard summary
+{
+  total_projects: length(@),
+  active: length([?status == 'active']),
+  pending: length([?status == 'pending']),
+  on_hold: length([?status == 'on-hold']),
+  archived: length([?status == 'archived']),
+  with_milestones: length([?milestones != `[]`]),
+  without_milestones: length([?milestones == `[]`]),
+  incomplete_milestones: length([*].milestones[?completed == `false`][]),
+  newest_project: max_by(@, &timestamps.created_at).details.name,
+  oldest_project: min_by(@, &timestamps.created_at).details.name,
+  unique_tags: length(unique([*].details.tags[]))
+}
+
+-- :name full-export
+-- :desc Rich export with computed fields
+[*].{
+  id: projectId,
+  title: details.name,
+  status: upper(status),
+  tags: join(', ', details.tags),
+  age_days: date_diff(now(), to_epoch(timestamps.created_at), 'days'),
+  last_touch: time_ago(timestamps.last_modified),
+  slug: kebab_case(details.name)
+}
