@@ -773,3 +773,293 @@ async fn test_unknown_tool() {
 
     assert!(result.get("code").is_some());
 }
+
+// =============================================================================
+// Explain tool
+// =============================================================================
+
+#[tokio::test]
+async fn test_explain_simple_field() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("explain", json!({"expression": "name"}))
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("expression"));
+    assert!(text.contains("name"));
+}
+
+#[tokio::test]
+async fn test_explain_function_call() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("explain", json!({"expression": "length(@)"}))
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("length"));
+    assert!(text.contains("functions_used"));
+}
+
+#[tokio::test]
+async fn test_explain_pipeline() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "explain",
+            json!({"expression": "users[*].name | sort(@) | [0]"}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("sort"));
+    assert!(text.contains("steps"));
+}
+
+// =============================================================================
+// Evaluate file tool
+// =============================================================================
+
+#[tokio::test]
+async fn test_evaluate_file_basic() {
+    let mut client = create_client().await;
+
+    // Write a temporary JSON file
+    let tmp_dir = std::env::temp_dir();
+    let tmp_file = tmp_dir.join("jpx_mcp_test_eval_file.json");
+    std::fs::write(&tmp_file, r#"{"items": [1, 2, 3]}"#).unwrap();
+
+    let result = client
+        .call_tool(
+            "evaluate_file",
+            json!({
+                "file_path": tmp_file.to_str().unwrap(),
+                "expression": "length(items)"
+            }),
+        )
+        .await;
+
+    // Clean up
+    let _ = std::fs::remove_file(&tmp_file);
+
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("3"));
+}
+
+#[tokio::test]
+async fn test_evaluate_file_not_found() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool_expect_error(
+            "evaluate_file",
+            json!({
+                "file_path": "/tmp/jpx_mcp_nonexistent_file_12345.json",
+                "expression": "foo"
+            }),
+        )
+        .await;
+
+    assert!(
+        result.get("code").is_some()
+            || result.get("message").is_some()
+            || result.get("isError").is_some()
+    );
+}
+
+// =============================================================================
+// Discovery extended
+// =============================================================================
+
+#[tokio::test]
+async fn test_list_discovery_categories() {
+    let mut client = create_client().await;
+
+    // Register a server with a categorized tool
+    client
+        .call_tool(
+            "register_discovery",
+            json!({
+                "spec": {
+                    "server": {"name": "cat-test-server", "version": "1.0"},
+                    "tools": [
+                        {
+                            "name": "cat_tool",
+                            "category": "testing",
+                            "tags": ["test"],
+                            "description": "A categorized tool"
+                        }
+                    ],
+                    "categories": {}
+                },
+                "replace": true
+            }),
+        )
+        .await;
+
+    let result = client
+        .call_tool("list_discovery_categories", json!({}))
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("testing"));
+}
+
+#[tokio::test]
+async fn test_similar_tools_discovery() {
+    let mut client = create_client().await;
+
+    // Register two related tools
+    client
+        .call_tool(
+            "register_tools_simple",
+            json!({
+                "server_name": "sim-test",
+                "tools": [
+                    {"name": "fetch_data", "description": "Fetch data from API", "tags": ["api", "http"]},
+                    {"name": "post_data", "description": "Post data to API", "tags": ["api", "http"]}
+                ]
+            }),
+        )
+        .await;
+
+    let result = client
+        .call_tool(
+            "similar_tools",
+            json!({"tool_id": "sim-test:fetch_data", "top_k": 5}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("post_data"));
+}
+
+// =============================================================================
+// Edge cases
+// =============================================================================
+
+#[tokio::test]
+async fn test_evaluate_empty_input() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "evaluate",
+            json!({
+                "input": "{}",
+                "expression": "name"
+            }),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("null"));
+}
+
+#[tokio::test]
+async fn test_evaluate_null_result() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "evaluate",
+            json!({
+                "input": r#"{"a": null}"#,
+                "expression": "a"
+            }),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("null"));
+}
+
+#[tokio::test]
+async fn test_batch_evaluate_empty_array() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "batch_evaluate",
+            json!({
+                "input": r#"{"a": 1}"#,
+                "expressions": []
+            }),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    // Should return an empty results array
+    assert!(text.contains("[]") || text.contains("results"));
+}
+
+#[tokio::test]
+async fn test_query_store_recall_missing() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("get_query", json!({"name": "nonexistent_query"}))
+        .await;
+
+    assert!(result.is_error);
+}
+
+#[tokio::test]
+async fn test_diff_identical_documents() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "diff",
+            json!({
+                "source": r#"{"a": 1, "b": 2}"#,
+                "target": r#"{"a": 1, "b": 2}"#
+            }),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    // Identical docs should produce an empty patch
+    assert!(text.contains("[]"));
+}
+
+#[tokio::test]
+async fn test_validate_returns_error_details() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("validate", json!({"expression": "[*"}))
+        .await;
+
+    assert!(!result.is_error); // validate tool returns result, not error
+    let text = result.first_text().unwrap();
+    assert!(text.contains("\"valid\": false") || text.contains("\"valid\":false"));
+    assert!(text.contains("error"));
+}
+
+#[tokio::test]
+async fn test_search_no_results() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "search",
+            json!({"query": "xyzzy_nonexistent_function_qqq", "limit": 10}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("[]"));
+}
