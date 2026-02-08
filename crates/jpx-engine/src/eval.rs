@@ -257,4 +257,77 @@ mod tests {
         assert!(result.results[1].result.is_none());
         assert!(result.results[1].error.is_some());
     }
+
+    #[test]
+    fn test_evaluate_unicode() {
+        let engine = JpxEngine::new();
+        let input = json!({"name": "ñoño", "greeting": "こんにちは"});
+
+        let result = engine.evaluate("name", &input).unwrap();
+        assert_eq!(result, json!("ñoño"));
+
+        let result = engine.evaluate("greeting", &input).unwrap();
+        assert_eq!(result, json!("こんにちは"));
+    }
+
+    #[test]
+    fn test_evaluate_deeply_nested() {
+        let engine = JpxEngine::new();
+        let input = json!({"a": {"b": {"c": {"d": {"e": "deep"}}}}});
+
+        let result = engine.evaluate("a.b.c.d.e", &input).unwrap();
+        assert_eq!(result, json!("deep"));
+
+        let result = engine.evaluate("a.b.c.d", &input).unwrap();
+        assert_eq!(result, json!({"e": "deep"}));
+    }
+
+    #[test]
+    fn test_evaluate_null_result() {
+        let engine = JpxEngine::new();
+        let input = json!({"a": 1, "b": "hello"});
+
+        let result = engine.evaluate("missing", &input).unwrap();
+        assert_eq!(result, json!(null));
+
+        let result = engine.evaluate("a.b.c", &input).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    #[test]
+    fn test_batch_evaluate_large() {
+        let engine = JpxEngine::new();
+        let input = json!({"value": 42});
+        let exprs: Vec<String> = (0..50).map(|_| "value".to_string()).collect();
+
+        let result = engine.batch_evaluate(&exprs, &input);
+        assert_eq!(result.results.len(), 50);
+        for r in &result.results {
+            assert_eq!(r.result, Some(json!(42)));
+            assert!(r.error.is_none());
+        }
+    }
+
+    #[test]
+    fn test_batch_evaluate_empty() {
+        let engine = JpxEngine::new();
+        let input = json!({"a": 1});
+        let exprs: Vec<String> = vec![];
+
+        let result = engine.batch_evaluate(&exprs, &input);
+        assert!(result.results.is_empty());
+    }
+
+    #[test]
+    fn test_validate_complex_valid() {
+        let engine = JpxEngine::new();
+
+        let result = engine.validate("users[?age > `30`].name | sort(@) | join(', ', @)");
+        assert!(result.valid);
+        assert!(result.error.is_none());
+
+        let result = engine.validate("items[*].{id: id, name: name} | [?id > `5`]");
+        assert!(result.valid);
+        assert!(result.error.is_none());
+    }
 }

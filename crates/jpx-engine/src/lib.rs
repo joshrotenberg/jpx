@@ -764,4 +764,233 @@ mod tests {
         assert!(engine.unregister_discovery("test-server").unwrap());
         assert!(engine.list_discovery_servers().unwrap().is_empty());
     }
+
+    // =========================================================================
+    // Construction tests
+    // =========================================================================
+
+    #[test]
+    fn test_with_options_non_strict() {
+        let engine = JpxEngine::with_options(false);
+        assert!(!engine.is_strict());
+    }
+
+    #[test]
+    fn test_with_options_strict() {
+        let engine = JpxEngine::with_options(true);
+        assert!(engine.is_strict());
+    }
+
+    #[test]
+    fn test_from_config_default() {
+        let config = EngineConfig::default();
+        let engine = JpxEngine::from_config(config).unwrap();
+        assert!(!engine.is_strict());
+    }
+
+    #[test]
+    fn test_builder_default() {
+        let engine = JpxEngine::builder().build().unwrap();
+        assert!(!engine.is_strict());
+    }
+
+    // =========================================================================
+    // Accessor tests
+    // =========================================================================
+
+    #[test]
+    fn test_runtime_accessor() {
+        let engine = JpxEngine::new();
+        let runtime = engine.runtime();
+        // Verify we can compile an expression through the runtime reference
+        let expr = runtime.compile("length(@)").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn test_registry_accessor() {
+        let engine = JpxEngine::new();
+        let registry = engine.registry();
+        // The registry should contain functions after register_all()
+        assert!(registry.get_function("upper").is_some());
+        assert!(registry.get_function("lower").is_some());
+        assert!(registry.is_enabled("upper"));
+    }
+
+    #[test]
+    fn test_discovery_accessor() {
+        let engine = JpxEngine::new();
+        let discovery = engine.discovery();
+        // Should be able to acquire a read lock and inspect the empty registry
+        let guard = discovery.read().unwrap();
+        assert!(guard.list_servers().is_empty());
+    }
+
+    #[test]
+    fn test_queries_accessor() {
+        let engine = JpxEngine::new();
+        let queries = engine.queries();
+        // Should be able to acquire a read lock and inspect the empty store
+        let guard = queries.read().unwrap();
+        assert!(guard.is_empty());
+    }
+
+    // =========================================================================
+    // Query store tests (via engine)
+    // =========================================================================
+
+    #[test]
+    fn test_define_query_with_description() {
+        let engine = JpxEngine::new();
+        engine
+            .define_query(
+                "named".to_string(),
+                "length(@)".to_string(),
+                Some("Counts elements".to_string()),
+            )
+            .unwrap();
+
+        let query = engine.get_query("named").unwrap().unwrap();
+        assert_eq!(query.expression, "length(@)");
+        assert_eq!(query.description, Some("Counts elements".to_string()));
+    }
+
+    #[test]
+    fn test_define_query_invalid_expression() {
+        let engine = JpxEngine::new();
+        let result = engine.define_query("bad".to_string(), "invalid[".to_string(), None);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            EngineError::InvalidExpression(_) => {} // expected
+            other => panic!("Expected InvalidExpression, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_define_query_overwrite() {
+        let engine = JpxEngine::new();
+
+        // First define returns None (no previous query)
+        let first = engine
+            .define_query("q".to_string(), "length(@)".to_string(), None)
+            .unwrap();
+        assert!(first.is_none());
+
+        // Second define with same name returns Some(old)
+        let second = engine
+            .define_query("q".to_string(), "keys(@)".to_string(), None)
+            .unwrap();
+        assert!(second.is_some());
+        let old = second.unwrap();
+        assert_eq!(old.expression, "length(@)");
+
+        // Current value should be the new expression
+        let current = engine.get_query("q").unwrap().unwrap();
+        assert_eq!(current.expression, "keys(@)");
+    }
+
+    #[test]
+    fn test_get_query_nonexistent() {
+        let engine = JpxEngine::new();
+        let result = engine.get_query("nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_delete_query_nonexistent() {
+        let engine = JpxEngine::new();
+        let result = engine.delete_query("nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_run_query_not_found() {
+        let engine = JpxEngine::new();
+        let result = engine.run_query("nonexistent", &json!({}));
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            EngineError::QueryNotFound(name) => assert_eq!(name, "nonexistent"),
+            other => panic!("Expected QueryNotFound, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_list_queries_empty() {
+        let engine = JpxEngine::new();
+        let queries = engine.list_queries().unwrap();
+        assert!(queries.is_empty());
+    }
+
+    #[test]
+    fn test_list_queries_multiple() {
+        let engine = JpxEngine::new();
+        engine
+            .define_query("alpha".to_string(), "a".to_string(), None)
+            .unwrap();
+        engine
+            .define_query("beta".to_string(), "b".to_string(), None)
+            .unwrap();
+        engine
+            .define_query("gamma".to_string(), "c".to_string(), None)
+            .unwrap();
+
+        let queries = engine.list_queries().unwrap();
+        assert_eq!(queries.len(), 3);
+    }
+
+    // =========================================================================
+    // Discovery tests (via engine)
+    // =========================================================================
+
+    #[test]
+    fn test_register_discovery_duplicate() {
+        let engine = JpxEngine::new();
+
+        let spec: DiscoverySpec = serde_json::from_value(json!({
+            "server": {"name": "dup-server", "version": "1.0.0"},
+            "tools": [
+                {"name": "tool_a", "description": "Tool A", "tags": ["test"]}
+            ]
+        }))
+        .unwrap();
+
+        // First registration succeeds
+        let first = engine.register_discovery(spec.clone(), false).unwrap();
+        assert!(first.ok);
+
+        // Second registration without replace fails
+        let second = engine.register_discovery(spec, false).unwrap();
+        assert!(!second.ok);
+        assert!(second.warnings[0].contains("already registered"));
+    }
+
+    #[test]
+    fn test_unregister_nonexistent() {
+        let engine = JpxEngine::new();
+        let result = engine.unregister_discovery("nonexistent").unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_discovery_index_stats_empty() {
+        let engine = JpxEngine::new();
+        let stats = engine.discovery_index_stats().unwrap();
+        assert!(stats.is_none());
+    }
+
+    #[test]
+    fn test_get_discovery_schema() {
+        let engine = JpxEngine::new();
+        let schema = engine.get_discovery_schema();
+        assert!(schema.is_object());
+        assert!(schema.get("$schema").is_some());
+        assert_eq!(
+            schema.get("$schema").unwrap().as_str().unwrap(),
+            "http://json-schema.org/draft-07/schema#"
+        );
+        assert!(schema.get("title").is_some());
+        assert!(schema.get("properties").is_some());
+    }
 }

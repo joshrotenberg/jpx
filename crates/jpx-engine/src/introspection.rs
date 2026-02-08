@@ -642,4 +642,346 @@ mod tests {
         // Should have functions in same category
         assert!(!result.same_category.is_empty());
     }
+
+    // =========================================================================
+    // Categories tests
+    // =========================================================================
+
+    #[test]
+    fn test_categories_contains_common() {
+        let engine = JpxEngine::new();
+        let cats = engine.categories();
+        for expected in &["Math", "Array", "Object", "Utility"] {
+            assert!(
+                cats.iter().any(|c| c == expected),
+                "Expected categories to contain {:?}",
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_categories_no_duplicates() {
+        let engine = JpxEngine::new();
+        let cats = engine.categories();
+        let mut seen = std::collections::HashSet::new();
+        for cat in &cats {
+            assert!(
+                seen.insert(cat.clone()),
+                "Duplicate category found: {:?}",
+                cat
+            );
+        }
+    }
+
+    // =========================================================================
+    // Functions tests
+    // =========================================================================
+
+    #[test]
+    fn test_functions_all() {
+        let engine = JpxEngine::new();
+        let all = engine.functions(None);
+        assert!(
+            !all.is_empty(),
+            "functions(None) should return a non-empty list"
+        );
+        // There should be a substantial number of functions (400+)
+        assert!(
+            all.len() > 100,
+            "Expected at least 100 functions, got {}",
+            all.len()
+        );
+    }
+
+    #[test]
+    fn test_functions_invalid_category() {
+        let engine = JpxEngine::new();
+        // When a category string does not match any known category, parse_category
+        // returns None, and functions() falls through to returning all functions.
+        let invalid = engine.functions(Some("NonexistentCategory"));
+        let all = engine.functions(None);
+        assert_eq!(
+            invalid.len(),
+            all.len(),
+            "Invalid category should fall back to returning all functions"
+        );
+    }
+
+    #[test]
+    fn test_functions_case_insensitive() {
+        let engine = JpxEngine::new();
+        let lower = engine.functions(Some("string"));
+        let upper = engine.functions(Some("String"));
+        assert!(
+            !lower.is_empty(),
+            "functions(Some(\"string\")) should return results"
+        );
+        assert_eq!(
+            lower.len(),
+            upper.len(),
+            "Case-insensitive category lookup should return the same number of results"
+        );
+        // Verify same function names in both results
+        let lower_names: Vec<&str> = lower.iter().map(|f| f.name.as_str()).collect();
+        let upper_names: Vec<&str> = upper.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(lower_names, upper_names);
+    }
+
+    // =========================================================================
+    // describe_function tests
+    // =========================================================================
+
+    #[test]
+    fn test_describe_function_detail_fields() {
+        let engine = JpxEngine::new();
+        let info = engine.describe_function("length").unwrap();
+        assert_eq!(info.name, "length");
+        assert!(!info.category.is_empty(), "category should not be empty");
+        assert!(info.is_standard, "length should be a standard function");
+        assert!(
+            !info.description.is_empty(),
+            "description should not be empty"
+        );
+        assert!(!info.signature.is_empty(), "signature should not be empty");
+    }
+
+    #[test]
+    fn test_describe_function_extension() {
+        let engine = JpxEngine::new();
+        let info = engine.describe_function("upper").unwrap();
+        assert_eq!(info.name, "upper");
+        assert!(!info.is_standard, "upper should not be a standard function");
+    }
+
+    #[test]
+    fn test_describe_function_by_alias() {
+        let engine = JpxEngine::new();
+        // "all_expr" has alias "every"
+        let info = engine.describe_function("all_expr").unwrap();
+        assert!(
+            info.aliases.contains(&"every".to_string()),
+            "all_expr should have alias 'every', aliases: {:?}",
+            info.aliases
+        );
+        // Verify that searching for the alias via search_functions finds it
+        let results = engine.search_functions("every", 5);
+        assert!(
+            results.iter().any(|r| r.function.name == "all_expr"),
+            "Searching for alias 'every' should find 'all_expr'"
+        );
+        let alias_result = results
+            .iter()
+            .find(|r| r.function.name == "all_expr")
+            .unwrap();
+        assert_eq!(
+            alias_result.match_type, "alias",
+            "Match type for alias search should be 'alias'"
+        );
+        assert_eq!(alias_result.score, 900, "Alias match score should be 900");
+    }
+
+    // =========================================================================
+    // search_functions tests
+    // =========================================================================
+
+    #[test]
+    fn test_search_exact_name_match() {
+        let engine = JpxEngine::new();
+        let results = engine.search_functions("upper", 10);
+        assert!(!results.is_empty(), "Should find results for 'upper'");
+        let first = &results[0];
+        assert_eq!(first.function.name, "upper");
+        assert_eq!(first.match_type, "exact_name");
+        assert_eq!(first.score, 1000);
+    }
+
+    #[test]
+    fn test_search_name_prefix_match() {
+        let engine = JpxEngine::new();
+        let results = engine.search_functions("to_", 20);
+        assert!(!results.is_empty(), "Should find results for prefix 'to_'");
+        // All top results should have name_prefix match type
+        let prefix_results: Vec<_> = results
+            .iter()
+            .filter(|r| r.match_type == "name_prefix")
+            .collect();
+        assert!(
+            !prefix_results.is_empty(),
+            "Should have at least one name_prefix match"
+        );
+        for r in &prefix_results {
+            assert_eq!(r.score, 800, "name_prefix score should be 800");
+            assert!(
+                r.function.name.starts_with("to_"),
+                "Function '{}' should start with 'to_'",
+                r.function.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_name_contains_match() {
+        let engine = JpxEngine::new();
+        // "left" appears in "pad_left" but "pad_left" does not start with "left"
+        let results = engine.search_functions("left", 20);
+        let contains_results: Vec<_> = results
+            .iter()
+            .filter(|r| r.match_type == "name_contains")
+            .collect();
+        assert!(
+            !contains_results.is_empty(),
+            "Should have at least one name_contains match for 'left'"
+        );
+        for r in &contains_results {
+            assert_eq!(r.score, 700, "name_contains score should be 700");
+            assert!(
+                r.function.name.contains("left"),
+                "Function '{}' should contain 'left'",
+                r.function.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_description_match() {
+        let engine = JpxEngine::new();
+        // "converts" is a word likely found in descriptions but not as a function name
+        let results = engine.search_functions("converts", 10);
+        if !results.is_empty() {
+            // If we got description matches, verify the match type
+            let desc_matches: Vec<_> = results
+                .iter()
+                .filter(|r| r.match_type.starts_with("description"))
+                .collect();
+            assert!(
+                !desc_matches.is_empty(),
+                "Matches for 'converts' should include description matches"
+            );
+            for r in &desc_matches {
+                assert!(
+                    r.score >= 100,
+                    "Description match score should be at least 100"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_search_case_insensitive() {
+        let engine = JpxEngine::new();
+        let upper_results = engine.search_functions("UPPER", 10);
+        let lower_results = engine.search_functions("upper", 10);
+        // Both should find the "upper" function
+        assert!(
+            upper_results.iter().any(|r| r.function.name == "upper"),
+            "Searching for 'UPPER' should find 'upper'"
+        );
+        assert!(
+            lower_results.iter().any(|r| r.function.name == "upper"),
+            "Searching for 'upper' should find 'upper'"
+        );
+    }
+
+    #[test]
+    fn test_search_respects_limit() {
+        let engine = JpxEngine::new();
+        let results = engine.search_functions("string", 3);
+        assert!(
+            results.len() <= 3,
+            "Results should be limited to 3, got {}",
+            results.len()
+        );
+    }
+
+    #[test]
+    fn test_search_results_ordered_by_score() {
+        let engine = JpxEngine::new();
+        let results = engine.search_functions("string", 20);
+        for window in results.windows(2) {
+            assert!(
+                window[0].score >= window[1].score,
+                "Results should be sorted by score descending: {} (score {}) came before {} (score {})",
+                window[0].function.name,
+                window[0].score,
+                window[1].function.name,
+                window[1].score,
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_empty_query() {
+        let engine = JpxEngine::new();
+        // Empty string search should not panic
+        let results = engine.search_functions("", 10);
+        // Empty query may or may not return results, but it must not panic
+        let _ = results;
+    }
+
+    #[test]
+    fn test_search_no_results() {
+        let engine = JpxEngine::new();
+        let results = engine.search_functions("xyzqwerty123", 10);
+        assert!(
+            results.is_empty(),
+            "Should find no results for nonsense query, got {}",
+            results.len()
+        );
+    }
+
+    // =========================================================================
+    // similar_functions tests
+    // =========================================================================
+
+    #[test]
+    fn test_similar_functions_nonexistent() {
+        let engine = JpxEngine::new();
+        let result = engine.similar_functions("nonexistent");
+        assert!(
+            result.is_none(),
+            "similar_functions for nonexistent function should return None"
+        );
+    }
+
+    #[test]
+    fn test_similar_same_category_populated() {
+        let engine = JpxEngine::new();
+        let result = engine.similar_functions("upper").unwrap();
+        assert!(
+            !result.same_category.is_empty(),
+            "same_category should be populated for 'upper'"
+        );
+        // All same_category results should be String functions (same as upper)
+        for f in &result.same_category {
+            assert_eq!(
+                f.category, "String",
+                "same_category function '{}' should be in String category, got '{}'",
+                f.name, f.category
+            );
+        }
+        // "upper" itself should not appear in the same_category list
+        assert!(
+            !result.same_category.iter().any(|f| f.name == "upper"),
+            "same_category should not contain the function itself"
+        );
+    }
+
+    #[test]
+    fn test_similar_functions_serde() {
+        let engine = JpxEngine::new();
+        let result = engine.similar_functions("upper").unwrap();
+        // Should serialize to JSON without error
+        let json = serde_json::to_string(&result)
+            .expect("SimilarFunctionsResult should serialize to JSON");
+        assert!(!json.is_empty(), "Serialized JSON should not be empty");
+        // Should deserialize back
+        let deserialized: super::SimilarFunctionsResult = serde_json::from_str(&json)
+            .expect("SimilarFunctionsResult should deserialize from JSON");
+        assert_eq!(
+            result.same_category.len(),
+            deserialized.same_category.len(),
+            "Round-trip should preserve same_category length"
+        );
+    }
 }

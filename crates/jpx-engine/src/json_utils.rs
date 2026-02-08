@@ -636,4 +636,345 @@ mod tests {
         assert_eq!(stats.root_type, "array");
         assert_eq!(stats.length, Some(3));
     }
+
+    // =========================================================================
+    // format_json additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_format_json_invalid_json() {
+        let engine = JpxEngine::new();
+        let result = engine.format_json("not json", 2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_format_json_indent_4() {
+        let engine = JpxEngine::new();
+        let formatted = engine.format_json(r#"{"a":1}"#, 4).unwrap();
+        // The second line should start with 4 spaces
+        let lines: Vec<&str> = formatted.lines().collect();
+        assert!(lines.len() > 1);
+        assert!(lines[1].starts_with("    "));
+    }
+
+    #[test]
+    fn test_format_json_preserves_data() {
+        let engine = JpxEngine::new();
+        let input = r#"{"name":"alice","age":30,"active":true,"score":null}"#;
+        let formatted = engine.format_json(input, 2).unwrap();
+        let original: serde_json::Value = serde_json::from_str(input).unwrap();
+        let roundtripped: serde_json::Value = serde_json::from_str(&formatted).unwrap();
+        assert_eq!(original, roundtripped);
+    }
+
+    // =========================================================================
+    // diff additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_diff_identical() {
+        let engine = JpxEngine::new();
+        let patch = engine.diff(r#"{"a":1,"b":2}"#, r#"{"a":1,"b":2}"#).unwrap();
+        let patch_arr = patch.as_array().unwrap();
+        assert!(patch_arr.is_empty());
+    }
+
+    #[test]
+    fn test_diff_added_key() {
+        let engine = JpxEngine::new();
+        let patch = engine.diff(r#"{"a":1}"#, r#"{"a":1,"b":2}"#).unwrap();
+        let patch_arr = patch.as_array().unwrap();
+        assert!(!patch_arr.is_empty());
+        let has_add = patch_arr
+            .iter()
+            .any(|op| op.get("op").and_then(|v| v.as_str()) == Some("add"));
+        assert!(has_add, "Expected an 'add' operation in the patch");
+    }
+
+    #[test]
+    fn test_diff_removed_key() {
+        let engine = JpxEngine::new();
+        let patch = engine.diff(r#"{"a":1,"b":2}"#, r#"{"a":1}"#).unwrap();
+        let patch_arr = patch.as_array().unwrap();
+        assert!(!patch_arr.is_empty());
+        let has_remove = patch_arr
+            .iter()
+            .any(|op| op.get("op").and_then(|v| v.as_str()) == Some("remove"));
+        assert!(has_remove, "Expected a 'remove' operation in the patch");
+    }
+
+    #[test]
+    fn test_diff_nested_change() {
+        let engine = JpxEngine::new();
+        let patch = engine.diff(r#"{"a":{"b":1}}"#, r#"{"a":{"b":2}}"#).unwrap();
+        let patch_arr = patch.as_array().unwrap();
+        assert!(!patch_arr.is_empty());
+        // The operation should target the nested path /a/b
+        let targets_nested = patch_arr.iter().any(|op| {
+            op.get("path")
+                .and_then(|v| v.as_str())
+                .map(|p| p.contains("/a/b"))
+                .unwrap_or(false)
+        });
+        assert!(targets_nested, "Expected a patch operation targeting /a/b");
+    }
+
+    #[test]
+    fn test_diff_invalid_json() {
+        let engine = JpxEngine::new();
+        let result = engine.diff("not json", r#"{"a":1}"#);
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // patch additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_patch_add_operation() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .patch(r#"{"a":1}"#, r#"[{"op":"add","path":"/b","value":2}]"#)
+            .unwrap();
+        assert_eq!(result, json!({"a": 1, "b": 2}));
+    }
+
+    #[test]
+    fn test_patch_remove_operation() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .patch(r#"{"a":1,"b":2}"#, r#"[{"op":"remove","path":"/b"}]"#)
+            .unwrap();
+        assert_eq!(result, json!({"a": 1}));
+    }
+
+    #[test]
+    fn test_patch_invalid_patch() {
+        let engine = JpxEngine::new();
+        let result = engine.patch(r#"{"a":1}"#, r#"not a patch"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_patch_empty_patch() {
+        let engine = JpxEngine::new();
+        let result = engine.patch(r#"{"a":1,"b":2}"#, r#"[]"#).unwrap();
+        assert_eq!(result, json!({"a": 1, "b": 2}));
+    }
+
+    // =========================================================================
+    // merge additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_merge_overlapping_keys() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .merge(r#"{"a":1,"b":2}"#, r#"{"a":10,"b":20}"#)
+            .unwrap();
+        assert_eq!(result, json!({"a": 10, "b": 20}));
+    }
+
+    #[test]
+    fn test_merge_null_removes_key() {
+        let engine = JpxEngine::new();
+        let result = engine.merge(r#"{"a":1,"b":2}"#, r#"{"b":null}"#).unwrap();
+        assert_eq!(result, json!({"a": 1}));
+    }
+
+    #[test]
+    fn test_merge_nested_objects() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .merge(r#"{"a":{"x":1,"y":2},"b":3}"#, r#"{"a":{"y":20,"z":30}}"#)
+            .unwrap();
+        assert_eq!(result, json!({"a": {"x": 1, "y": 20, "z": 30}, "b": 3}));
+    }
+
+    #[test]
+    fn test_merge_invalid_json() {
+        let engine = JpxEngine::new();
+        let result = engine.merge("not json", r#"{"a":1}"#);
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // keys additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_keys_empty_object() {
+        let engine = JpxEngine::new();
+        let keys = engine.keys(r#"{}"#, false).unwrap();
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_keys_recursive_nested() {
+        let engine = JpxEngine::new();
+        let keys = engine.keys(r#"{"a":{"b":{"c":1}},"d":2}"#, true).unwrap();
+        assert!(keys.contains(&"a".to_string()));
+        assert!(keys.contains(&"a.b".to_string()));
+        assert!(keys.contains(&"a.b.c".to_string()));
+        assert!(keys.contains(&"d".to_string()));
+    }
+
+    #[test]
+    fn test_keys_non_object_non_recursive() {
+        let engine = JpxEngine::new();
+        // Arrays do not have string keys, so non-recursive should return empty
+        let keys = engine.keys(r#"[1, 2, 3]"#, false).unwrap();
+        assert!(keys.is_empty());
+    }
+
+    // =========================================================================
+    // paths additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_paths_with_types_and_values() {
+        let engine = JpxEngine::new();
+        let paths = engine
+            .paths(r#"{"name":"alice","age":30}"#, true, true)
+            .unwrap();
+        // Find the "name" path
+        let name_path = paths.iter().find(|p| p.path == "name").unwrap();
+        assert_eq!(name_path.path_type, Some("string".to_string()));
+        assert_eq!(name_path.value, Some(json!("alice")));
+        // Find the "age" path
+        let age_path = paths.iter().find(|p| p.path == "age").unwrap();
+        assert_eq!(age_path.path_type, Some("number".to_string()));
+        assert_eq!(age_path.value, Some(json!(30)));
+    }
+
+    #[test]
+    fn test_paths_root_is_at_sign() {
+        let engine = JpxEngine::new();
+        let paths = engine.paths(r#"{"a":1}"#, false, false).unwrap();
+        assert!(!paths.is_empty());
+        assert_eq!(paths[0].path, "@");
+    }
+
+    #[test]
+    fn test_paths_array_indices() {
+        let engine = JpxEngine::new();
+        let paths = engine.paths(r#"[10, 20, 30]"#, true, true).unwrap();
+        // Root should be "@" with type "array"
+        assert_eq!(paths[0].path, "@");
+        assert_eq!(paths[0].path_type, Some("array".to_string()));
+        // Elements should be indexed as .0, .1, .2
+        let index_paths: Vec<&str> = paths.iter().map(|p| p.path.as_str()).collect();
+        assert!(index_paths.contains(&".0"));
+        assert!(index_paths.contains(&".1"));
+        assert!(index_paths.contains(&".2"));
+    }
+
+    // =========================================================================
+    // stats additional tests
+    // =========================================================================
+
+    #[test]
+    fn test_stats_object() {
+        let engine = JpxEngine::new();
+        let stats = engine
+            .stats(r#"{"name":"alice","age":30,"active":true}"#)
+            .unwrap();
+        assert_eq!(stats.root_type, "object");
+        assert_eq!(stats.key_count, Some(3));
+        assert!(stats.length.is_none());
+    }
+
+    #[test]
+    fn test_stats_empty_array() {
+        let engine = JpxEngine::new();
+        let stats = engine.stats(r#"[]"#).unwrap();
+        assert_eq!(stats.root_type, "array");
+        assert_eq!(stats.length, Some(0));
+        assert_eq!(stats.depth, 1);
+    }
+
+    #[test]
+    fn test_stats_array_of_objects_fields() {
+        let engine = JpxEngine::new();
+        let stats = engine
+            .stats(r#"[{"name":"alice","age":30},{"name":"bob","age":25}]"#)
+            .unwrap();
+        assert_eq!(stats.root_type, "array");
+        assert_eq!(stats.length, Some(2));
+        let fields = stats.fields.unwrap();
+        let field_names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+        assert!(field_names.contains(&"name"));
+        assert!(field_names.contains(&"age"));
+    }
+
+    #[test]
+    fn test_stats_nested_depth() {
+        let engine = JpxEngine::new();
+        // 4 levels deep: root obj -> a obj -> b obj -> c obj -> value
+        let stats = engine.stats(r#"{"a":{"b":{"c":{"d":1}}}}"#).unwrap();
+        assert_eq!(stats.depth, 4);
+    }
+
+    #[test]
+    fn test_stats_invalid_json() {
+        let engine = JpxEngine::new();
+        let result = engine.stats("not json");
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // Private helper function tests
+    // =========================================================================
+
+    #[test]
+    fn test_calculate_depth_primitive() {
+        use super::calculate_depth;
+        assert_eq!(calculate_depth(&json!(42)), 0);
+        assert_eq!(calculate_depth(&json!("hello")), 0);
+        assert_eq!(calculate_depth(&json!(true)), 0);
+        assert_eq!(calculate_depth(&json!(null)), 0);
+    }
+
+    #[test]
+    fn test_calculate_depth_nested() {
+        use super::calculate_depth;
+        // 3 levels: obj -> obj -> obj -> primitive
+        let value = json!({"a": {"b": {"c": 1}}});
+        assert_eq!(calculate_depth(&value), 3);
+    }
+
+    #[test]
+    fn test_format_size_bytes() {
+        use super::format_size;
+        assert_eq!(format_size(100), "100 bytes");
+        assert_eq!(format_size(0), "0 bytes");
+        assert_eq!(format_size(1023), "1023 bytes");
+    }
+
+    #[test]
+    fn test_format_size_kb() {
+        use super::format_size;
+        let result = format_size(1024);
+        assert!(
+            result.contains("KB"),
+            "Expected KB in '{}' for 1024 bytes",
+            result
+        );
+        let result = format_size(2048);
+        assert!(
+            result.contains("KB"),
+            "Expected KB in '{}' for 2048 bytes",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_size_mb() {
+        use super::format_size;
+        let result = format_size(1024 * 1024);
+        assert!(result.contains("MB"), "Expected MB in '{}' for 1MB", result);
+        let result = format_size(2 * 1024 * 1024);
+        assert!(result.contains("MB"), "Expected MB in '{}' for 2MB", result);
+    }
 }
