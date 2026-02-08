@@ -45,9 +45,8 @@ MCP servers don't communicate with each other - they only respond to the agent. 
 
 | Tool | Description |
 |------|-------------|
-| `register_discovery` | Register an MCP server's tools |
+| `register_tools` | Register an MCP server's tools for BM25 indexing |
 | `unregister_discovery` | Remove a server from the registry |
-| `get_discovery_schema` | Get the registration schema |
 
 ### Search
 
@@ -62,11 +61,11 @@ MCP servers don't communicate with each other - they only respond to the agent. 
 |------|-------------|
 | `list_discovery_servers` | List all registered servers |
 | `list_discovery_categories` | List tool categories across servers |
-| `inspect_discovery_index` | Debug index statistics |
+| `engine_info` | Get index statistics (via `include_index_stats` and `include_schema` parameters) |
 
 ## Registration Schema
 
-Register a server's tools with `register_discovery`:
+Register a server's tools with `register_tools`:
 
 ```json
 {
@@ -187,7 +186,7 @@ At session start, register each server:
 
 ```
 1. Get tool list from redisctl (agent already has this via MCP)
-2. Call jpx.register_discovery with redisctl's tools
+2. Call jpx.register_tools with redisctl's tools
 3. Repeat for other MCP servers
 4. Use query_tools for semantic search
 ```
@@ -203,7 +202,7 @@ At session start, if jpx and other MCP servers are available:
 
 1. For each non-jpx MCP server, register its tools with jpx:
    - Extract tool name, description, and input schema
-   - Call `mcp__jpx__register_discovery` with the server name and tool list
+   - Call `mcp__jpx__register_tools` with the server name and tool list
 
 2. When searching for tools, use `mcp__jpx__query_tools` for semantic search
    instead of scanning the tool list manually.
@@ -217,7 +216,7 @@ With jpx + redisctl + github-mcp:
 
 ```
 // Register redisctl (65 tools)
-register_discovery({
+register_tools({
   spec: {
     server: { name: "redisctl", version: "0.1.0" },
     tools: [
@@ -229,7 +228,7 @@ register_discovery({
 })
 
 // Register github-mcp (20 tools)
-register_discovery({
+register_tools({
   spec: {
     server: { name: "github", version: "1.0.0" },
     tools: [
@@ -267,7 +266,7 @@ This is intentional - tool metadata changes, and re-registration ensures the ind
 
 ## Inspecting the Index
 
-Debug with `inspect_discovery_index`:
+Debug with `engine_info` (set `include_index_stats: true`):
 
 ```json
 {
