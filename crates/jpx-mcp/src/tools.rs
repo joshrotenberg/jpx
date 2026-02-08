@@ -313,7 +313,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- functions
     let e = engine.clone();
@@ -327,7 +327,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&functions)
             }
         })
-        .build()?;
+        .build();
 
     // -- describe
     let e = engine.clone();
@@ -346,7 +346,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- categories
     let categories = ToolBuilder::new("categories")
@@ -362,7 +362,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&categories)
             }
         })
-        .build()?;
+        .build();
 
     // -- validate
     let e = engine.clone();
@@ -376,7 +376,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&result)
             }
         })
-        .build()?;
+        .build();
 
     // -- explain
     let e = engine.clone();
@@ -392,7 +392,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- batch_evaluate
     let e = engine.clone();
@@ -408,7 +408,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&result)
             }
         })
-        .build()?;
+        .build();
 
     // -- format
     let e = engine.clone();
@@ -424,7 +424,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- diff
     let e = engine.clone();
@@ -440,7 +440,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- patch
     let e = engine.clone();
@@ -455,7 +455,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- merge
     let e = engine.clone();
@@ -470,7 +470,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- keys
     let e = engine.clone();
@@ -486,7 +486,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- evaluate_file
     let e = engine.clone();
@@ -537,7 +537,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- search
     let e = engine.clone();
@@ -551,7 +551,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&results)
             }
         })
-        .build()?;
+        .build();
 
     // -- similar
     let e = engine.clone();
@@ -570,7 +570,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- stats
     let e = engine.clone();
@@ -586,7 +586,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- paths
     let e = engine.clone();
@@ -602,7 +602,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // =========================================================================
     // Discovery tools
@@ -620,7 +620,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 json_result(&schema)
             }
         })
-        .build()?;
+        .build();
 
     // -- register_discovery
     let e = engine.clone();
@@ -641,7 +641,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- register_tools_simple
     let e = engine.clone();
@@ -693,7 +693,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- query_tools
     let e = engine.clone();
@@ -709,7 +709,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- similar_tools
     let e = engine.clone();
@@ -725,7 +725,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- unregister_discovery
     let e = engine.clone();
@@ -746,7 +746,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- list_discovery_servers
     let e = engine.clone();
@@ -762,7 +762,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- list_discovery_categories
     let e = engine.clone();
@@ -778,7 +778,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- inspect_discovery_index
     let e = engine.clone();
@@ -795,7 +795,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // =========================================================================
     // Query store tools
@@ -821,7 +821,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- get_query
     let e = engine.clone();
@@ -840,7 +840,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- delete_query
     let e = engine.clone();
@@ -859,7 +859,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- list_queries
     let e = engine.clone();
@@ -875,7 +875,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // -- run_query
     let e = engine.clone();
@@ -894,7 +894,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }
             }
         })
-        .build()?;
+        .build();
 
     // =========================================================================
     // Engine info
@@ -924,7 +924,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                 }))
             }
         })
-        .build()?;
+        .build();
 
     // =========================================================================
     // Build the router
