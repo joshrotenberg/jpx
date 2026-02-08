@@ -75,7 +75,7 @@ jpx --version
 
 You should see output like:
 ```
-jpx 0.2.2
+jpx 0.4.0
 ```
 
 ## Shell Completions

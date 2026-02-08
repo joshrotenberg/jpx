@@ -12,6 +12,7 @@ jpx supports multiple output formats beyond JSON, making it easy to integrate wi
 | `--tsv` | | Tab-separated values |
 | `--lines` | `-l` | One JSON value per line (JSONL) |
 | `--table` | `-t` | Formatted table (for arrays of objects) |
+| `--parquet` | | Parquet file (requires `-o`) |
 
 ## YAML Output
 
@@ -301,6 +302,38 @@ jpx '[*].{name: name, email: email, role: role}' -f users.json --table
 jpx '[*].{Function: name, Description: description}' -f functions.json -t --table-style markdown > docs/functions.md
 ```
 
+## Parquet Output
+
+!!! note
+    Parquet output requires jpx to be built with the `parquet` feature. Pre-built binaries include this feature.
+
+The `--parquet` flag writes query results as a Parquet file using Snappy compression. This requires `--output` (`-o`) to specify the output path.
+
+```bash
+# Export filtered data as Parquet
+jpx '[?status == `active`]' -f users.json --parquet -o active-users.parquet
+
+# Convert JSON to Parquet for analytics
+jpx '@' -f events.json --parquet -o events.parquet
+```
+
+Parquet works best with arrays of objects (tabular data). It is ideal for:
+
+- Large dataset export for analytics tools (DuckDB, Polaris, Spark)
+- Columnar storage with built-in compression
+- Interop with data science workflows
+
+| Flag | Description |
+|------|-------------|
+| `--parquet` | Output as Parquet file (requires `-o`) |
+
+Parquet input is also supported -- jpx auto-detects `.parquet` and `.pq` file extensions:
+
+```bash
+# Query a Parquet file directly
+jpx 'length(@)' -f data.parquet
+```
+
 ## Combining with Expressions
 
 Output formats work with any JMESPath expression:
@@ -357,3 +390,4 @@ jpx '@' -f settings.json --toml -o settings.toml
 | API debugging | `--yaml` |
 | Terminal display | `--table` |
 | Markdown documentation | `--table --table-style markdown` |
+| Analytics / data science | `--parquet -o file.parquet` |

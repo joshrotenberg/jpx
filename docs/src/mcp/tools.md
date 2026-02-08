@@ -1,28 +1,33 @@
 # Available Tools
 
-The jpx MCP server provides 26 tools organized into six categories.
+The jpx MCP server provides **29 tools** organized into seven categories.
 
 ## Server Info
 
 ### engine_info
 
-Get information about the jpx engine including version, capabilities, and available functions.
+Get information about the jpx engine including version, mode, function count, and session state.
 
 ```json
-{}
+{
+  "include_schema": false,
+  "include_index_stats": false
+}
 ```
 
 Returns:
 ```json
 {
   "name": "jpx-mcp",
-  "version": "0.1.3",
+  "version": "0.4.0",
   "strict_mode": false,
   "function_count": 395,
   "category_count": 31,
   "categories": ["Array", "Color", "Computing", ...]
 }
 ```
+
+Set `include_schema` to get the discovery registration JSON schema, or `include_index_stats` for discovery index statistics.
 
 ## Function Discovery
 
@@ -45,8 +50,7 @@ Find functions related to a specified function.
 
 ```json
 {
-  "function": "upper",
-  "limit": 5
+  "function": "upper"
 }
 ```
 
@@ -64,61 +68,20 @@ List available functions, optionally filtered by category.
 
 ### describe
 
-Get detailed documentation for a specific function.
+Get detailed documentation for a specific function including signature, parameters, return type, and examples.
 
 ```json
 {
-  "function": "pad_left"
+  "name": "pad_left"
 }
 ```
-
-Returns signature, description, parameters, return type, and examples.
 
 ### categories
 
-List all function categories with tool counts.
+List all function categories with function counts.
 
 ```json
 {}
-```
-
-## Data Analysis
-
-Tools for understanding JSON structure before writing queries.
-
-### stats
-
-Analyze JSON structure and statistics.
-
-```json
-{
-  "json": {"users": [{"name": "Alice"}, {"name": "Bob"}]}
-}
-```
-
-Returns type, size, depth, and field analysis.
-
-### paths
-
-Extract all paths in a JSON document using dot notation.
-
-```json
-{
-  "json": {"user": {"profile": {"name": "Alice"}}}
-}
-```
-
-Returns: `["user", "user.profile", "user.profile.name"]`
-
-### keys
-
-Extract object keys, optionally recursive with dot notation.
-
-```json
-{
-  "json": {"a": {"b": 1}},
-  "recursive": true
-}
 ```
 
 ## Query Execution
@@ -132,7 +95,7 @@ Run a JMESPath expression against JSON input.
 ```json
 {
   "expression": "users[?age > `30`].name",
-  "json": {"users": [{"name": "Alice", "age": 35}, {"name": "Bob", "age": 25}]}
+  "input": "{\"users\": [{\"name\": \"Alice\", \"age\": 35}, {\"name\": \"Bob\", \"age\": 25}]}"
 }
 ```
 
@@ -140,23 +103,23 @@ Returns: `["Alice"]`
 
 ### evaluate_file
 
-Query a JSON file directly from disk. Useful when the file is too large to pass inline or when you want to avoid serialization overhead.
+Query a JSON file directly from disk. More efficient than passing large JSON content through the protocol.
 
 ```json
 {
   "expression": "length(items)",
-  "path": "/path/to/data.json"
+  "file_path": "/path/to/data.json"
 }
 ```
 
 ### batch_evaluate
 
-Run multiple expressions against the same input.
+Run multiple expressions against the same input. Parses the input once and runs all expressions.
 
 ```json
 {
   "expressions": ["length(@)", "keys(@)", "@.name"],
-  "json": {"name": "test", "value": 42}
+  "input": "{\"name\": \"test\", \"value\": 42}"
 }
 ```
 
@@ -172,17 +135,66 @@ Check expression syntax without executing.
 
 Returns validation status and any syntax errors.
 
+### explain
+
+Break down a JMESPath expression into steps. Returns node types, descriptions, functions used, and a complexity rating. Also works for invalid expressions (returns the parse error).
+
+```json
+{
+  "expression": "users[?age > `30`].name | sort(@)"
+}
+```
+
+## Data Analysis
+
+Tools for understanding JSON structure before writing queries.
+
+### stats
+
+Analyze JSON structure and statistics.
+
+```json
+{
+  "input": "{\"users\": [{\"name\": \"Alice\"}, {\"name\": \"Bob\"}]}"
+}
+```
+
+Returns type, size, depth, and field analysis.
+
+### paths
+
+Extract all paths in a JSON document using dot notation.
+
+```json
+{
+  "input": "{\"user\": {\"profile\": {\"name\": \"Alice\"}}}",
+  "include_types": true,
+  "include_values": false
+}
+```
+
+### keys
+
+Extract object keys, optionally recursive with dot notation.
+
+```json
+{
+  "input": "{\"a\": {\"b\": 1}}",
+  "recursive": true
+}
+```
+
 ## JSON Utilities
 
 Tools for JSON manipulation following RFC standards (RFC 6902 for JSON Patch, RFC 7396 for Merge Patch).
 
 ### format
 
-Pretty-print JSON with configurable indentation.
+Pretty-print JSON with configurable indentation. Use `indent: 0` for compact output.
 
 ```json
 {
-  "json": {"compact": true},
+  "input": "{\"compact\":true}",
   "indent": 2
 }
 ```
@@ -193,8 +205,8 @@ Generate RFC 6902 JSON Patch between two documents.
 
 ```json
 {
-  "source": {"a": 1},
-  "target": {"a": 2, "b": 3}
+  "source": "{\"a\": 1}",
+  "target": "{\"a\": 2, \"b\": 3}"
 }
 ```
 
@@ -206,8 +218,8 @@ Apply RFC 6902 JSON Patch operations.
 
 ```json
 {
-  "json": {"a": 1},
-  "operations": [{"op": "add", "path": "/b", "value": 2}]
+  "input": "{\"a\": 1}",
+  "patch": "[{\"op\": \"add\", \"path\": \"/b\", \"value\": 2}]"
 }
 ```
 
@@ -217,20 +229,77 @@ Apply RFC 7396 JSON Merge Patch.
 
 ```json
 {
-  "json": {"a": 1, "b": 2},
-  "patch": {"b": null, "c": 3}
+  "input": "{\"a\": 1, \"b\": 2}",
+  "patch": "{\"b\": null, \"c\": 3}"
 }
 ```
 
 Returns: `{"a": 1, "c": 3}` (null removes keys)
 
+## Query Store
+
+Session-scoped named queries for iterative development. Queries persist for the duration of the MCP session.
+
+### define_query
+
+Store a named JMESPath query for reuse. The query is validated before storing.
+
+```json
+{
+  "name": "active_users",
+  "expression": "users[?status == 'active'].name",
+  "description": "Get names of active users"
+}
+```
+
+### get_query
+
+Retrieve a stored query by name.
+
+```json
+{
+  "name": "active_users"
+}
+```
+
+### run_query
+
+Execute a stored query by name against JSON input.
+
+```json
+{
+  "name": "active_users",
+  "input": "{\"users\": [{\"name\": \"Alice\", \"status\": \"active\"}, {\"name\": \"Bob\", \"status\": \"inactive\"}]}"
+}
+```
+
+### list_queries
+
+List all named queries stored in this session.
+
+```json
+{}
+```
+
+### delete_query
+
+Delete a stored query by name.
+
+```json
+{
+  "name": "active_users"
+}
+```
+
 ## Multi-Server Discovery
 
 Tools for semantic search across multiple MCP servers. See [Multi-Server Discovery](./discovery.md) for full documentation.
 
-### register_discovery
+### register_tools
 
-Register an MCP server's tools for BM25 indexing using the full discovery spec.
+Register an MCP server's tools for BM25 indexing. Accepts either a full discovery spec (via `spec`) or a simplified format (via `server_name` + `tools`).
+
+Full spec:
 
 ```json
 {
@@ -243,9 +312,7 @@ Register an MCP server's tools for BM25 indexing using the full discovery spec.
 }
 ```
 
-### register_tools_simple
-
-Quick registration without the full schema. Just provide server name and tools array.
+Simplified:
 
 ```json
 {
@@ -259,7 +326,7 @@ Quick registration without the full schema. Just provide server name and tools a
 
 ### query_tools
 
-Semantic search across all registered tools.
+Semantic search across all registered tools using BM25.
 
 ```json
 {
@@ -281,6 +348,16 @@ Find tools related to a specific tool.
 }
 ```
 
+### unregister_discovery
+
+Remove a server from the registry.
+
+```json
+{
+  "server_name": "myserver"
+}
+```
+
 ### list_discovery_servers
 
 List all registered servers with tool counts.
@@ -292,34 +369,6 @@ List all registered servers with tool counts.
 ### list_discovery_categories
 
 List tool categories across all registered servers.
-
-```json
-{}
-```
-
-### inspect_discovery_index
-
-Get index statistics for debugging.
-
-```json
-{}
-```
-
-Returns server count, tool count, term count, and average document length.
-
-### unregister_discovery
-
-Remove a server from the registry.
-
-```json
-{
-  "server": "myserver"
-}
-```
-
-### get_discovery_schema
-
-Get the JSON schema for registration.
 
 ```json
 {}

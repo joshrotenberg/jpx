@@ -85,6 +85,7 @@ nav:
     - String Literals & Escaping: cli/escaping.md
     - Working with Files: cli/working-with-files.md
     - Query Files: cli/query-files.md
+    - Configuration: cli/configuration.md
     - Strict Mode: cli/strict-mode.md
     - Why jpx?: cli/why-jpx.md
   - MCP Server:
@@ -138,6 +139,4 @@ nav:
     - Project Management: guides/project-management.md
   - Presentations:
     - "jpx in 5 Minutes": presentations/jpx-in-5-minutes.html
-  - Libraries:
-    - Rust (docs.rs): https://docs.rs/jmespath_extensions
-    - Python (PyPI): https://pypi.org/project/jmespath-extensions/
+  - Libraries: libraries.md

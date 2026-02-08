@@ -22,11 +22,19 @@ When working with JSON data in Claude, jpx provides:
 
 ## Available Tools
 
-The MCP server exposes 26 tools organized by purpose:
+The MCP server exposes **29 tools** organized by purpose:
 
-### Function Discovery Tools
+### Query Execution
 
-Tools for finding and exploring available JMESPath functions:
+| Tool | Description |
+|------|-------------|
+| `evaluate` | Run a JMESPath expression against JSON input |
+| `evaluate_file` | Query JSON files directly from disk |
+| `batch_evaluate` | Run multiple expressions against the same input |
+| `validate` | Check expression syntax without executing |
+| `explain` | Break down an expression into steps with complexity rating |
+
+### Function Discovery
 
 | Tool | Description |
 |------|-------------|
@@ -36,49 +44,7 @@ Tools for finding and exploring available JMESPath functions:
 | `describe` | Get detailed info for a specific function |
 | `categories` | List all function categories |
 
-### Multi-Server Tool Discovery
-
-Tools for semantic search across multiple MCP servers (see [Discovery](./discovery.md)):
-
-| Tool | Description |
-|------|-------------|
-| `register_discovery` | Register an MCP server's tools for indexing |
-| `query_tools` | BM25 semantic search across registered tools |
-| `similar_tools` | Find tools related to a specific tool |
-| `list_discovery_servers` | List registered servers |
-| `list_discovery_categories` | List tool categories across servers |
-| `inspect_discovery_index` | Debug index statistics |
-| `unregister_discovery` | Remove a server from the registry |
-| `get_discovery_schema` | Get the registration schema |
-
-### Server Info
-
-| Tool | Description |
-|------|-------------|
-| `engine_info` | Get information about the jpx engine (version, function count, categories) |
-
-### Data Analysis Tools
-
-Tools for understanding JSON structure before querying:
-
-| Tool | Description |
-|------|-------------|
-| `stats` | Analyze JSON structure (type, size, depth, field analysis) |
-| `paths` | Extract all paths in dot notation (e.g., `users[0].name`) |
-| `keys` | Extract object keys (optionally recursive with dot notation) |
-
-### Query Tools
-
-Tools for evaluating JMESPath expressions:
-
-| Tool | Description |
-|------|-------------|
-| `evaluate` | Run a JMESPath expression against JSON input |
-| `evaluate_file` | Query JSON files directly from disk |
-| `batch_evaluate` | Run multiple expressions against the same input |
-| `validate` | Check expression syntax without executing |
-
-### JSON Utility Tools
+### JSON Utilities
 
 Tools for JSON manipulation (RFC 6902/7396):
 
@@ -88,14 +54,49 @@ Tools for JSON manipulation (RFC 6902/7396):
 | `diff` | Generate RFC 6902 JSON Patch between documents |
 | `patch` | Apply RFC 6902 JSON Patch operations |
 | `merge` | Apply RFC 7396 JSON Merge Patch |
+| `keys` | Extract object keys (optionally recursive with dot notation) |
+| `stats` | Analyze JSON structure (type, size, depth, field analysis) |
+| `paths` | Extract all paths in dot notation (e.g., `users[0].name`) |
+
+### Query Store
+
+Session-scoped named queries for iterative development:
+
+| Tool | Description |
+|------|-------------|
+| `define_query` | Store a named query for reuse |
+| `get_query` | Retrieve a stored query by name |
+| `delete_query` | Delete a stored query |
+| `list_queries` | List all stored queries |
+| `run_query` | Execute a stored query against JSON input |
+
+### Multi-Server Discovery
+
+Tools for semantic search across multiple MCP servers (see [Discovery](./discovery.md)):
+
+| Tool | Description |
+|------|-------------|
+| `register_tools` | Register an MCP server's tools for BM25 indexing |
+| `query_tools` | Semantic search across registered tools |
+| `similar_tools` | Find tools related to a specific tool |
+| `unregister_discovery` | Remove a server from the registry |
+| `list_discovery_servers` | List registered servers |
+| `list_discovery_categories` | List tool categories across servers |
+
+### Server Info
+
+| Tool | Description |
+|------|-------------|
+| `engine_info` | Get engine version, function count, categories, and optional discovery schema |
 
 ## Typical Workflow for AI Agents
 
 1. **Analyze data**: Use `stats` and `paths` to understand the JSON structure
 2. **Discover functions**: Use `search` to find relevant functions, `similar` to explore alternatives
-3. **Build query**: Use `validate` to check syntax before executing
+3. **Build query**: Use `validate` to check syntax, `explain` to understand complex expressions
 4. **Execute**: Use `evaluate` or `batch_evaluate` to run queries
-5. **Transform**: Use `diff`, `patch`, or `merge` for modifications
+5. **Iterate**: Use `define_query` and `run_query` to save and refine queries
+6. **Transform**: Use `diff`, `patch`, or `merge` for modifications
 
 ## Getting Started
 
