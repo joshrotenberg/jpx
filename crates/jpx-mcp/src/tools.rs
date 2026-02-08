@@ -123,6 +123,28 @@ pub struct SimilarParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SuggestFunctionParams {
+    /// Natural-language description of what you want to do (e.g., "remove duplicate values from an array")
+    pub task: String,
+    /// Maximum number of suggestions to return (default: 5)
+    #[serde(default = "default_suggest_limit")]
+    pub limit: usize,
+}
+
+fn default_suggest_limit() -> usize {
+    5
+}
+
+#[derive(Debug, Serialize)]
+struct Suggestion {
+    name: String,
+    signature: String,
+    description: String,
+    example: String,
+    relevance: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct StatsParams {
     /// JSON input to analyze
     pub input: String,
@@ -274,6 +296,46 @@ fn json_result(value: &impl Serialize) -> Result<CallToolResult, Error> {
 
 fn error_result(message: impl Into<String>) -> CallToolResult {
     CallToolResult::error(message)
+}
+
+/// Strip natural-language filler from a task description to extract search terms.
+fn clean_task_description(task: &str) -> String {
+    let prefixes: &[&str] = &[
+        "i want to ",
+        "i need to ",
+        "i'd like to ",
+        "how do i ",
+        "how to ",
+        "how can i ",
+        "is there a way to ",
+        "can i ",
+        "please ",
+        "help me ",
+        "i'm trying to ",
+    ];
+    let mut s = task.trim().to_lowercase();
+    for prefix in prefixes {
+        if let Some(rest) = s.strip_prefix(prefix) {
+            s = rest.to_string();
+            break;
+        }
+    }
+    s.trim().to_string()
+}
+
+/// Convert a match_type from search_functions into a human-readable relevance note.
+fn relevance_note(match_type: &str) -> String {
+    match match_type {
+        "exact_name" => "direct match by name".into(),
+        "alias" => "matches a function alias".into(),
+        "name_prefix" => "name starts with your search term".into(),
+        "name_contains" => "name contains your search term".into(),
+        "category" => "in a matching category".into(),
+        "description" => "description matches your task".into(),
+        "fuzzy_name" => "similar function name".into(),
+        "synonym" => "matches via synonym expansion".into(),
+        other => format!("related ({})", other),
+    }
 }
 
 // =============================================================================
@@ -569,6 +631,44 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                         params.function
                     ))),
                 }
+            }
+        })
+        .build();
+
+    // -- suggest_function
+    let e = engine.clone();
+    let suggest_function = ToolBuilder::new("suggest_function")
+        .description(
+            "Suggest JMESPath functions for a task described in natural language. \
+            Accepts a plain-English description of what you want to accomplish \
+            (e.g., 'remove duplicate values from an array', 'convert to uppercase', \
+            'find the maximum value') and returns ranked function suggestions with \
+            relevance explanations.",
+        )
+        .read_only()
+        .handler(move |params: SuggestFunctionParams| {
+            let engine = e.clone();
+            async move {
+                let query = clean_task_description(&params.task);
+                if query.is_empty() {
+                    return Ok(error_result(
+                        "Please describe what you want to do (e.g., 'remove duplicates from an array').",
+                    ));
+                }
+
+                let results = engine.search_functions(&query, params.limit);
+                let suggestions: Vec<Suggestion> = results
+                    .into_iter()
+                    .map(|r| Suggestion {
+                        name: r.function.name,
+                        signature: r.function.signature,
+                        description: r.function.description,
+                        example: r.function.example,
+                        relevance: relevance_note(&r.match_type),
+                    })
+                    .collect();
+
+                json_result(&suggestions)
             }
         })
         .build();
@@ -940,6 +1040,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .tool(evaluate_file)
         .tool(search)
         .tool(similar)
+        .tool(suggest_function)
         .tool(stats)
         .tool(paths)
         .tool(register_tools)
