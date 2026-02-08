@@ -2010,7 +2010,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // fold alias not registered: missing standalone entry in functions.toml
     fn test_fold_alias() {
         let runtime = setup_runtime();
         let data = json!([1, 2, 3]);

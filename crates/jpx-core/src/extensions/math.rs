@@ -1620,7 +1620,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // histogram not yet in functions.toml
     fn test_histogram() {
         let runtime = setup_runtime();
         let expr = runtime.compile("histogram(@, `3`)").unwrap();
@@ -1638,7 +1637,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // normalize not yet in functions.toml
     fn test_normalize() {
         let runtime = setup_runtime();
         let expr = runtime.compile("normalize(@)").unwrap();
@@ -1652,7 +1650,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // z_score not yet in functions.toml
     fn test_z_score() {
         let runtime = setup_runtime();
         let expr = runtime.compile("z_score(@)").unwrap();
@@ -1665,7 +1662,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // correlation not yet in functions.toml
     fn test_correlation_positive() {
         let runtime = setup_runtime();
         let expr = runtime
@@ -1676,7 +1672,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // correlation not yet in functions.toml
     fn test_correlation_negative() {
         let runtime = setup_runtime();
         let expr = runtime

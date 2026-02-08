@@ -642,13 +642,7 @@ mod tests {
         assert_eq!(first.get("end").unwrap().as_f64().unwrap() as i64, 9);
     }
 
-    // mm_tokenize tests
-    // NOTE: mm_tokenize is registered under that name in code but functions.toml
-    // has it as "tokenize" (multimatch category), so register_if_enabled does not
-    // enable it. These tests are ignored until the naming mismatch is resolved.
-
     #[test]
-    #[ignore = "mm_tokenize not in functions.toml (listed as tokenize)"]
     fn test_mm_tokenize_basic() {
         let runtime = setup_runtime();
         let data = json!("Hello, world! This is a test.");
@@ -660,7 +654,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "mm_tokenize not in functions.toml (listed as tokenize)"]
     fn test_mm_tokenize_with_options() {
         let runtime = setup_runtime();
         let data = json!("Hello, world! A test.");
