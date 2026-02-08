@@ -452,6 +452,70 @@ pub fn has_let_nodes(node: &Ast) -> bool {
     }
 }
 
+/// Collect all function names referenced in the AST.
+///
+/// Walks the entire AST and returns a deduplicated, sorted list of
+/// every function name that appears in a `Function` node. Useful for
+/// checking whether an expression uses extension functions.
+pub fn collect_function_names(node: &Ast) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_functions_recursive(node, &mut names);
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn collect_functions_recursive(node: &Ast, names: &mut Vec<String>) {
+    match node {
+        Ast::Identity { .. }
+        | Ast::Field { .. }
+        | Ast::Index { .. }
+        | Ast::Slice { .. }
+        | Ast::Literal { .. }
+        | Ast::VariableRef { .. } => {}
+        Ast::Subexpr { lhs, rhs, .. }
+        | Ast::Projection { lhs, rhs, .. }
+        | Ast::And { lhs, rhs, .. }
+        | Ast::Or { lhs, rhs, .. }
+        | Ast::Comparison { lhs, rhs, .. } => {
+            collect_functions_recursive(lhs, names);
+            collect_functions_recursive(rhs, names);
+        }
+        Ast::Condition {
+            predicate, then, ..
+        } => {
+            collect_functions_recursive(predicate, names);
+            collect_functions_recursive(then, names);
+        }
+        Ast::Not { node, .. } | Ast::Flatten { node, .. } | Ast::ObjectValues { node, .. } => {
+            collect_functions_recursive(node, names);
+        }
+        Ast::Function { name, args, .. } => {
+            names.push(name.clone());
+            for arg in args {
+                collect_functions_recursive(arg, names);
+            }
+        }
+        Ast::MultiList { elements, .. } => {
+            for e in elements {
+                collect_functions_recursive(e, names);
+            }
+        }
+        Ast::MultiHash { elements, .. } => {
+            for kvp in elements {
+                collect_functions_recursive(&kvp.value, names);
+            }
+        }
+        Ast::Expref { ast, .. } => collect_functions_recursive(ast, names),
+        Ast::Let { bindings, expr, .. } => {
+            for (_, ast) in bindings {
+                collect_functions_recursive(ast, names);
+            }
+            collect_functions_recursive(expr, names);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -703,5 +767,27 @@ mod tests {
         let result = engine().explain("`42`").unwrap();
         assert_eq!(result.steps[0].node_type, "literal");
         assert!(result.steps[0].description.contains("42"));
+    }
+
+    // --- collect_function_names tests ---
+
+    #[test]
+    fn test_collect_function_names_empty() {
+        let ast = jpx_core::parse("foo.bar").unwrap();
+        assert!(collect_function_names(&ast).is_empty());
+    }
+
+    #[test]
+    fn test_collect_function_names_standard() {
+        let ast = jpx_core::parse("length(sort(@))").unwrap();
+        let names = collect_function_names(&ast);
+        assert_eq!(names, vec!["length", "sort"]);
+    }
+
+    #[test]
+    fn test_collect_function_names_nested() {
+        let ast = jpx_core::parse("users[?contains(name, 'a')] | sort_by(@, &age) | [0]").unwrap();
+        let names = collect_function_names(&ast);
+        assert_eq!(names, vec!["contains", "sort_by"]);
     }
 }
