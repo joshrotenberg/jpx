@@ -6,7 +6,9 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "JMESPath MCP server for AI assistants"
+documentation = "https://docs.rs/jpx-mcp"
 keywords = ["jmespath", "json", "mcp", "server", "ai"]
 categories = ["network-programming", "development-tools"]
 

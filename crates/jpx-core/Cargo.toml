@@ -6,7 +6,9 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "Complete JMESPath implementation with 400+ extension functions"
+documentation = "https://docs.rs/jpx-core"
 keywords = ["jmespath", "json", "query", "parser"]
 categories = ["data-structures", "parsing"]
 
