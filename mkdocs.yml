@@ -129,6 +129,7 @@ nav:
     - Utility: functions/utility.md
   - Guides:
     - Overview: guides/index.md
+    - Let Expressions: guides/let-expressions.md
     - Standard JMESPath Only: guides/standard-jmespath.md
     - NLP Text Processing: guides/nlp-text-processing.md
     - Hacker News: guides/hacker-news.md

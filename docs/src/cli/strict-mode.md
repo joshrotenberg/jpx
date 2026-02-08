@@ -1,6 +1,6 @@
 # Strict Mode
 
-Strict mode disables all extension functions, limiting jpx to only the 26 standard JMESPath functions. This is useful for writing portable queries that work with any JMESPath implementation.
+Strict mode disables all extension functions and [let expressions](../guides/let-expressions.md), limiting jpx to only the 26 standard JMESPath functions. This is useful for writing portable queries that work with any JMESPath implementation.
 
 ## Enabling Strict Mode
 
