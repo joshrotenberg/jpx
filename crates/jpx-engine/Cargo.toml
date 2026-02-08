@@ -2,6 +2,7 @@
 name = "jpx-engine"
 version = "0.2.0"
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
