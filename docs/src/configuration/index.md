@@ -2,6 +2,8 @@
 
 jpx supports layered configuration through `jpx.toml` files, allowing you to customize engine behavior, filter functions, and define reusable queries.
 
+A fully commented sample config is available at [`jpx.sample.toml`](https://github.com/joshrotenberg/jpx/blob/main/jpx.sample.toml) in the repository root.
+
 ## Discovery Order
 
 Configuration is loaded from multiple sources, with later sources overriding earlier ones:
@@ -56,6 +58,10 @@ Controls which extension functions are available. Supports two mutually exclusiv
 
 !!! note
     `enabled_categories` and `disabled_categories` are mutually exclusive. Setting `enabled_categories` clears the disabled list.
+
+Available category names (case-insensitive):
+
+`String`, `Array`, `Object`, `Math`, `Type`, `Utility`, `Validation`, `Path`, `Expression`, `Text`, `Hash`, `Encoding`, `Regex`, `Url`, `Uuid`, `Rand`, `Datetime`, `Fuzzy`, `Phonetic`, `Geo`, `Semver`, `Network`, `Ids`, `Duration`, `Color`, `Computing`, `MultiMatch`, `Jsonpatch`, `Format`, `Language`, `Discovery`
 
 ### `[queries]`
 

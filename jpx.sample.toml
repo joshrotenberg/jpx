@@ -1,0 +1,86 @@
+# jpx configuration file
+#
+# Copy this file to one of these locations:
+#   ~/.config/jpx/jpx.toml   (global)
+#   ./jpx.toml                (project-local, discovered by walking up from CWD)
+#
+# Or point to it with: JPX_CONFIG=/path/to/jpx.toml
+#
+# Configuration is layered (later sources override earlier):
+#   1. Defaults (all functions enabled, strict mode off)
+#   2. Global   (~/.config/jpx/jpx.toml)
+#   3. Project  (jpx.toml found walking up from CWD)
+#   4. $JPX_CONFIG
+#   5. CLI flags (highest priority)
+
+# ---------------------------------------------------------------------------
+# Engine settings
+# ---------------------------------------------------------------------------
+[engine]
+
+# Restrict to standard JMESPath only (26 built-in functions, no extensions).
+# Useful for writing portable queries compatible with other JMESPath tools.
+# Default: false
+strict = false
+
+# ---------------------------------------------------------------------------
+# Function filtering
+# ---------------------------------------------------------------------------
+[functions]
+
+# Two mutually exclusive approaches:
+#
+# 1. BLOCKLIST (default) -- everything enabled, selectively disable:
+#    disabled_categories = ["Geo", "Phonetic"]
+#    disabled_functions  = ["env"]
+#
+# 2. ALLOWLIST -- only specified categories enabled:
+#    enabled_categories = ["String", "Math", "Array"]
+#
+# Setting enabled_categories clears any disabled_categories.
+
+# Disable entire categories of extension functions.
+# Default: [] (none disabled)
+#
+# Available categories:
+#   String, Array, Object, Math, Type, Utility, Validation, Path,
+#   Expression, Text, Hash, Encoding, Regex, Url, Uuid, Rand,
+#   Datetime, Fuzzy, Phonetic, Geo, Semver, Network, Ids, Duration,
+#   Color, Computing, MultiMatch, Jsonpatch, Format, Language, Discovery
+disabled_categories = []
+
+# Disable individual functions by name.
+# Default: [] (none disabled)
+disabled_functions = []
+
+# Allowlist mode: if set, ONLY these categories are enabled.
+# Standard functions (length, sort, etc.) are always available regardless.
+# Uncomment to use:
+# enabled_categories = ["String", "Math", "Array", "Object"]
+
+# ---------------------------------------------------------------------------
+# Query store
+# ---------------------------------------------------------------------------
+[queries]
+
+# Paths to .jpx query library files to load at startup.
+# Tilde (~) is expanded to the home directory.
+# Missing files are silently skipped.
+# Default: []
+libraries = []
+# Example:
+# libraries = [
+#   "~/.config/jpx/common.jpx",
+#   "./project-queries.jpx",
+# ]
+
+# Inline named queries, available immediately via `jpx @query-name` or
+# the MCP run_query tool.
+[queries.inline]
+# Format: name = { expression = "...", description = "..." }
+# Description is optional.
+#
+# Examples:
+# active-users = { expression = "users[?active].name | sort(@)", description = "Active user names, sorted" }
+# item-count   = { expression = "length(items)", description = "Count items in the array" }
+# flat-keys    = { expression = "flatten_keys(@) | keys(@) | sort(@)", description = "All leaf paths, sorted" }
