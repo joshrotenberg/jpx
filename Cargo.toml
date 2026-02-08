@@ -5,6 +5,7 @@ default-members = ["crates/jpx"]
 
 [workspace.package]
 edition = "2024"
+rust-version = "1.90"
 authors = ["Josh Rotenberg <joshrotenberg@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/joshrotenberg/jpx"
