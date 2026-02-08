@@ -136,6 +136,8 @@ nav:
     - Nobel Prize API: guides/nobel-prize.md
     - NASA Near Earth Objects: guides/nasa-neo.md
     - Project Management: guides/project-management.md
+  - Presentations:
+    - "jpx in 5 Minutes": presentations/jpx-in-5-minutes.html
   - Libraries:
     - Rust (docs.rs): https://docs.rs/jmespath_extensions
     - Python (PyPI): https://pypi.org/project/jmespath-extensions/

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jpx in 5 Minutes</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <style>
+    .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+    .reveal pre { font-size: 0.55em; width: 95%; }
+    .reveal code { font-family: "JetBrains Mono", "Fira Code", monospace; }
+    .reveal .small { font-size: 0.7em; }
+    .reveal .dim { color: #888; }
+    .reveal ul { text-align: left; }
+    .reveal .two-col { display: flex; gap: 2em; }
+    .reveal .two-col > div { flex: 1; }
+    .accent { color: #bb86fc; }
+    .green { color: #03dac6; }
+  </style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- Slide 1: Title -->
+<section>
+  <h1><span class="accent">jpx</span></h1>
+  <h3>A JMESPath CLI with 400+ functions</h3>
+  <p class="dim">Josh Rotenberg &middot; 5 min lightning talk</p>
+  <aside class="notes">
+    Quick show of hands: who uses jq? Who finds jq syntax hard to remember?
+    jpx is a JMESPath-based alternative with 400+ built-in functions.
+    JMESPath is an RFC-spec query language for JSON -- used in AWS CLI, Ansible, etc.
+  </aside>
+</section>
+
+<!-- Slide 2: The problem -->
+<section>
+  <h2>JSON is everywhere.<br><span class="dim">Querying it shouldn't be painful.</span></h2>
+  <div class="two-col">
+    <div>
+      <h3 class="dim">jq</h3>
+      <pre><code class="language-bash">jq '[.[] | select(.status == "active")]
+    | group_by(.region)
+    | map({key: .[0].region,
+           value: length})
+    | from_entries'</code></pre>
+    </div>
+    <div>
+      <h3 class="accent">jpx</h3>
+      <pre><code class="language-bash">jpx '[?status==`active`]
+     | group_by(@, &region)
+     | map(&length(@), @)'</code></pre>
+    </div>
+  </div>
+  <aside class="notes">
+    JMESPath reads like English: "where status equals active, group by region, map length."
+    jq requires learning a custom functional language. JMESPath is spec-based and predictable.
+    Both are powerful -- jpx is just easier to pick up and remember.
+  </aside>
+</section>
+
+<!-- Slide 3: Live examples -->
+<section>
+  <h2>What can you do?</h2>
+  <pre><code class="language-bash"># Filter and transform
+echo '[{"name":"Alice","score":95},{"name":"Bob","score":42}]' \
+  | jpx '[?score > `90`].name'
+# ["Alice"]
+
+# 400+ functions across 31 categories
+echo '"hello world"' | jpx 'upper(@)'
+# "HELLO WORLD"
+
+# Pipeline chaining
+curl -s https://api.example.com/data.json \
+  | jpx 'items[?price > `100`] | sort_by(@, &price) | [:5]'
+
+# Redis JSON? Same idea.
+redis-cli JSON.GET mykey $ | jpx '[0].users[?active].email'</code></pre>
+  <aside class="notes">
+    The syntax is declarative -- you describe WHAT you want, not HOW to get it.
+    Pipe chaining works like Unix pipes but inside the expression.
+    Works great with Redis JSON -- just pipe the output.
+    31 function categories: string, math, date, geo, regex, NLP, encoding, validation...
+  </aside>
+</section>
+
+<!-- Slide 4: The ecosystem -->
+<section>
+  <h2>The <span class="accent">jpx</span> ecosystem</h2>
+  <table style="font-size: 0.7em;">
+    <tr><td class="accent">jpx-core</td><td>Self-contained JMESPath implementation</td></tr>
+    <tr><td class="accent">jpx-engine</td><td>Query engine with introspection and discovery</td></tr>
+    <tr><td class="accent">jpx</td><td>CLI with REPL, streaming, multiple output formats</td></tr>
+    <tr><td class="accent">jpx-mcp</td><td>MCP server -- plug into Claude, Cursor, etc.</td></tr>
+    <tr><td class="accent">jpx (PyPI)</td><td>Python bindings via PyO3</td></tr>
+  </table>
+  <br>
+  <p class="small">
+    <span class="green">MCP server</span>: AI assistants can search 400+ functions,
+    evaluate queries, diff JSON, and manage query libraries -- all through tool calls.
+  </p>
+  <aside class="notes">
+    jpx-core is a from-scratch JMESPath implementation -- no upstream dependency.
+    jpx-engine wraps it with introspection, BM25 search, query store.
+    The MCP server exposes 29 tools to AI assistants -- function discovery, evaluation, JSON utilities.
+    Python bindings let you use the same engine from Python scripts.
+    Everything is open source, MIT/Apache-2.0 dual licensed.
+  </aside>
+</section>
+
+<!-- Slide 5: Get started -->
+<section>
+  <h2>Get started</h2>
+  <pre><code class="language-bash"># Install
+brew install joshrotenberg/tap/jpx
+
+# Explore functions
+jpx --search "hash"
+jpx --describe md5
+
+# Interactive REPL
+jpx --repl
+
+# Query files for reusable expressions
+jpx -Q queries.jpx:my-query data.json</code></pre>
+  <br>
+  <p>
+    <span class="accent">github.com/joshrotenberg/jpx</span><br>
+    <span class="dim small">Docs: joshrotenberg.github.io/jpx</span>
+  </p>
+  <aside class="notes">
+    Homebrew on Mac, shell installer or cargo install on Linux.
+    The --search flag does BM25 full-text search across all 400+ functions.
+    REPL has tab completion and history.
+    Query files (.jpx) let you build reusable query libraries.
+    Check it out, file issues, PRs welcome.
+  </aside>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: true,
+    plugins: [RevealHighlight, RevealNotes]
+  });
+</script>
+</body>
+</html>
