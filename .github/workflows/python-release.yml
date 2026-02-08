@@ -1,0 +1,106 @@
+name: Python Release
+
+on:
+  push:
+    tags:
+      - "py-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.0)"
+        required: true
+
+env:
+  PACKAGE_NAME: jpx
+
+jobs:
+  build-sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build sdist
+        working-directory: python
+        run: maturin sdist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: python/target/wheels/*.tar.gz
+
+  build-wheels:
+    name: Build wheels (${{ matrix.os }} ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - os: ubuntu-latest
+            target: x86_64
+            manylinux: auto
+          # Linux aarch64
+          - os: ubuntu-latest
+            target: aarch64
+            manylinux: auto
+          # macOS x86_64 (Intel)
+          - os: macos-15
+            target: x86_64
+            manylinux: auto
+          # macOS arm64
+          - os: macos-latest
+            target: aarch64
+            manylinux: auto
+          # Windows x86_64
+          - os: windows-latest
+            target: x86_64
+            manylinux: auto
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up QEMU
+        if: matrix.target == 'aarch64' && runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist -i python3.12
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: python/dist/*.whl
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build-sdist, build-wheels]
+    environment:
+      name: pypi
+      url: https://pypi.org/project/jpx/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List artifacts
+        run: ls -la dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

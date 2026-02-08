@@ -27,3 +27,9 @@ name = "jpx-mcp"
 publish = true
 git_release_enable = true
 git_tag_name = "jpx-mcp-v{{ version }}"
+
+# Python bindings (not published to crates.io)
+[[package]]
+name = "jpx-python"
+publish = false
+release = false

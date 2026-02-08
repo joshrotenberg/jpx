@@ -19,3 +19,10 @@ CLAUDE.md
 # Documentation build outputs
 /site/
 /docs/build/
+
+# Python bindings
+python/.venv/
+python/**/__pycache__/
+python/**/*.so
+python/**/*.pyd
+.pytest_cache/
