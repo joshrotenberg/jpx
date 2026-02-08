@@ -142,3 +142,68 @@ impl Function for UrlParseFn {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_url_encode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_encode(@)").unwrap();
+        let data = json!("hello world");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello%20world");
+    }
+
+    #[test]
+    fn test_url_decode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_decode(@)").unwrap();
+        let data = json!("hello%20world");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_url_parse() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_parse(@)").unwrap();
+        let data = json!("https://example.com:8080/path?query=1#frag");
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("scheme").unwrap().as_str().unwrap(), "https");
+        assert_eq!(obj.get("host").unwrap().as_str().unwrap(), "example.com");
+        assert_eq!(obj.get("port").unwrap().as_f64().unwrap() as u16, 8080);
+    }
+
+    #[test]
+    fn test_url_parse_origin() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_parse(@)").unwrap();
+        let data = json!("https://example.com:8080/path");
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(
+            obj.get("origin").unwrap().as_str().unwrap(),
+            "https://example.com:8080"
+        );
+    }
+
+    #[test]
+    fn test_url_parse_invalid_returns_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_parse(@)").unwrap();
+        let data = json!("not a valid url");
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+}

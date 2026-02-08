@@ -299,3 +299,89 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(BitShiftRightFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_parse_bytes() {
+        use super::{BINARY_UNITS, DECIMAL_UNITS, format_bytes_with_units, parse_bytes_str};
+
+        assert_eq!(parse_bytes_str("100"), Some(100.0));
+        assert_eq!(parse_bytes_str("100 B"), Some(100.0));
+        assert_eq!(parse_bytes_str("1 KB"), Some(1000.0));
+        assert_eq!(parse_bytes_str("1.5 KB"), Some(1500.0));
+        assert_eq!(parse_bytes_str("1 MB"), Some(1_000_000.0));
+        assert_eq!(parse_bytes_str("1.5 GB"), Some(1_500_000_000.0));
+        assert_eq!(parse_bytes_str("1 TB"), Some(1_000_000_000_000.0));
+        assert_eq!(parse_bytes_str("1 KiB"), Some(1024.0));
+        assert_eq!(parse_bytes_str("1 MiB"), Some(1_048_576.0));
+        assert_eq!(parse_bytes_str("1 GiB"), Some(1_073_741_824.0));
+        assert_eq!(parse_bytes_str("1 gb"), Some(1_000_000_000.0));
+        assert_eq!(parse_bytes_str(""), None);
+        assert_eq!(parse_bytes_str("invalid"), None);
+
+        // Also verify format_bytes_with_units helper
+        assert_eq!(format_bytes_with_units(0.0, DECIMAL_UNITS), "0 B");
+        assert_eq!(format_bytes_with_units(500.0, DECIMAL_UNITS), "500 B");
+        assert_eq!(format_bytes_with_units(1000.0, DECIMAL_UNITS), "1 KB");
+        assert_eq!(format_bytes_with_units(1500.0, DECIMAL_UNITS), "1.5 KB");
+        assert_eq!(
+            format_bytes_with_units(1_500_000_000.0, DECIMAL_UNITS),
+            "1.5 GB"
+        );
+        assert_eq!(format_bytes_with_units(1024.0, BINARY_UNITS), "1 KiB");
+        assert_eq!(format_bytes_with_units(1536.0, BINARY_UNITS), "1.5 KiB");
+        assert_eq!(
+            format_bytes_with_units(1_073_741_824.0, BINARY_UNITS),
+            "1 GiB"
+        );
+    }
+
+    #[test]
+    fn test_format_bytes_via_runtime() {
+        let runtime = setup_runtime();
+
+        let expr = runtime.compile("format_bytes(`1500`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1.5 KB");
+
+        let expr = runtime.compile("format_bytes_binary(`1024`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 KiB");
+    }
+
+    #[test]
+    fn test_bitwise_ops() {
+        let runtime = setup_runtime();
+
+        let expr = runtime.compile("bit_and(`12`, `10`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(8)); // 1100 & 1010 = 1000
+
+        let expr = runtime.compile("bit_or(`12`, `10`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(14)); // 1100 | 1010 = 1110
+
+        let expr = runtime.compile("bit_xor(`12`, `10`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(6)); // 1100 ^ 1010 = 0110
+
+        let expr = runtime.compile("bit_shift_left(`1`, `4`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(16)); // 1 << 4 = 16
+
+        let expr = runtime.compile("bit_shift_right(`16`, `2`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(4)); // 16 >> 2 = 4
+    }
+}

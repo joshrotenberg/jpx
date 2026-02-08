@@ -359,3 +359,77 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(ColorComplementFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_parse_hex_color() {
+        assert_eq!(parse_hex_color("#ff5500"), Some((255, 85, 0)));
+        assert_eq!(parse_hex_color("ff5500"), Some((255, 85, 0)));
+        assert_eq!(parse_hex_color("#f50"), Some((255, 85, 0)));
+        assert_eq!(parse_hex_color("#000000"), Some((0, 0, 0)));
+        assert_eq!(parse_hex_color("#ffffff"), Some((255, 255, 255)));
+        assert_eq!(parse_hex_color("invalid"), None);
+    }
+
+    #[test]
+    fn test_rgb_to_hsl_roundtrip() {
+        let colors = [
+            (255, 0, 0),
+            (0, 255, 0),
+            (0, 0, 255),
+            (128, 128, 128),
+            (255, 128, 64),
+        ];
+        for (r, g, b) in colors {
+            let (h, s, l) = super::rgb_to_hsl(r, g, b);
+            let (r2, g2, b2) = super::hsl_to_rgb(h, s, l);
+            assert!(
+                (r as i16 - r2 as i16).abs() <= 1,
+                "Red mismatch: {} vs {}",
+                r,
+                r2
+            );
+            assert!(
+                (g as i16 - g2 as i16).abs() <= 1,
+                "Green mismatch: {} vs {}",
+                g,
+                g2
+            );
+            assert!(
+                (b as i16 - b2 as i16).abs() <= 1,
+                "Blue mismatch: {} vs {}",
+                b,
+                b2
+            );
+        }
+    }
+
+    #[test]
+    fn test_hex_to_rgb() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_to_rgb('#ff5500')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!({"r": 255, "g": 85, "b": 0}));
+    }
+
+    #[test]
+    fn test_rgb_to_hex() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("rgb_to_hex(`255`, `85`, `0`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ff5500");
+    }
+
+    use super::parse_hex_color;
+}

@@ -156,3 +156,82 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(GeoBearingFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_geo_distance() {
+        let runtime = setup_runtime();
+        // NYC to LA: approximately 3940 km
+        let data = json!({"nyc": [40.7128, -74.0060], "la": [34.0522, -118.2437]});
+        let expr = runtime
+            .compile("geo_distance(nyc[0], nyc[1], la[0], la[1])")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let meters = result.as_f64().unwrap();
+        // Should be approximately 3940000 meters
+        assert!(meters > 3900000.0 && meters < 4000000.0);
+    }
+
+    #[test]
+    fn test_geo_distance_km() {
+        let runtime = setup_runtime();
+        let data = json!({"nyc": [40.7128, -74.0060], "la": [34.0522, -118.2437]});
+        let expr = runtime
+            .compile("geo_distance_km(nyc[0], nyc[1], la[0], la[1])")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let km = result.as_f64().unwrap();
+        // Should be approximately 3940 km
+        assert!(km > 3900.0 && km < 4000.0);
+    }
+
+    #[test]
+    fn test_geo_distance_miles() {
+        let runtime = setup_runtime();
+        let data = json!({"nyc": [40.7128, -74.0060], "la": [34.0522, -118.2437]});
+        let expr = runtime
+            .compile("geo_distance_miles(nyc[0], nyc[1], la[0], la[1])")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let miles = result.as_f64().unwrap();
+        // Should be approximately 2450 miles
+        assert!(miles > 2400.0 && miles < 2500.0);
+    }
+
+    #[test]
+    fn test_geo_bearing() {
+        let runtime = setup_runtime();
+        // NYC to LA should be roughly west (270 degrees)
+        let data = json!({"nyc": [40.7128, -74.0060], "la": [34.0522, -118.2437]});
+        let expr = runtime
+            .compile("geo_bearing(nyc[0], nyc[1], la[0], la[1])")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let bearing = result.as_f64().unwrap();
+        // Should be roughly 273 degrees (west-southwest)
+        assert!(bearing > 260.0 && bearing < 290.0);
+    }
+
+    #[test]
+    fn test_geo_distance_same_point() {
+        let runtime = setup_runtime();
+        let data = json!([40.7128, -74.0060]);
+        let expr = runtime
+            .compile("geo_distance(@[0], @[1], @[0], @[1])")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let meters = result.as_f64().unwrap();
+        assert!(meters < 1.0); // Should be essentially 0
+    }
+}

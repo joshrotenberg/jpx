@@ -361,3 +361,175 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "env", enabled, Box::new(EnvFn::new()));
     register_if_enabled(runtime, "get_env", enabled, Box::new(GetEnvFn::new()));
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_default() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("default(@, 'fallback')").unwrap();
+
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "fallback");
+
+        let result = expr.search(&json!("value")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "value");
+    }
+
+    #[test]
+    fn test_if() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("if(`true`, 'yes', 'no')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "yes");
+
+        let expr = runtime.compile("if(`false`, 'yes', 'no')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "no");
+    }
+
+    #[test]
+    fn test_json_decode_object() {
+        let runtime = setup_runtime();
+        // Test parsing a JSON object string
+        let expr = runtime.compile("json_decode(@)").unwrap();
+        let data = json!(r#"{"a":1,"b":2}"#);
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_object());
+        let obj = result.as_object().unwrap();
+        assert!(obj.contains_key("a"));
+    }
+
+    #[test]
+    fn test_json_decode_from_field() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_decode(s)").unwrap();
+        let data = json!({"s": r#"{"a":1,"b":2}"#});
+
+        let result = expr.search(&data);
+        assert!(result.is_ok());
+        let val = result.unwrap();
+        assert!(val.is_object());
+    }
+
+    #[test]
+    fn test_json_decode_invalid_returns_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_decode(@)").unwrap();
+        let data = json!("not valid json");
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_json_encode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_encode(@)").unwrap();
+        let data = json!({"a": 1});
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), r#"{"a":1}"#);
+    }
+
+    #[test]
+    fn test_json_pointer_nested() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_pointer(@, '/foo/bar/1')").unwrap();
+        let data = json!({"foo": {"bar": [1, 2, 3]}});
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 2.0);
+    }
+
+    #[test]
+    fn test_json_pointer_root() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_pointer(@, '')").unwrap();
+        let data = json!({"a": 1});
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_object());
+    }
+
+    #[test]
+    fn test_json_pointer_missing() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_pointer(@, '/missing')").unwrap();
+        let data = json!({"a": 1});
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_json_pointer_array() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("json_pointer(@, '/0')").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_pretty_default_indent() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("pretty(@)").unwrap();
+        let data = json!({"a": 1, "b": [2, 3]});
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains('\n'));
+        assert!(s.contains("  ")); // 2-space indent
+    }
+
+    #[test]
+    fn test_pretty_custom_indent() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("pretty(@, `4`)").unwrap();
+        let data = json!({"a": 1});
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("    ")); // 4-space indent
+    }
+
+    #[test]
+    fn test_pretty_simple_value() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("pretty(@)").unwrap();
+        let data = json!("hello");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "\"hello\"");
+    }
+
+    #[test]
+    fn test_env_returns_object() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("env()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_object());
+    }
+
+    #[test]
+    fn test_get_env_existing() {
+        // PATH should exist on all systems
+        let runtime = setup_runtime();
+        let expr = runtime.compile("get_env('PATH')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_string());
+    }
+
+    #[test]
+    fn test_get_env_missing() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("get_env('THIS_ENV_VAR_SHOULD_NOT_EXIST_12345')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+}

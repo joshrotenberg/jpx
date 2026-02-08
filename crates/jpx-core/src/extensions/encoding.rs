@@ -319,3 +319,264 @@ impl Function for ShellEscapeFn {
         Ok(Value::String(escaped))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_base64_encode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64_encode(@)").unwrap();
+        let data = json!("hello");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("aGVsbG8="));
+    }
+
+    #[test]
+    fn test_base64_decode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64_decode(@)").unwrap();
+        let data = json!("aGVsbG8=");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("hello"));
+    }
+
+    #[test]
+    fn test_hex_encode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_encode(@)").unwrap();
+        let data = json!("hello");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("68656c6c6f"));
+    }
+
+    #[test]
+    fn test_hex_decode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_decode(@)").unwrap();
+        let data = json!("68656c6c6f");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("hello"));
+    }
+
+    #[test]
+    fn test_hex_decode_invalid_returns_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_decode(@)").unwrap();
+        let data = json!("invalid");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    #[test]
+    fn test_hex_decode_odd_length_returns_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_decode(@)").unwrap();
+        let data = json!("123");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    // =========================================================================
+    // JWT function tests
+    // =========================================================================
+
+    // Test JWT from jwt.io: {"sub": "1234567890", "name": "John Doe", "iat": 1516239022}
+    const TEST_JWT: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+
+    #[test]
+    fn test_jwt_decode_payload() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_decode(@)").unwrap();
+        let data = json!(TEST_JWT);
+        let result = expr.search(&data).unwrap();
+
+        // Check it's an object with expected claims
+        assert_eq!(result["sub"], json!("1234567890"));
+        assert_eq!(result["name"], json!("John Doe"));
+        assert_eq!(result["iat"], json!(1516239022));
+    }
+
+    #[test]
+    fn test_jwt_decode_extract_claim() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_decode(@).sub").unwrap();
+        let data = json!(TEST_JWT);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("1234567890"));
+    }
+
+    #[test]
+    fn test_jwt_header() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_header(@)").unwrap();
+        let data = json!(TEST_JWT);
+        let result = expr.search(&data).unwrap();
+
+        // Check header fields
+        assert_eq!(result["alg"], json!("HS256"));
+        assert_eq!(result["typ"], json!("JWT"));
+    }
+
+    #[test]
+    fn test_jwt_header_extract_alg() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_header(@).alg").unwrap();
+        let data = json!(TEST_JWT);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("HS256"));
+    }
+
+    #[test]
+    fn test_jwt_decode_invalid_format() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_decode(@)").unwrap();
+
+        // Not a valid JWT (no dots)
+        let data = json!("not-a-jwt");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+
+        // Only two parts
+        let data = json!("part1.part2");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    #[test]
+    fn test_jwt_decode_invalid_base64() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_decode(@)").unwrap();
+
+        // Three parts but invalid base64
+        let data = json!("!!!.@@@.###");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    #[test]
+    fn test_jwt_decode_invalid_json() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("jwt_decode(@)").unwrap();
+
+        // Valid base64 but not valid JSON - "not json" encoded
+        let data = json!("eyJhbGciOiJIUzI1NiJ9.bm90IGpzb24.sig");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(null));
+    }
+
+    #[test]
+    fn test_html_escape_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("html_escape(@)").unwrap();
+        let data = json!("<div class=\"test\">Hello & goodbye</div>");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(
+            result,
+            json!("&lt;div class=&quot;test&quot;&gt;Hello &amp; goodbye&lt;/div&gt;")
+        );
+    }
+
+    #[test]
+    fn test_html_escape_quotes() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("html_escape(@)").unwrap();
+        let data = json!("It's a \"test\"");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("It&#x27;s a &quot;test&quot;"));
+    }
+
+    #[test]
+    fn test_html_escape_no_change() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("html_escape(@)").unwrap();
+        let data = json!("Hello World");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("Hello World"));
+    }
+
+    #[test]
+    fn test_html_unescape_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("html_unescape(@)").unwrap();
+        let data = json!("&lt;div class=&quot;test&quot;&gt;Hello &amp; goodbye&lt;/div&gt;");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("<div class=\"test\">Hello & goodbye</div>"));
+    }
+
+    #[test]
+    fn test_html_unescape_quotes() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("html_unescape(@)").unwrap();
+        let data = json!("It&#x27;s a &quot;test&quot;");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("It's a \"test\""));
+    }
+
+    #[test]
+    fn test_html_roundtrip() {
+        let runtime = setup_runtime();
+        let escape = runtime.compile("html_escape(@)").unwrap();
+        let unescape = runtime.compile("html_unescape(@)").unwrap();
+        let original = "<script>alert('xss')</script>";
+        let data = json!(original);
+        let escaped = escape.search(&data).unwrap();
+        let roundtrip = unescape.search(&escaped).unwrap();
+        assert_eq!(roundtrip, json!(original));
+    }
+
+    #[test]
+    fn test_shell_escape_simple() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let data = json!("hello world");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("'hello world'"));
+    }
+
+    #[test]
+    fn test_shell_escape_with_single_quote() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let data = json!("it's here");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("'it'\\''s here'"));
+    }
+
+    #[test]
+    fn test_shell_escape_special_chars() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let data = json!("$HOME; rm -rf /");
+        let result = expr.search(&data).unwrap();
+        // Should be safely quoted
+        assert_eq!(result, json!("'$HOME; rm -rf /'"));
+    }
+
+    #[test]
+    fn test_shell_escape_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let data = json!("");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("''"));
+    }
+
+    #[test]
+    fn test_shell_escape_multiple_quotes() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let data = json!("don't say 'hello'");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("'don'\\''t say '\\''hello'\\'''"));
+    }
+}

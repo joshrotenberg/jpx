@@ -1471,3 +1471,377 @@ impl Function for CumulativeSumFn {
         Ok(Value::Array(cumsum))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)]
+    fn test_round() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("round(`3.14159`, `2`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!((result.as_f64().unwrap() - 3.14_f64).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_sqrt() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sqrt(`16`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 4);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("clamp(`5`, `0`, `3`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_add() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("add(`1`, `2`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_subtract() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("subtract(`10`, `3`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 7);
+    }
+
+    #[test]
+    fn test_multiply() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("multiply(`4`, `5`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 20);
+    }
+
+    #[test]
+    fn test_divide() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("divide(`10`, `4`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 2.5);
+    }
+
+    #[test]
+    fn test_mode_numbers() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mode(`[1, 2, 2, 3]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_mode_strings() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("mode(`[\"a\", \"b\", \"a\", \"c\"]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "a");
+    }
+
+    #[test]
+    fn test_mode_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mode(`[]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_to_fixed() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_fixed(`3.14159`, `2`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "3.14");
+    }
+
+    #[test]
+    fn test_to_fixed_padding() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_fixed(`3.1`, `3`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "3.100");
+    }
+
+    #[test]
+    fn test_format_number_with_separators() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("format_number(`1234567.89`, `2`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1,234,567.89");
+    }
+
+    #[test]
+    fn test_format_number_with_k_suffix() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("format_number(`1500`, `1`, 'k')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1.5k");
+    }
+
+    #[test]
+    fn test_format_number_with_m_suffix() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("format_number(`1500000`, `1`, 'M')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1.5M");
+    }
+
+    #[test]
+    fn test_format_number_auto_suffix() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("format_number(`1500000000`, `2`, 'auto')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1.50B");
+    }
+
+    #[test]
+    #[ignore] // histogram not yet in functions.toml
+    fn test_histogram() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("histogram(@, `3`)").unwrap();
+        let data = json!([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // Each bin should have 3 values
+        for bin in arr {
+            let obj = bin.as_object().unwrap();
+            assert!(obj.contains_key("min"));
+            assert!(obj.contains_key("max"));
+            assert!(obj.contains_key("count"));
+        }
+    }
+
+    #[test]
+    #[ignore] // normalize not yet in functions.toml
+    fn test_normalize() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("normalize(@)").unwrap();
+        let data = json!([0, 50, 100]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert!((arr[0].as_f64().unwrap() - 0.0).abs() < 0.001);
+        assert!((arr[1].as_f64().unwrap() - 0.5).abs() < 0.001);
+        assert!((arr[2].as_f64().unwrap() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    #[ignore] // z_score not yet in functions.toml
+    fn test_z_score() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("z_score(@)").unwrap();
+        let data = json!([1, 2, 3, 4, 5]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        // Middle value (3) should have z-score of 0
+        assert!((arr[2].as_f64().unwrap() - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    #[ignore] // correlation not yet in functions.toml
+    fn test_correlation_positive() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("correlation(`[1, 2, 3]`, `[1, 2, 3]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!((result.as_f64().unwrap() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    #[ignore] // correlation not yet in functions.toml
+    fn test_correlation_negative() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("correlation(`[1, 2, 3]`, `[3, 2, 1]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!((result.as_f64().unwrap() - (-1.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_quantile_median() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("quantile(`[1, 2, 3, 4, 5]`, `0.5`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_quantile_quartiles() {
+        let runtime = setup_runtime();
+        // First quartile
+        let expr = runtime
+            .compile("quantile(`[1, 2, 3, 4, 5]`, `0.25`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 2.0);
+
+        // Third quartile
+        let expr = runtime
+            .compile("quantile(`[1, 2, 3, 4, 5]`, `0.75`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 4.0);
+    }
+
+    #[test]
+    fn test_moving_avg() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("moving_avg(`[1, 2, 3, 4, 5, 6]`, `3`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 6);
+        assert!(arr[0].is_null());
+        assert!(arr[1].is_null());
+        assert_eq!(arr[2].as_f64().unwrap(), 2.0); // (1+2+3)/3
+        assert_eq!(arr[3].as_f64().unwrap(), 3.0); // (2+3+4)/3
+        assert_eq!(arr[4].as_f64().unwrap(), 4.0); // (3+4+5)/3
+        assert_eq!(arr[5].as_f64().unwrap(), 5.0); // (4+5+6)/3
+    }
+
+    #[test]
+    fn test_ewma() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("ewma(`[1, 2, 3, 4, 5]`, `0.5`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        // First value is just the first value
+        assert_eq!(arr[0].as_f64().unwrap(), 1.0);
+        // Subsequent values: alpha * current + (1-alpha) * prev_ewma
+        assert_eq!(arr[1].as_f64().unwrap(), 1.5); // 0.5*2 + 0.5*1
+        assert_eq!(arr[2].as_f64().unwrap(), 2.25); // 0.5*3 + 0.5*1.5
+    }
+
+    #[test]
+    fn test_covariance() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("covariance(`[1, 2, 3]`, `[1, 2, 3]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Variance of [1,2,3] is 2/3
+        assert!((result.as_f64().unwrap() - 0.666666).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_covariance_negative() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("covariance(`[1, 2, 3]`, `[3, 2, 1]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!((result.as_f64().unwrap() - (-0.666666)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_standardize() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("standardize(`[10, 20, 30, 40, 50]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        // Mean is 30, std is ~14.14
+        // First value: (10-30)/14.14 ~ -1.41
+        assert!((arr[0].as_f64().unwrap() - (-1.414)).abs() < 0.01);
+        // Middle value should be 0
+        assert!(arr[2].as_f64().unwrap().abs() < 0.001);
+        // Last value: (50-30)/14.14 ~ 1.41
+        assert!((arr[4].as_f64().unwrap() - 1.414).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_trend_increasing() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("trend(`[1, 2, 3, 5, 8]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "increasing");
+    }
+
+    #[test]
+    fn test_trend_decreasing() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("trend(`[10, 9, 8, 7, 6]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "decreasing");
+    }
+
+    #[test]
+    fn test_trend_stable() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("trend(`[5, 5, 5, 5, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "stable");
+    }
+
+    #[test]
+    fn test_trend_slope() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("trend_slope(`[0, 1, 2, 3, 4]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Perfect linear increase with slope 1
+        assert!((result.as_f64().unwrap() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_rate_of_change() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("rate_of_change(`[100, 110, 105]`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        // 100 -> 110 = 10% increase
+        assert!((arr[0].as_f64().unwrap() - 10.0).abs() < 0.01);
+        // 110 -> 105 = -4.545% decrease
+        assert!((arr[1].as_f64().unwrap() - (-4.545)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_cumulative_sum() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("cumulative_sum(`[1, 2, 3, 4]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4);
+        assert_eq!(arr[0].as_f64().unwrap(), 1.0);
+        assert_eq!(arr[1].as_f64().unwrap(), 3.0);
+        assert_eq!(arr[2].as_f64().unwrap(), 6.0);
+        assert_eq!(arr[3].as_f64().unwrap(), 10.0);
+    }
+}

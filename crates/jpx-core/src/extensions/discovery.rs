@@ -243,3 +243,235 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(FuzzyScoreFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_fuzzy_search_exact_match() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "get_user", "description": "Get a user by ID"},
+            {"name": "create_user", "description": "Create a new user"},
+            {"name": "delete_user", "description": "Delete a user"}
+        ]);
+
+        let expr = runtime
+            .compile("fuzzy_search(@, 'name,description', 'get_user')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 1);
+        let first = arr[0].as_object().unwrap();
+        assert_eq!(first.get("match_type").unwrap().as_str().unwrap(), "exact");
+    }
+
+    #[test]
+    fn test_fuzzy_search_prefix_match() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "get_user", "description": "Get a user"},
+            {"name": "get_cluster", "description": "Get cluster info"},
+            {"name": "create_user", "description": "Create user"}
+        ]);
+
+        let expr = runtime.compile("fuzzy_search(@, 'name', 'get')").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 2);
+        for item in arr {
+            let obj = item.as_object().unwrap();
+            assert_eq!(obj.get("match_type").unwrap().as_str().unwrap(), "prefix");
+        }
+    }
+
+    #[test]
+    fn test_fuzzy_search_contains_match() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "get_user_info", "description": "Get user information"},
+            {"name": "create_user", "description": "Create a user"},
+            {"name": "list_items", "description": "List all items"}
+        ]);
+
+        let expr = runtime.compile("fuzzy_search(@, 'name', 'user')").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 2);
+    }
+
+    #[test]
+    fn test_fuzzy_search_description_match() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "foo", "description": "Manage database connections"},
+            {"name": "bar", "description": "Handle user requests"},
+            {"name": "baz", "description": "Process data"}
+        ]);
+
+        let expr = runtime
+            .compile("fuzzy_search(@, 'name,description', 'database')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 1);
+        let first = arr[0].as_object().unwrap();
+        assert_eq!(
+            first.get("matched_field").unwrap().as_str().unwrap(),
+            "description"
+        );
+    }
+
+    #[test]
+    fn test_fuzzy_search_with_weights() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "user_search", "description": "Search for items"},
+            {"name": "item_list", "description": "List all users"}
+        ]);
+
+        // With higher weight on name, "user_search" should rank higher
+        let expr = runtime
+            .compile("fuzzy_search(@, `{\"name\": 10, \"description\": 5}`, 'user')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 2);
+        let first = arr[0].as_object().unwrap();
+        let first_item = first.get("item").unwrap().as_object().unwrap();
+        assert_eq!(
+            first_item.get("name").unwrap().as_str().unwrap(),
+            "user_search"
+        );
+    }
+
+    #[test]
+    fn test_fuzzy_search_no_results() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "foo", "description": "bar"},
+            {"name": "baz", "description": "qux"}
+        ]);
+
+        let expr = runtime
+            .compile("fuzzy_search(@, 'name,description', 'nonexistent')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert!(arr.is_empty());
+    }
+
+    #[test]
+    fn test_fuzzy_search_with_tags_array() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "tool1", "tags": ["database", "sql"]},
+            {"name": "tool2", "tags": ["cache", "redis"]},
+            {"name": "tool3", "tags": ["api", "rest"]}
+        ]);
+
+        let expr = runtime
+            .compile("fuzzy_search(@, 'name,tags', 'redis')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        assert_eq!(arr.len(), 1);
+        let first = arr[0].as_object().unwrap();
+        let first_item = first.get("item").unwrap().as_object().unwrap();
+        assert_eq!(first_item.get("name").unwrap().as_str().unwrap(), "tool2");
+    }
+
+    #[test]
+    fn test_fuzzy_match_exact() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("fuzzy_match('hello', 'hello')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let obj = result.as_object().unwrap();
+
+        assert!(obj.get("matches").unwrap().as_bool().unwrap());
+        assert_eq!(obj.get("match_type").unwrap().as_str().unwrap(), "exact");
+        assert_eq!(obj.get("score").unwrap().as_f64().unwrap() as i32, 1000);
+    }
+
+    #[test]
+    fn test_fuzzy_match_prefix() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("fuzzy_match('hello_world', 'hello')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let obj = result.as_object().unwrap();
+
+        assert!(obj.get("matches").unwrap().as_bool().unwrap());
+        assert_eq!(obj.get("match_type").unwrap().as_str().unwrap(), "prefix");
+    }
+
+    #[test]
+    fn test_fuzzy_match_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("fuzzy_match('hello', 'xyz')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let obj = result.as_object().unwrap();
+
+        assert!(!obj.get("matches").unwrap().as_bool().unwrap());
+        assert_eq!(obj.get("match_type").unwrap().as_str().unwrap(), "none");
+    }
+
+    #[test]
+    fn test_fuzzy_score() {
+        let runtime = setup_runtime();
+
+        // Exact match should score highest
+        let expr = runtime.compile("fuzzy_score('hello', 'hello')").unwrap();
+        let exact = expr.search(&json!(null)).unwrap();
+
+        // Prefix should score lower
+        let expr = runtime
+            .compile("fuzzy_score('hello_world', 'hello')")
+            .unwrap();
+        let prefix = expr.search(&json!(null)).unwrap();
+
+        // Contains should score even lower
+        let expr = runtime
+            .compile("fuzzy_score('say_hello_world', 'hello')")
+            .unwrap();
+        let contains = expr.search(&json!(null)).unwrap();
+
+        assert!(exact.as_f64().unwrap() > prefix.as_f64().unwrap());
+        assert!(prefix.as_f64().unwrap() > contains.as_f64().unwrap());
+    }
+
+    #[test]
+    fn test_fuzzy_search_case_insensitive() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "GetUser", "description": "GET user data"},
+            {"name": "createuser", "description": "create USER"}
+        ]);
+
+        let expr = runtime
+            .compile("fuzzy_search(@, 'name,description', 'USER')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+
+        // Should find both (case-insensitive)
+        assert_eq!(arr.len(), 2);
+    }
+}

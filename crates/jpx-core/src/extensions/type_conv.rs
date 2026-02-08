@@ -446,3 +446,149 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     );
     register_if_enabled(runtime, "auto_parse", enabled, Box::new(AutoParseFn::new()));
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_type_of() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("type_of(@)").unwrap();
+
+        let result = expr.search(&json!("hello")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "string");
+
+        let result = expr.search(&json!(42)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "number");
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_empty(@)").unwrap();
+
+        let result = expr.search(&json!("")).unwrap();
+        assert!(result.as_bool().unwrap());
+
+        let result = expr.search(&json!("hello")).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    // =========================================================================
+    // parse_numbers tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_numbers_basic() {
+        let runtime = setup_runtime();
+        let data = json!({"count": "42", "price": "19.99", "name": "test"});
+        let expr = runtime.compile("parse_numbers(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result["count"].as_f64().unwrap() as i64, 42);
+        assert!((result["price"].as_f64().unwrap() - 19.99).abs() < 0.01);
+        assert_eq!(result["name"].as_str().unwrap(), "test");
+    }
+
+    #[test]
+    fn test_parse_numbers_nested() {
+        let runtime = setup_runtime();
+        let data = json!({"outer": {"inner": "123"}});
+        let expr = runtime.compile("parse_numbers(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result["outer"]["inner"].as_f64().unwrap() as i64, 123);
+    }
+
+    #[test]
+    fn test_parse_numbers_non_numeric() {
+        let runtime = setup_runtime();
+        let data = json!({"val": "42abc"});
+        let expr = runtime.compile("parse_numbers(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // Should remain as string since it's not a pure number
+        assert_eq!(result["val"].as_str().unwrap(), "42abc");
+    }
+
+    // =========================================================================
+    // parse_booleans tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_booleans_basic() {
+        let runtime = setup_runtime();
+        let data = json!({"active": "true", "verified": "false", "name": "test"});
+        let expr = runtime.compile("parse_booleans(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result["active"].as_bool().unwrap());
+        assert!(!result["verified"].as_bool().unwrap());
+        assert_eq!(result["name"].as_str().unwrap(), "test");
+    }
+
+    #[test]
+    fn test_parse_booleans_variants() {
+        let runtime = setup_runtime();
+        let data = json!({"a": "YES", "b": "no", "c": "ON", "d": "off", "e": "1", "f": "0"});
+        let expr = runtime.compile("parse_booleans(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result["a"].as_bool().unwrap());
+        assert!(!result["b"].as_bool().unwrap());
+        assert!(result["c"].as_bool().unwrap());
+        assert!(!result["d"].as_bool().unwrap());
+        assert!(result["e"].as_bool().unwrap());
+        assert!(!result["f"].as_bool().unwrap());
+    }
+
+    // =========================================================================
+    // parse_nulls tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_nulls_basic() {
+        let runtime = setup_runtime();
+        let data = json!({"a": "null", "b": "NULL", "c": "None", "d": "nil", "e": "hello"});
+        let expr = runtime.compile("parse_nulls(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result["a"].is_null());
+        assert!(result["b"].is_null());
+        assert!(result["c"].is_null());
+        assert!(result["d"].is_null());
+        assert_eq!(result["e"].as_str().unwrap(), "hello");
+    }
+
+    // =========================================================================
+    // auto_parse tests
+    // =========================================================================
+
+    #[test]
+    fn test_auto_parse_mixed() {
+        let runtime = setup_runtime();
+        let data = json!({"num": "42", "bool": "true", "nil": "null", "str": "hello"});
+        let expr = runtime.compile("auto_parse(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result["num"].as_f64().unwrap() as i64, 42);
+        assert!(result["bool"].as_bool().unwrap());
+        assert!(result["nil"].is_null());
+        assert_eq!(result["str"].as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_auto_parse_array() {
+        let runtime = setup_runtime();
+        let data = json!(["42", "true", "null", "hello"]);
+        let expr = runtime.compile("auto_parse(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 42);
+        assert!(arr[1].as_bool().unwrap());
+        assert!(arr[2].is_null());
+        assert_eq!(arr[3].as_str().unwrap(), "hello");
+    }
+}

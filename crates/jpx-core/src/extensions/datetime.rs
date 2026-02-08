@@ -958,3 +958,929 @@ impl Function for ParseNaturalDateFn {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use chrono::Utc;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_now() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("now()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let ts = result.as_f64().unwrap();
+        // Should be a reasonable timestamp (after 2020)
+        assert!(ts > 1577836800.0);
+    }
+
+    #[test]
+    fn test_now_millis() {
+        let runtime = setup_runtime();
+        // now_millis is registered as epoch_ms in jpx-core
+        let expr = runtime.compile("epoch_ms()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let ts = result.as_f64().unwrap();
+        // Should be a reasonable timestamp in millis (after 2020)
+        assert!(ts > 1577836800000.0);
+    }
+
+    #[test]
+    fn test_format_date() {
+        let runtime = setup_runtime();
+        // 1720000000 = 2024-07-03T10:26:40Z
+        let expr = runtime
+            .compile("format_date(`1720000000`, '%Y-%m-%d')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2024-07-03");
+    }
+
+    #[test]
+    fn test_format_date_with_time() {
+        let runtime = setup_runtime();
+        // Use a known timestamp and verify output format
+        let expr = runtime
+            .compile("format_date(`0`, '%Y-%m-%dT%H:%M:%S')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1970-01-01T00:00:00");
+    }
+
+    #[test]
+    fn test_parse_date_iso() {
+        let runtime = setup_runtime();
+        let data = json!("1970-01-01T00:00:00Z");
+        let expr = runtime.compile("parse_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_parse_date_date_only() {
+        let runtime = setup_runtime();
+        let data = json!("2024-07-03");
+        let expr = runtime.compile("parse_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // Should parse as midnight UTC
+        assert_eq!(result.as_f64().unwrap(), 1719964800.0);
+    }
+
+    #[test]
+    fn test_parse_date_with_format() {
+        let runtime = setup_runtime();
+        // Use datetime format for custom parsing
+        let data = json!("03/07/2024 00:00:00");
+        let expr = runtime
+            .compile("parse_date(@, '%d/%m/%Y %H:%M:%S')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        // Should parse as 2024-07-03 midnight UTC
+        assert_eq!(result.as_f64().unwrap(), 1719964800.0);
+    }
+
+    #[test]
+    fn test_parse_date_invalid() {
+        let runtime = setup_runtime();
+        let data = json!("not a date");
+        let expr = runtime.compile("parse_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_date_add_days() {
+        let runtime = setup_runtime();
+        // Add 7 days to 1720000000
+        let expr = runtime
+            .compile("date_add(`1720000000`, `7`, 'days')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1720604800.0);
+    }
+
+    #[test]
+    fn test_date_add_hours() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("date_add(`1720000000`, `24`, 'hours')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1720086400.0);
+    }
+
+    #[test]
+    fn test_date_add_negative() {
+        let runtime = setup_runtime();
+        // Subtract 1 day
+        let expr = runtime
+            .compile("date_add(`1720000000`, `-1`, 'day')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1719913600.0);
+    }
+
+    #[test]
+    fn test_date_diff_days() {
+        let runtime = setup_runtime();
+        // 7 days apart
+        let expr = runtime
+            .compile("date_diff(`1720604800`, `1720000000`, 'days')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 7.0);
+    }
+
+    #[test]
+    fn test_date_diff_hours() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("date_diff(`1720086400`, `1720000000`, 'hours')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 24.0);
+    }
+
+    #[test]
+    fn test_date_diff_negative() {
+        let runtime = setup_runtime();
+        // Earlier timestamp first
+        let expr = runtime
+            .compile("date_diff(`1720000000`, `1720604800`, 'days')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), -7.0);
+    }
+
+    #[test]
+    fn test_date_add_invalid_unit() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("date_add(`1720000000`, `1`, 'invalid')")
+            .unwrap();
+        let result = expr.search(&json!(null));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_timezone_convert_ny_to_london() {
+        let runtime = setup_runtime();
+        let data = json!("2024-01-15T10:00:00");
+        let expr = runtime
+            .compile("timezone_convert(@, 'America/New_York', 'Europe/London')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        // NY is UTC-5 in January, London is UTC+0, so 10:00 NY = 15:00 London
+        assert_eq!(result.as_str().unwrap(), "2024-01-15T15:00:00");
+    }
+
+    #[test]
+    fn test_timezone_convert_tokyo_to_la() {
+        let runtime = setup_runtime();
+        let data = json!("2024-07-15T09:00:00");
+        let expr = runtime
+            .compile("timezone_convert(@, 'Asia/Tokyo', 'America/Los_Angeles')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        // Tokyo is UTC+9, LA is UTC-7 in July (PDT), so 9:00 Tokyo = 17:00 previous day LA
+        assert_eq!(result.as_str().unwrap(), "2024-07-14T17:00:00");
+    }
+
+    #[test]
+    fn test_timezone_convert_invalid_tz() {
+        let runtime = setup_runtime();
+        let data = json!("2024-01-15T10:00:00");
+        let expr = runtime
+            .compile("timezone_convert(@, 'Invalid/Zone', 'Europe/London')")
+            .unwrap();
+        let result = expr.search(&data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_weekend_saturday() {
+        let runtime = setup_runtime();
+        // 2024-01-13 is a Saturday - timestamp: 1705104000
+        let expr = runtime.compile("is_weekend(`1705104000`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_weekend_sunday() {
+        let runtime = setup_runtime();
+        // 2024-01-14 is a Sunday - timestamp: 1705190400
+        let expr = runtime.compile("is_weekend(`1705190400`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_weekend_monday() {
+        let runtime = setup_runtime();
+        // 2024-01-15 is a Monday - timestamp: 1705276800
+        let expr = runtime.compile("is_weekend(`1705276800`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_weekday_monday() {
+        let runtime = setup_runtime();
+        // 2024-01-15 is a Monday - timestamp: 1705276800
+        let expr = runtime.compile("is_weekday(`1705276800`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_weekday_saturday() {
+        let runtime = setup_runtime();
+        // 2024-01-13 is a Saturday - timestamp: 1705104000
+        let expr = runtime.compile("is_weekday(`1705104000`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_business_days_between() {
+        let runtime = setup_runtime();
+        // 2024-01-01 (Mon) to 2024-01-15 (Mon) - 10 business days
+        // ts1: 1704067200 (2024-01-01)
+        // ts2: 1705276800 (2024-01-15)
+        let expr = runtime
+            .compile("business_days_between(`1704067200`, `1705276800`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 10.0);
+    }
+
+    #[test]
+    fn test_business_days_between_reversed() {
+        let runtime = setup_runtime();
+        // Same dates but reversed - should be negative
+        let expr = runtime
+            .compile("business_days_between(`1705276800`, `1704067200`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), -10.0);
+    }
+
+    #[test]
+    fn test_business_days_between_same_day() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("business_days_between(`1705276800`, `1705276800`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_quarter_q1() {
+        let runtime = setup_runtime();
+        // January 15, 2024 - timestamp: 1705276800
+        let expr = runtime.compile("quarter(`1705276800`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_quarter_q2() {
+        let runtime = setup_runtime();
+        // April 15, 2024 - timestamp: 1713139200
+        let expr = runtime.compile("quarter(`1713139200`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 2.0);
+    }
+
+    #[test]
+    fn test_quarter_q3() {
+        let runtime = setup_runtime();
+        // July 15, 2024 - timestamp: 1721001600
+        let expr = runtime.compile("quarter(`1721001600`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_quarter_q4() {
+        let runtime = setup_runtime();
+        // October 15, 2024 - timestamp: 1728950400
+        let expr = runtime.compile("quarter(`1728950400`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 4.0);
+    }
+
+    #[test]
+    fn test_relative_time_past() {
+        let runtime = setup_runtime();
+        // Use a timestamp far in the past (1 year ago)
+        let one_year_ago = Utc::now().timestamp() - 31536000;
+        let expr_str = format!("relative_time(`{}`)", one_year_ago);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_str().unwrap().contains("ago"));
+    }
+
+    #[test]
+    fn test_relative_time_future() {
+        let runtime = setup_runtime();
+        // Use a timestamp in the future (1 day from now)
+        let one_day_future = Utc::now().timestamp() + 86400;
+        let expr_str = format!("relative_time(`{}`)", one_day_future);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_str().unwrap().starts_with("in "));
+    }
+
+    // Tests for is_after
+
+    #[test]
+    fn test_is_after_with_timestamps() {
+        let runtime = setup_runtime();
+        // 1720000000 is after 1710000000
+        let expr = runtime
+            .compile("is_after(`1720000000`, `1710000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_with_timestamps_false() {
+        let runtime = setup_runtime();
+        // 1710000000 is not after 1720000000
+        let expr = runtime
+            .compile("is_after(`1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_with_date_strings() {
+        let runtime = setup_runtime();
+        let data = json!({"d1": "2024-07-15", "d2": "2024-01-01"});
+        let expr = runtime.compile("is_after(d1, d2)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_with_iso_strings() {
+        let runtime = setup_runtime();
+        let data = json!({"d1": "2024-07-15T10:30:00Z", "d2": "2024-07-15T08:00:00Z"});
+        let expr = runtime.compile("is_after(d1, d2)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_mixed_types() {
+        let runtime = setup_runtime();
+        // 1720000000 = 2024-07-03T10:26:40Z, which is after 2024-01-01
+        let data = json!({"d": "2024-01-01"});
+        let expr = runtime.compile("is_after(`1720000000`, d)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_equal_dates() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("is_after(`1720000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_after_invalid_date() {
+        let runtime = setup_runtime();
+        let data = json!({"d": "not-a-date"});
+        let expr = runtime.compile("is_after(d, `1720000000`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    // Tests for is_before
+
+    #[test]
+    fn test_is_before_with_timestamps() {
+        let runtime = setup_runtime();
+        // 1710000000 is before 1720000000
+        let expr = runtime
+            .compile("is_before(`1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_before_with_timestamps_false() {
+        let runtime = setup_runtime();
+        // 1720000000 is not before 1710000000
+        let expr = runtime
+            .compile("is_before(`1720000000`, `1710000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_before_with_date_strings() {
+        let runtime = setup_runtime();
+        let data = json!({"d1": "2024-01-01", "d2": "2024-07-15"});
+        let expr = runtime.compile("is_before(d1, d2)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_before_equal_dates() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("is_before(`1720000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    // Tests for is_between
+
+    #[test]
+    fn test_is_between_with_timestamps_true() {
+        let runtime = setup_runtime();
+        // 1715000000 is between 1710000000 and 1720000000
+        let expr = runtime
+            .compile("is_between(`1715000000`, `1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_between_with_timestamps_false() {
+        let runtime = setup_runtime();
+        // 1700000000 is not between 1710000000 and 1720000000
+        let expr = runtime
+            .compile("is_between(`1700000000`, `1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_between_with_date_strings() {
+        let runtime = setup_runtime();
+        let data = json!({"d": "2024-06-15", "start": "2024-01-01", "end": "2024-12-31"});
+        let expr = runtime.compile("is_between(d, start, end)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_between_inclusive_start() {
+        let runtime = setup_runtime();
+        // Date equals start - should be true (inclusive)
+        let expr = runtime
+            .compile("is_between(`1710000000`, `1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_between_inclusive_end() {
+        let runtime = setup_runtime();
+        // Date equals end - should be true (inclusive)
+        let expr = runtime
+            .compile("is_between(`1720000000`, `1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_between_outside_range() {
+        let runtime = setup_runtime();
+        // Date is after end
+        let expr = runtime
+            .compile("is_between(`1730000000`, `1710000000`, `1720000000`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    // Tests for time_ago
+
+    #[test]
+    fn test_time_ago_with_timestamp() {
+        let runtime = setup_runtime();
+        // Use a timestamp 1 hour ago
+        let one_hour_ago = Utc::now().timestamp() - 3600;
+        let expr_str = format!("time_ago(`{}`)", one_hour_ago);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 hour ago");
+    }
+
+    #[test]
+    fn test_time_ago_with_date_string() {
+        let runtime = setup_runtime();
+        // Use a date far in the past (over 1 year)
+        let data = json!("2020-01-01");
+        let expr = runtime.compile("time_ago(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_str().unwrap().contains("years ago"));
+    }
+
+    #[test]
+    fn test_time_ago_plural() {
+        let runtime = setup_runtime();
+        // Use a timestamp 2 days ago
+        let two_days_ago = Utc::now().timestamp() - 172800;
+        let expr_str = format!("time_ago(`{}`)", two_days_ago);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2 days ago");
+    }
+
+    #[test]
+    fn test_time_ago_singular() {
+        let runtime = setup_runtime();
+        // Use a timestamp 1 day ago
+        let one_day_ago = Utc::now().timestamp() - 86400;
+        let expr_str = format!("time_ago(`{}`)", one_day_ago);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 day ago");
+    }
+
+    #[test]
+    fn test_time_ago_future() {
+        let runtime = setup_runtime();
+        // Future dates show "in X"
+        let one_day_future = Utc::now().timestamp() + 86400;
+        let expr_str = format!("time_ago(`{}`)", one_day_future);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_str().unwrap().starts_with("in "));
+    }
+
+    #[test]
+    fn test_time_ago_invalid_date() {
+        let runtime = setup_runtime();
+        let data = json!("not-a-date");
+        let expr = runtime.compile("time_ago(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_from_epoch() {
+        let runtime = setup_runtime();
+        // 2023-12-13T00:00:00Z
+        let expr = runtime.compile("from_epoch(`1702425600`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-12-13T00:00:00Z");
+    }
+
+    #[test]
+    fn test_from_epoch_ms() {
+        let runtime = setup_runtime();
+        // 2023-12-13T00:00:00.500Z
+        let expr = runtime.compile("from_epoch_ms(`1702425600500`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-12-13T00:00:00.500Z");
+    }
+
+    #[test]
+    fn test_to_epoch() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T00:00:00Z");
+        let expr = runtime.compile("to_epoch(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 1702425600);
+    }
+
+    #[test]
+    fn test_to_epoch_ms() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T00:00:00Z");
+        let expr = runtime.compile("to_epoch_ms(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 1702425600000);
+    }
+
+    #[test]
+    fn test_to_epoch_from_number() {
+        let runtime = setup_runtime();
+        // Pass through if already a number
+        let expr = runtime.compile("to_epoch(`1702425600`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 1702425600);
+    }
+
+    #[test]
+    fn test_duration_since() {
+        let runtime = setup_runtime();
+        // Use a timestamp 2 days ago
+        let two_days_ago = Utc::now().timestamp() - 172800;
+        let expr_str = format!("duration_since(`{}`)", two_days_ago);
+        let expr = runtime.compile(&expr_str).unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("days").unwrap().as_i64().unwrap(), 2);
+        assert!(!obj.get("is_future").unwrap().as_bool().unwrap());
+        assert!(
+            obj.get("human")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("2 days ago")
+        );
+    }
+
+    #[test]
+    fn test_start_of_day() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T15:30:45Z");
+        let expr = runtime.compile("start_of_day(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-12-13T00:00:00Z");
+    }
+
+    #[test]
+    fn test_end_of_day() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T15:30:45Z");
+        let expr = runtime.compile("end_of_day(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-12-13T23:59:59Z");
+    }
+
+    #[test]
+    fn test_start_of_week() {
+        let runtime = setup_runtime();
+        // 2023-12-13 is a Wednesday
+        let data = json!("2023-12-13T15:30:45Z");
+        let expr = runtime.compile("start_of_week(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // Monday is 2023-12-11
+        assert_eq!(result.as_str().unwrap(), "2023-12-11T00:00:00Z");
+    }
+
+    #[test]
+    fn test_start_of_month() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T15:30:45Z");
+        let expr = runtime.compile("start_of_month(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-12-01T00:00:00Z");
+    }
+
+    #[test]
+    fn test_start_of_year() {
+        let runtime = setup_runtime();
+        let data = json!("2023-12-13T15:30:45Z");
+        let expr = runtime.compile("start_of_year(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "2023-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn test_is_same_day_true() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile(r#"is_same_day(`"2023-12-13T10:00:00Z"`, `"2023-12-13T23:00:00Z"`)"#)
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_same_day_false() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile(r#"is_same_day(`"2023-12-13T10:00:00Z"`, `"2023-12-14T10:00:00Z"`)"#)
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_epoch_ms_alias() {
+        let runtime = setup_runtime();
+        // epoch_ms should work like now_millis
+        let expr = runtime.compile("epoch_ms()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let ts = result.as_f64().unwrap() as i64;
+        // Should be a reasonable current timestamp in milliseconds
+        assert!(ts > 1700000000000);
+    }
+
+    // =========================================================================
+    // parse_datetime tests (structured formats)
+    // =========================================================================
+
+    #[test]
+    fn test_parse_datetime_iso_date() {
+        let runtime = setup_runtime();
+        let data = json!("2024-01-15");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024-01-15"), "Expected 2024-01-15 in {}", s);
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_iso_datetime() {
+        let runtime = setup_runtime();
+        let data = json!("2024-01-15T10:30:00Z");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert_eq!(s, "2024-01-15T10:30:00Z");
+    }
+
+    #[test]
+    fn test_parse_datetime_iso_with_offset() {
+        let runtime = setup_runtime();
+        let data = json!("2024-01-15T10:30:00+05:00");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        // Should convert to UTC (10:30 +05:00 = 05:30 UTC)
+        assert!(s.contains("2024-01-15"), "Expected 2024-01-15 in {}", s);
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_human_month_day_year() {
+        let runtime = setup_runtime();
+        let data = json!("Jan 15, 2024");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024-01-15"), "Expected 2024-01-15 in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_human_full_month() {
+        let runtime = setup_runtime();
+        let data = json!("January 15, 2024");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024-01-15"), "Expected 2024-01-15 in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_us_format() {
+        let runtime = setup_runtime();
+        let data = json!("01/15/2024");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024"), "Expected year 2024 in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_rfc2822() {
+        let runtime = setup_runtime();
+        let data = json!("Mon, 15 Jan 2024 10:30:00 +0000");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024-01-15"), "Expected 2024-01-15 in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_unix_timestamp() {
+        let runtime = setup_runtime();
+        // 1705363200 = 2024-01-16T00:00:00Z
+        let data = json!("1705363200");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.contains("2024-01-16"), "Expected 2024-01-16 in {}", s);
+    }
+
+    #[test]
+    fn test_parse_datetime_invalid() {
+        let runtime = setup_runtime();
+        let data = json!("not a date at all xyz123");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null(), "Invalid date should return null");
+    }
+
+    #[test]
+    fn test_parse_datetime_empty() {
+        let runtime = setup_runtime();
+        let data = json!("");
+        let expr = runtime.compile("parse_datetime(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null(), "Empty string should return null");
+    }
+
+    // =========================================================================
+    // parse_natural_date tests (natural language, relative to now)
+    // =========================================================================
+
+    #[test]
+    fn test_parse_natural_date_yesterday() {
+        let runtime = setup_runtime();
+        let data = json!("yesterday");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+        assert!(
+            s.contains('T'),
+            "Expected ISO format with T separator in {}",
+            s
+        );
+    }
+
+    #[test]
+    fn test_parse_natural_date_tomorrow() {
+        let runtime = setup_runtime();
+        let data = json!("tomorrow");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_days_ago() {
+        let runtime = setup_runtime();
+        let data = json!("3 days ago");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_weeks_ago() {
+        let runtime = setup_runtime();
+        let data = json!("2 weeks ago");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_next_weekday() {
+        let runtime = setup_runtime();
+        let data = json!("next friday");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_last_weekday() {
+        let runtime = setup_runtime();
+        let data = json!("last monday");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_hours() {
+        let runtime = setup_runtime();
+        let data = json!("5 hours ago");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(s.ends_with('Z'), "Expected UTC timezone marker in {}", s);
+    }
+
+    #[test]
+    fn test_parse_natural_date_invalid() {
+        let runtime = setup_runtime();
+        let data = json!("not a natural date expression");
+        let expr = runtime.compile("parse_natural_date(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null(), "Invalid expression should return null");
+    }
+}

@@ -112,3 +112,51 @@ impl Function for RegexReplaceFn {
         Ok(Value::String(result.into_owned()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_regex_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_match(@, '^hello')").unwrap();
+
+        let data = json!("hello world");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("world hello");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_regex_extract() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_extract(@, '[0-9]+')").unwrap();
+        let data = json!("abc123def456");
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "123");
+        assert_eq!(arr[1].as_str().unwrap(), "456");
+    }
+
+    #[test]
+    fn test_regex_replace() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_replace(@, '[0-9]+', 'X')").unwrap();
+        let data = json!("abc123def456");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "abcXdefX");
+    }
+}

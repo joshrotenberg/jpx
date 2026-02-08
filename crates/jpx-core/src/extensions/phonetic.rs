@@ -263,3 +263,142 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(PhoneticMatchFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_soundex() {
+        let runtime = setup_runtime();
+        let data = json!("Robert");
+        let expr = runtime.compile("soundex(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "R163");
+    }
+
+    #[test]
+    fn test_soundex_similar_names() {
+        let runtime = setup_runtime();
+        // Robert and Rupert should have the same Soundex code
+        let data = json!("Rupert");
+        let expr = runtime.compile("soundex(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "R163");
+    }
+
+    #[test]
+    fn test_metaphone() {
+        let runtime = setup_runtime();
+        let data = json!("Smith");
+        let expr = runtime.compile("metaphone(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "SM0");
+    }
+
+    #[test]
+    fn test_double_metaphone() {
+        let runtime = setup_runtime();
+        let data = json!("Schmidt");
+        let expr = runtime.compile("double_metaphone(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        // Primary encoding
+        assert!(!arr[0].as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_nysiis() {
+        let runtime = setup_runtime();
+        let data = json!("Johnson");
+        let expr = runtime.compile("nysiis(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_match_rating_codex() {
+        let runtime = setup_runtime();
+        let data = json!("Smith");
+        let expr = runtime.compile("match_rating_codex(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_caverphone() {
+        let runtime = setup_runtime();
+        let data = json!("Thompson");
+        let expr = runtime.compile("caverphone(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_caverphone2() {
+        let runtime = setup_runtime();
+        let data = json!("Thompson");
+        let expr = runtime.compile("caverphone2(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_sounds_like_true() {
+        let runtime = setup_runtime();
+        let data = json!(["Robert", "Rupert"]);
+        let expr = runtime.compile("sounds_like(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_sounds_like_false() {
+        let runtime = setup_runtime();
+        let data = json!(["Robert", "Smith"]);
+        let expr = runtime.compile("sounds_like(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_phonetic_match_default() {
+        let runtime = setup_runtime();
+        let data = json!(["Robert", "Rupert"]);
+        let expr = runtime.compile("phonetic_match(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_phonetic_match_metaphone() {
+        let runtime = setup_runtime();
+        let data = json!(["Smith", "Smyth"]);
+        let expr = runtime
+            .compile("phonetic_match(@[0], @[1], 'metaphone')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        // Both should encode to SM0
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_phonetic_match_nysiis() {
+        let runtime = setup_runtime();
+        let data = json!(["Johnson", "Jonson"]);
+        let expr = runtime
+            .compile("phonetic_match(@[0], @[1], 'nysiis')")
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+}

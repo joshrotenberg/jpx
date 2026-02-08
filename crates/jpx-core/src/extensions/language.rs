@@ -163,3 +163,159 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(DetectLanguageInfoFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_detect_language_english() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language('This is a test of the language detection system.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "English");
+    }
+
+    #[test]
+    fn test_detect_language_spanish() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language('Esto es una prueba del sistema de deteccion de idiomas.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // whatlang returns native language names
+        assert_eq!(result.as_str().unwrap(), "Espa\u{f1}ol");
+    }
+
+    #[test]
+    fn test_detect_language_french() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language('Ceci est un test du systeme de detection de langue.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // whatlang returns native language names
+        assert_eq!(result.as_str().unwrap(), "Fran\u{e7}ais");
+    }
+
+    #[test]
+    fn test_detect_language_german() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language('Dies ist ein Test des Spracherkennungssystems.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // whatlang returns native language names
+        assert_eq!(result.as_str().unwrap(), "Deutsch");
+    }
+
+    #[test]
+    fn test_detect_language_iso_english() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language_iso('This is English text.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "eng");
+    }
+
+    #[test]
+    fn test_detect_language_iso_spanish() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language_iso('Este es un texto en espanol.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "spa");
+    }
+
+    #[test]
+    fn test_detect_script_latin() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("detect_script('Hello world')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Latin");
+    }
+
+    #[test]
+    fn test_detect_script_cyrillic() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile(
+                "detect_script('\u{41f}\u{440}\u{438}\u{432}\u{435}\u{442} \u{43c}\u{438}\u{440}')",
+            )
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Cyrillic");
+    }
+
+    #[test]
+    fn test_detect_script_arabic() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_script('\u{645}\u{631}\u{62d}\u{628}\u{627} \u{628}\u{627}\u{644}\u{639}\u{627}\u{644}\u{645}')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Arabic");
+    }
+
+    #[test]
+    fn test_detect_language_confidence() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language_confidence('This is definitely English text for testing.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let confidence = result.as_f64().unwrap();
+        assert!(confidence > 0.5);
+    }
+
+    #[test]
+    fn test_detect_language_info() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("detect_language_info('This is a test.')")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let obj = result.as_object().unwrap();
+
+        assert!(obj.contains_key("language"));
+        assert!(obj.contains_key("code"));
+        assert!(obj.contains_key("script"));
+        assert!(obj.contains_key("confidence"));
+        assert!(obj.contains_key("reliable"));
+
+        assert_eq!(obj.get("language").unwrap().as_str().unwrap(), "English");
+        assert_eq!(obj.get("code").unwrap().as_str().unwrap(), "eng");
+        assert_eq!(obj.get("script").unwrap().as_str().unwrap(), "Latin");
+    }
+
+    #[test]
+    fn test_detect_language_empty_string() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("detect_language('')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Empty string may return null or a guess
+        // Just verify it doesn't crash
+        assert!(result.is_null() || result.as_str().is_some());
+    }
+
+    #[test]
+    fn test_detect_language_short_text() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("detect_language('Hi')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Short text may have low confidence but should still work
+        assert!(result.is_null() || result.as_str().is_some());
+    }
+}

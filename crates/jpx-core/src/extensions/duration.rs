@@ -218,3 +218,103 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(DurationSecondsFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    use super::{format_duration_secs, parse_duration_str};
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_parse_duration() {
+        assert_eq!(parse_duration_str("1h"), Some(3600));
+        assert_eq!(parse_duration_str("30m"), Some(1800));
+        assert_eq!(parse_duration_str("45s"), Some(45));
+        assert_eq!(parse_duration_str("1h30m"), Some(5400));
+        assert_eq!(parse_duration_str("2h30m45s"), Some(9045));
+        assert_eq!(parse_duration_str("1d"), Some(86400));
+        assert_eq!(parse_duration_str("1w"), Some(604800));
+        assert_eq!(parse_duration_str("1w2d3h4m5s"), Some(788645));
+        assert_eq!(parse_duration_str("1 hour 30 minutes"), Some(5400));
+        assert_eq!(parse_duration_str(""), None);
+        assert_eq!(parse_duration_str("invalid"), None);
+    }
+
+    #[test]
+    fn test_format_duration() {
+        assert_eq!(format_duration_secs(0), "0s");
+        assert_eq!(format_duration_secs(45), "45s");
+        assert_eq!(format_duration_secs(60), "1m");
+        assert_eq!(format_duration_secs(3600), "1h");
+        assert_eq!(format_duration_secs(5400), "1h30m");
+        assert_eq!(format_duration_secs(86400), "1d");
+        assert_eq!(format_duration_secs(90061), "1d1h1m1s");
+        assert_eq!(format_duration_secs(788645), "1w2d3h4m5s");
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let values = [0, 45, 60, 3600, 5400, 86400, 90061, 788645];
+        for &v in &values {
+            let formatted = format_duration_secs(v);
+            let parsed = parse_duration_str(&formatted).unwrap_or(0);
+            assert_eq!(
+                parsed, v,
+                "Roundtrip failed for {}: {} -> {}",
+                v, formatted, parsed
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_duration_via_runtime() {
+        let runtime = setup_runtime();
+        let data = json!("1h30m");
+        let expr = runtime.compile("parse_duration(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 5400.0);
+    }
+
+    #[test]
+    fn test_format_duration_via_runtime() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("format_duration(`5400`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1h30m");
+    }
+
+    #[test]
+    fn test_duration_hours_via_runtime() {
+        let runtime = setup_runtime();
+        // 90061 seconds = 1d 1h 1m 1s -> hours component is 1
+        let expr = runtime.compile("duration_hours(`90061`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_duration_minutes_via_runtime() {
+        let runtime = setup_runtime();
+        // 90061 seconds = 1d 1h 1m 1s -> minutes component is 1
+        let expr = runtime.compile("duration_minutes(`90061`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_duration_seconds_via_runtime() {
+        let runtime = setup_runtime();
+        // 90061 seconds = 1d 1h 1m 1s -> seconds component is 1
+        let expr = runtime.compile("duration_seconds(`90061`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+    }
+}

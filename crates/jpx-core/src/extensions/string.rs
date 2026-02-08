@@ -1875,3 +1875,613 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(ShellEscapeFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_lower() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("lower(@)").unwrap();
+        let result = expr.search(&json!("HELLO")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_upper() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("upper(@)").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "HELLO");
+    }
+
+    #[test]
+    fn test_trim() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("trim(@)").unwrap();
+        let result = expr.search(&json!("  hello  ")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_split() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("split(@, ',')").unwrap();
+        let result = expr.search(&json!("a,b,c")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "a");
+    }
+
+    #[test]
+    fn test_camel_case() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("camel_case(@)").unwrap();
+        let result = expr.search(&json!("hello_world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "helloWorld");
+    }
+
+    #[test]
+    fn test_snake_case() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("snake_case(@)").unwrap();
+        let result = expr.search(&json!("helloWorld")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello_world");
+    }
+
+    #[test]
+    fn test_wrap_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("wrap(@, `5`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello\nworld");
+    }
+
+    #[test]
+    fn test_wrap_preserves_newlines() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("wrap(@, `100`)").unwrap();
+        let result = expr.search(&json!("hello\nworld")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello\nworld");
+    }
+
+    #[test]
+    fn test_wrap_wide_width() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("wrap(@, `100`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_ltrimstr() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("ltrimstr(@, 'hello ')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "world");
+    }
+
+    #[test]
+    fn test_ltrimstr_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("ltrimstr(@, 'foo')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_rtrimstr() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("rtrimstr(@, ' world')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_rtrimstr_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("rtrimstr(@, 'foo')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_indices() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("indices(@, 'l')").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_indices_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("indices(@, 'x')").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_indices_overlapping() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("indices(@, 'aa')").unwrap();
+        let result = expr.search(&json!("aaa")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 0);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_inside() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("inside('world', @)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_inside_not_found() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("inside('foo', @)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_sprintf_string() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('Hello, %s!', @)").unwrap();
+        let result = expr.search(&json!("World")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Hello, World!");
+    }
+
+    #[test]
+    fn test_sprintf_integer() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('%d + %d = %d', @)").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 + 2 = 3");
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)]
+    fn test_sprintf_float_precision() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('Pi is %.2f', @)").unwrap();
+        let data = json!(3.14159);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Pi is 3.14");
+    }
+
+    #[test]
+    fn test_sprintf_hex() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('Hex: %x', @)").unwrap();
+        let data = json!(255);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Hex: ff");
+    }
+
+    #[test]
+    fn test_sprintf_width() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('%10s', @)").unwrap();
+        let result = expr.search(&json!("hi")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "        hi");
+    }
+
+    #[test]
+    fn test_sprintf_escaped_percent() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("sprintf('100%% done', @)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "100% done");
+    }
+
+    // JEP-014 find_first tests
+    #[test]
+    fn test_find_first_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_first(@, 'world')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 6);
+    }
+
+    #[test]
+    fn test_find_first_not_found() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_first(@, 'xyz')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_find_first_with_start() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_first(@, 'o', `5`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 7);
+    }
+
+    #[test]
+    fn test_find_first_with_start_and_end() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_first(@, 'o', `0`, `5`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 4);
+    }
+
+    #[test]
+    fn test_find_first_with_negative_start() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_first(@, 'o', `-5`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 7);
+    }
+
+    // JEP-014 find_last tests
+    #[test]
+    fn test_find_last_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_last(@, 'o')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 7);
+    }
+
+    #[test]
+    fn test_find_last_not_found() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_last(@, 'xyz')").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_find_last_with_start_and_end() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_last(@, 'o', `0`, `6`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 4);
+    }
+
+    #[test]
+    fn test_find_last_with_negative_end() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_last(@, 'l', `0`, `-1`)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 9);
+    }
+
+    // =========================================================================
+    // mask tests
+    // Note: In jpx-core the object module's mask (with default show_last=4)
+    // takes precedence over the string module's mask.
+    // =========================================================================
+
+    #[test]
+    fn test_mask_default() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mask(@)").unwrap();
+        // Default shows last 4; "secret" (6 chars) -> mask 2, show 4
+        let result = expr.search(&json!("secret")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "**cret");
+    }
+
+    #[test]
+    fn test_mask_keep_last_4() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mask(@, `4`)").unwrap();
+        let result = expr.search(&json!("4111111111111111")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "************1111");
+    }
+
+    #[test]
+    fn test_mask_visible_exceeds_length() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mask(@, `10`)").unwrap();
+        // When show_last >= length, object mask returns all stars
+        let result = expr.search(&json!("short")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "*****");
+    }
+
+    // =========================================================================
+    // normalize_whitespace tests
+    // =========================================================================
+
+    #[test]
+    fn test_normalize_whitespace_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("normalize_whitespace(@)").unwrap();
+        let result = expr.search(&json!("hello    world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_normalize_whitespace_mixed() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("normalize_whitespace(@)").unwrap();
+        let result = expr.search(&json!("hello\t\n  world\n\nfoo")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world foo");
+    }
+
+    #[test]
+    fn test_normalize_whitespace_leading_trailing() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("normalize_whitespace(@)").unwrap();
+        let result = expr.search(&json!("  hello world  ")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    // =========================================================================
+    // is_blank tests
+    // =========================================================================
+
+    #[test]
+    fn test_is_blank_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_blank(@)").unwrap();
+        let result = expr.search(&json!("")).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_blank_whitespace() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_blank(@)").unwrap();
+        let result = expr.search(&json!("   \t\n  ")).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_is_blank_not_blank() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_blank(@)").unwrap();
+        let result = expr.search(&json!("  a  ")).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    // =========================================================================
+    // abbreviate tests
+    // =========================================================================
+
+    #[test]
+    fn test_abbreviate_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("abbreviate(@, `10`)").unwrap();
+        let result = expr.search(&json!("This is a very long string")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "This is...");
+    }
+
+    #[test]
+    fn test_abbreviate_no_truncation() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("abbreviate(@, `20`)").unwrap();
+        let result = expr.search(&json!("short")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "short");
+    }
+
+    #[test]
+    fn test_abbreviate_custom_suffix() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("abbreviate(@, `8`, `\"~\"`)").unwrap();
+        let result = expr.search(&json!("Hello World")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Hello W~");
+    }
+
+    // =========================================================================
+    // center tests
+    // =========================================================================
+
+    #[test]
+    fn test_center_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("center(@, `10`)").unwrap();
+        let result = expr.search(&json!("hi")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "    hi    ");
+    }
+
+    #[test]
+    fn test_center_custom_char() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("center(@, `10`, `\"-\"`)").unwrap();
+        let result = expr.search(&json!("hi")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "----hi----");
+    }
+
+    #[test]
+    fn test_center_already_wide() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("center(@, `3`)").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_center_odd_padding() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("center(@, `7`)").unwrap();
+        let result = expr.search(&json!("hi")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "  hi   ");
+    }
+
+    // =========================================================================
+    // reverse_string tests
+    // =========================================================================
+
+    #[test]
+    fn test_reverse_string_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("reverse_string(@)").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "olleh");
+    }
+
+    #[test]
+    fn test_reverse_string_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("reverse_string(@)").unwrap();
+        let result = expr.search(&json!("")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "");
+    }
+
+    #[test]
+    fn test_reverse_string_palindrome() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("reverse_string(@)").unwrap();
+        let result = expr.search(&json!("racecar")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "racecar");
+    }
+
+    // =========================================================================
+    // explode tests
+    // =========================================================================
+
+    #[test]
+    fn test_explode_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("explode(@)").unwrap();
+        let result = expr.search(&json!("abc")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as u32, 97); // 'a'
+        assert_eq!(arr[1].as_f64().unwrap() as u32, 98); // 'b'
+        assert_eq!(arr[2].as_f64().unwrap() as u32, 99); // 'c'
+    }
+
+    #[test]
+    fn test_explode_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("explode(@)").unwrap();
+        let result = expr.search(&json!("")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_explode_unicode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("explode(@)").unwrap();
+        let result = expr.search(&json!("A\u{263a}")).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_f64().unwrap() as u32, 65); // 'A'
+        assert_eq!(arr[1].as_f64().unwrap() as u32, 9786); // smiley
+    }
+
+    // =========================================================================
+    // implode tests
+    // =========================================================================
+
+    #[test]
+    fn test_implode_basic() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("implode(@)").unwrap();
+        let data = json!([97, 98, 99]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "abc");
+    }
+
+    #[test]
+    fn test_implode_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("implode(@)").unwrap();
+        let data: serde_json::Value = serde_json::from_str("[]").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "");
+    }
+
+    #[test]
+    fn test_implode_unicode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("implode(@)").unwrap();
+        let data = json!([65, 9786]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "A\u{263a}");
+    }
+
+    #[test]
+    fn test_explode_implode_roundtrip() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("implode(explode(@))").unwrap();
+        let result = expr.search(&json!("Hello, \u{4e16}\u{754c}!")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Hello, \u{4e16}\u{754c}!");
+    }
+
+    // =========================================================================
+    // shell_escape tests
+    // =========================================================================
+
+    #[test]
+    fn test_shell_escape_simple() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("hello")).unwrap();
+        // Simple alphanumeric doesn't need quoting
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_shell_escape_with_spaces() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("hello world")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "'hello world'");
+    }
+
+    #[test]
+    fn test_shell_escape_with_special_chars() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("$PATH; rm -rf /")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "'$PATH; rm -rf /'");
+    }
+
+    #[test]
+    fn test_shell_escape_with_single_quote() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("it's")).unwrap();
+        // Single quotes are escaped as '\''
+        assert_eq!(result.as_str().unwrap(), "'it'\\''s'");
+    }
+
+    #[test]
+    fn test_shell_escape_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "''");
+    }
+
+    #[test]
+    fn test_shell_escape_path() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("/usr/local/bin")).unwrap();
+        // Paths with only safe chars don't need quoting
+        assert_eq!(result.as_str().unwrap(), "/usr/local/bin");
+    }
+
+    #[test]
+    fn test_shell_escape_backticks() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("shell_escape(@)").unwrap();
+        let result = expr.search(&json!("`whoami`")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "'`whoami`'");
+    }
+}
