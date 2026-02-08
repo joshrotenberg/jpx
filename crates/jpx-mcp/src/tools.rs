@@ -981,7 +981,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                     "name": "jpx-mcp",
                     "version": env!("CARGO_PKG_VERSION"),
                     "strict_mode": engine.is_strict(),
-                    "let_expressions": cfg!(feature = "let-expr"),
+                    "let_expressions": cfg!(feature = "let-expr") && !engine.is_strict(),
                     "function_count": function_count,
                     "category_count": category_count,
                     "stored_queries": stored_queries,

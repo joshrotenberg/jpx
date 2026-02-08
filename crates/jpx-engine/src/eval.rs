@@ -158,10 +158,51 @@ impl JpxEngine {
     /// ```
     pub fn validate(&self, expression: &str) -> ValidationResult {
         match jpx_core::compile(expression) {
-            Ok(_) => ValidationResult {
-                valid: true,
-                error: None,
-            },
+            Ok(expr) => {
+                if self.strict {
+                    // Reject let expressions in strict mode
+                    if crate::explain::has_let_nodes(expr.as_ast()) {
+                        return ValidationResult {
+                            valid: false,
+                            error: Some(
+                                "Let expressions are not available in strict mode \
+                                 (standard JMESPath only)."
+                                    .to_string(),
+                            ),
+                        };
+                    }
+
+                    // Reject extension functions in strict mode
+                    let func_names = crate::explain::collect_function_names(expr.as_ast());
+                    let extension_fns: Vec<&String> = func_names
+                        .iter()
+                        .filter(|name| {
+                            self.registry
+                                .get_function(name)
+                                .is_some_and(|f| !f.is_standard)
+                        })
+                        .collect();
+                    if !extension_fns.is_empty() {
+                        let names = extension_fns
+                            .iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        return ValidationResult {
+                            valid: false,
+                            error: Some(format!(
+                                "Extension function(s) not available in strict mode: {names}. \
+                                 Only standard JMESPath functions are allowed."
+                            )),
+                        };
+                    }
+                }
+
+                ValidationResult {
+                    valid: true,
+                    error: None,
+                }
+            }
             Err(e) => ValidationResult {
                 valid: false,
                 error: Some(e.to_string()),
@@ -355,5 +396,43 @@ mod tests {
         let result = engine.validate("items[*].{id: id, name: name} | [?id > `5`]");
         assert!(result.valid);
         assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn test_validate_strict_rejects_let_expression() {
+        let engine = JpxEngine::strict();
+        let result = engine.validate("let $x = name in $x");
+        assert!(!result.valid);
+        let err = result.error.unwrap();
+        assert!(err.contains("strict mode"), "error was: {err}");
+        assert!(err.contains("Let expression"), "error was: {err}");
+    }
+
+    #[test]
+    fn test_validate_strict_rejects_extension_function() {
+        let engine = JpxEngine::strict();
+        let result = engine.validate("upper(name)");
+        assert!(!result.valid);
+        let err = result.error.unwrap();
+        assert!(err.contains("strict mode"), "error was: {err}");
+        assert!(err.contains("upper"), "error was: {err}");
+    }
+
+    #[test]
+    fn test_validate_strict_allows_standard_functions() {
+        let engine = JpxEngine::strict();
+        let result = engine.validate("length(sort(@))");
+        assert!(result.valid, "error: {:?}", result.error);
+    }
+
+    #[test]
+    fn test_validate_non_strict_allows_all() {
+        let engine = JpxEngine::new();
+
+        let result = engine.validate("upper(name)");
+        assert!(result.valid, "error: {:?}", result.error);
+
+        let result = engine.validate("let $x = name in $x");
+        assert!(result.valid, "error: {:?}", result.error);
     }
 }
