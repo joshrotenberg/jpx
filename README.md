@@ -6,7 +6,7 @@
 
 JMESPath CLI and tools with 400+ extended functions - a powerful jq alternative.
 
-This repository contains the tooling built on [jmespath-extensions](https://github.com/joshrotenberg/jmespath-extensions):
+This repository contains the jpx ecosystem:
 
 | Package | Description |
 |---------|-------------|
@@ -77,13 +77,13 @@ The library provides 400+ functions across these categories:
 | **Fuzzy** | `levenshtein`, `jaro_winkler`, `soundex`, `metaphone` |
 | **Expression** | `map_expr`, `filter_expr`, `sort_by_expr`, `group_by_expr` |
 
-See [jmespath-extensions](https://github.com/joshrotenberg/jmespath-extensions) for the full function reference.
+See the [documentation](https://joshrotenberg.github.io/jpx/) for the full function reference.
 
 ## Acknowledgments
 
 - **[JMESPath](https://jmespath.org/)** - The query language specification
 - **[jmespath.rs](https://crates.io/crates/jmespath)** - Rust implementation by [@mtdowling](https://github.com/mtdowling)
-- **[jmespath-extensions](https://github.com/joshrotenberg/jmespath-extensions)** - Extended function library
+- **[jpx-core](crates/jpx-core/)** - JMESPath implementation with 400+ extension functions
 
 ## License
 
