@@ -24,9 +24,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - name: Run tests (all features)
-        run: cargo test --all-features
+        run: cargo test --all-features --workspace
       - name: Run tests (no default features)
-        run: cargo test --no-default-features
+        run: cargo test --no-default-features --workspace
 
   clippy:
     name: Clippy
@@ -38,9 +38,9 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Clippy (all features)
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy --all-features --workspace -- -D warnings
       - name: Clippy (no default features)
-        run: cargo clippy --no-default-features -- -D warnings
+        run: cargo clippy --no-default-features --workspace -- -D warnings
 
   fmt:
     name: Formatting
