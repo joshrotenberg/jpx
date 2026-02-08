@@ -182,3 +182,22 @@ echo '[{"age": 30}, {"age": 20}]' | jpx 'sort_by(@, &age)'
 echo '[1, 2, 3]' | jpx 'map(&@ * `2`, @)'
 # [2, 4, 6]
 ```
+
+## Let Expressions (JEP-18)
+
+Bind intermediate results to variables with `let`:
+
+```bash
+echo '{"people": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]}' \
+  | jpx 'let $adults = people[?age > `28`] in $adults[*].name'
+# ["Alice"]
+
+echo '{"data": [3, 1, 4]}' \
+  | jpx 'let $s = sort(data), $n = length(data) in {sorted: $s, count: $n}'
+# {"sorted": [1, 3, 4], "count": 3}
+```
+
+Variables are prefixed with `$` and scoped to the `in` body. Multiple bindings are separated by commas. See the [Let Expressions guide](../guides/let-expressions.md) for full details.
+
+!!! note
+    Let expressions are disabled in [strict mode](strict-mode.md) since they are a JEP-18 extension.
