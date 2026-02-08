@@ -403,6 +403,29 @@ jpx 'features
 
 ---
 
+## Using Query Libraries
+
+Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/earthquakes.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/earthquakes.jpx) for a ready-to-use library:
+
+```bash
+# List available queries
+jpx -Q examples/earthquakes.jpx --list-queries
+
+# Run common analyses
+jpx -Q examples/earthquakes.jpx:mag-stats earthquakes.json
+jpx -Q examples/earthquakes.jpx:summary-report earthquakes.json
+
+# Sort by magnitude
+jpx -Q examples/earthquakes.jpx:sort-by-mag earthquakes.json
+
+# Output as table
+jpx -Q examples/earthquakes.jpx:coordinates -t earthquakes.json
+```
+
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
+
+---
+
 ## Try It Yourself
 
 1. **Fetch live data**: The USGS API updates in real-time

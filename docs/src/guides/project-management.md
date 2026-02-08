@@ -694,6 +694,27 @@ This guide demonstrates functions from these categories:
 
 ---
 
+## Using Query Libraries
+
+Instead of typing these queries repeatedly, save them in a `.jpx` query library. See [examples/project-management.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/project-management.jpx) for a ready-to-use library:
+
+```bash
+# List available queries
+jpx -Q examples/project-management.jpx --list-queries
+
+# Run common analyses
+jpx -Q examples/project-management.jpx:dashboard projects.json
+jpx -Q examples/project-management.jpx:stale-projects projects.json
+jpx -Q examples/project-management.jpx:status-counts projects.json
+
+# Output as table
+jpx -Q examples/project-management.jpx:full-export -t projects.json
+```
+
+See [Query Files](../cli/query-files.md) for more on creating and using query libraries.
+
+---
+
 ## Try It Yourself
 
 Save the sample dataset to a file and experiment:

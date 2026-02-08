@@ -1,0 +1,82 @@
+-- :name all-titles
+-- :desc Get all book titles
+library.books[*].title
+
+-- :name title-author
+-- :desc Get title and author for each book
+library.books[*].{title: title, author: author}
+
+-- :name available
+-- :desc Find available books
+library.books[?available == `true`].title
+
+-- :name high-rated
+-- :desc Books rated 4.3 or higher
+library.books[?rating >= `4.3`].{title: title, rating: rating}
+
+-- :name year-range
+-- :desc Books from the 1940s
+library.books[?year >= `1940` && year < `1960`].title
+
+-- :name by-author-prefix
+-- :desc Books by authors starting with J
+library.books[?starts_with(author, `J`)].{title: title, author: author}
+
+-- :name dystopian
+-- :desc Books in the dystopian genre
+library.books[?contains(genres, `dystopian`)].title
+
+-- :name sort-by-year
+-- :desc Sort by year (oldest first)
+sort_by(library.books, &year)[*].{title: title, year: year}
+
+-- :name sort-by-rating-desc
+-- :desc Sort by rating (highest first)
+reverse(sort_by(library.books, &rating))[*].{title: title, rating: rating}
+
+-- :name stats
+-- :desc Min/max statistics for year and rating
+{
+  oldest_year: min(library.books[*].year),
+  newest_year: max(library.books[*].year),
+  lowest_rating: min(library.books[*].rating),
+  highest_rating: max(library.books[*].rating)
+}
+
+-- :name top-rated
+-- :desc Find the highest rated book
+max_by(library.books, &rating).{title: title, rating: rating}
+
+-- :name oldest
+-- :desc Find the oldest book
+min_by(library.books, &year).{title: title, year: year}
+
+-- :name top-3-available
+-- :desc Top 3 available books by rating
+library.books
+  | [?available == `true`]
+  | sort_by(@, &rating)
+  | reverse(@)
+  | [:3]
+  | [*].{title: title, rating: rating}
+
+-- :name library-report
+-- :desc Comprehensive library report using standard functions only
+{
+  library_name: library.name,
+  total_books: length(library.books),
+  available_count: length(library.books[?available == `true`]),
+  checked_out_count: length(library.books[?available == `false`]),
+  average_rating: avg(library.books[*].rating),
+  rating_range: {
+    min: min(library.books[*].rating),
+    max: max(library.books[*].rating)
+  },
+  year_range: {
+    oldest: min(library.books[*].year),
+    newest: max(library.books[*].year)
+  },
+  top_rated: max_by(library.books, &rating).title,
+  authors: sort(library.books[*].author),
+  available_titles: sort(library.books[?available == `true`][*].title)
+}

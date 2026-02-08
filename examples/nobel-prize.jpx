@@ -1,0 +1,116 @@
+-- :name names
+-- :desc List all laureate names
+laureates[*].knownName.en
+
+-- :name name-year-category
+-- :desc Get name, prize year, and category
+laureates[*].{
+  name: knownName.en,
+  year: nobelPrizes[0].awardYear,
+  category: nobelPrizes[0].category.en
+}
+
+-- :name count
+-- :desc Count laureates
+length(laureates)
+
+-- :name physics
+-- :desc Find Physics laureates
+laureates[?nobelPrizes[0].category.en == `Physics`].knownName.en
+
+-- :name female
+-- :desc Find female laureates
+laureates[?gender == `female`].{
+  name: knownName.en,
+  category: nobelPrizes[0].category.en,
+  year: nobelPrizes[0].awardYear
+}
+
+-- :name living
+-- :desc Find living laureates
+laureates[?death == null].{
+  name: knownName.en,
+  born: birth.date
+}
+
+-- :name by-country
+-- :desc Find laureates born in a specific country (USA)
+laureates[?birth.place.country.en == `USA`].{
+  name: knownName.en,
+  city: birth.place.city.en
+}
+
+-- :name multiple-prizes
+-- :desc Find laureates with multiple Nobel Prizes
+laureates[?length(nobelPrizes) > `1`].{
+  name: knownName.en,
+  prizes: nobelPrizes[*].{
+    year: awardYear,
+    category: category.en
+  }
+}
+
+-- :name age-at-award
+-- :desc Calculate age at time of award
+laureates[?birth.date != null].{
+  name: knownName.en,
+  born: split(birth.date, `-`)[0],
+  awarded: nobelPrizes[0].awardYear,
+  age_at_award: subtract(
+    to_number(nobelPrizes[0].awardYear),
+    to_number(split(birth.date, `-`)[0])
+  )
+}
+
+-- :name country-frequency
+-- :desc Count laureates by birth country
+frequencies(laureates[*].birth.place.country.en)
+
+-- :name affiliations
+-- :desc Extract university affiliations
+laureates[*].{
+  name: knownName.en,
+  university: nobelPrizes[0].affiliations[0].name.en,
+  country: nobelPrizes[0].affiliations[0].country.en
+}
+
+-- :name quantum-research
+-- :desc Find laureates whose work involved quantum
+laureates[?contains(lower(to_string(nobelPrizes[*].motivation.en)), `quantum`)].{
+  name: knownName.en,
+  motivation: nobelPrizes[0].motivation.en
+}
+
+-- :name flatten-export
+-- :desc Flatten for CSV export
+laureates[*].{
+  id: id,
+  name: knownName.en,
+  gender: gender,
+  birth_date: birth.date,
+  birth_country: birth.place.country.en,
+  death_date: death.date,
+  prize_year: nobelPrizes[0].awardYear,
+  prize_category: nobelPrizes[0].category.en,
+  prize_portion: nobelPrizes[0].portion,
+  motivation: nobelPrizes[0].motivation.en
+}
+
+-- :name summary-by-category
+-- :desc Count laureates per prize category
+{
+  physics: length(laureates[?nobelPrizes[0].category.en == `Physics`]),
+  chemistry: length(laureates[?nobelPrizes[0].category.en == `Chemistry`]),
+  medicine: length(laureates[?contains(nobelPrizes[0].category.en, `Medicine`) || contains(nobelPrizes[0].category.en, `Physiology`)]),
+  literature: length(laureates[?nobelPrizes[0].category.en == `Literature`]),
+  peace: length(laureates[?nobelPrizes[0].category.en == `Peace`]),
+  economics: length(laureates[?contains(nobelPrizes[0].category.en, `Economic`)])
+}
+
+-- :name solo-winners
+-- :desc Find solo prize winners (no sharing)
+laureates[?nobelPrizes[0].portion == `1`].{
+  name: knownName.en,
+  category: nobelPrizes[0].category.en,
+  year: nobelPrizes[0].awardYear
+}

@@ -401,6 +401,17 @@ Available queries in queries.jpx:
     Count errors by service
 ```
 
+### Use query libraries
+
+Many of these cookbook patterns are available as a `.jpx` query library. See [examples/cookbook.jpx](https://github.com/joshrotenberg/jpx/blob/main/examples/cookbook.jpx):
+
+```bash
+jpx -Q examples/cookbook.jpx --list-queries
+jpx -Q examples/cookbook.jpx:filter-sort-transform data.json
+```
+
+See [Query Files](query-files.md) for more on creating and using query libraries.
+
 ### Debug complex expressions
 
 When a query isn't working, break it down:

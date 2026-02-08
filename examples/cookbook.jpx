@@ -1,0 +1,71 @@
+-- :name nested-field
+-- :desc Get a nested field
+user.profile.name
+
+-- :name pick-fields
+-- :desc Pick specific fields from an object
+{id: id, name: name}
+
+-- :name array-field
+-- :desc Get a field from every object in an array
+[*].name
+
+-- :name filter-status
+-- :desc Filter by a field condition
+[?status == `"active"`]
+
+-- :name filter-multi
+-- :desc Filter by multiple conditions
+[?age > `30` && active]
+
+-- :name filter-nested
+-- :desc Filter by nested field value
+[?user.role == `"admin"`]
+
+-- :name rename-fields
+-- :desc Rename fields in projection
+{first: firstName, last: lastName}
+
+-- :name computed-field
+-- :desc Add a computed field
+{price: price, qty: qty, total: multiply(price, qty)}
+
+-- :name snake-keys
+-- :desc Convert object keys to snake_case
+snake_keys(@)
+
+-- :name sort-objects
+-- :desc Sort objects by field
+sort_by(@, &name)
+
+-- :name unique
+-- :desc Remove duplicates from array
+unique(@)
+
+-- :name group-by
+-- :desc Group array elements by field
+group_by(@, `"dept"`)
+
+-- :name chunk
+-- :desc Split array into batches
+chunk(@, `3`)
+
+-- :name remove-nulls
+-- :desc Remove null values from object
+remove_nulls(@)
+
+-- :name remove-empty
+-- :desc Remove all empty values (null, empty string, empty array, empty object)
+remove_empty(@)
+
+-- :name pick-keys
+-- :desc Pick specific keys from object
+pick(@, [`"a"`, `"c"`])
+
+-- :name omit-keys
+-- :desc Omit specific keys from object
+omit(@, [`"b"`])
+
+-- :name filter-sort-transform
+-- :desc Extract, filter, transform, and sort pipeline
+[?dept == `"eng"`] | sort_by(@, &salary) | [*].{name: name, salary: salary}
