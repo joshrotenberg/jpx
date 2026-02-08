@@ -422,6 +422,36 @@ fn uses_filter(node: &Ast) -> bool {
     }
 }
 
+/// Returns `true` if the AST contains any `Let` or `VariableRef` nodes.
+///
+/// Used by strict mode to reject JEP-18 let expressions, which are not
+/// part of the standard JMESPath specification.
+pub fn has_let_nodes(node: &Ast) -> bool {
+    match node {
+        Ast::VariableRef { .. } | Ast::Let { .. } => true,
+        Ast::Identity { .. }
+        | Ast::Field { .. }
+        | Ast::Index { .. }
+        | Ast::Slice { .. }
+        | Ast::Literal { .. } => false,
+        Ast::Subexpr { lhs, rhs, .. }
+        | Ast::Projection { lhs, rhs, .. }
+        | Ast::And { lhs, rhs, .. }
+        | Ast::Or { lhs, rhs, .. }
+        | Ast::Comparison { lhs, rhs, .. } => has_let_nodes(lhs) || has_let_nodes(rhs),
+        Ast::Condition {
+            predicate, then, ..
+        } => has_let_nodes(predicate) || has_let_nodes(then),
+        Ast::Not { node, .. } | Ast::Flatten { node, .. } | Ast::ObjectValues { node, .. } => {
+            has_let_nodes(node)
+        }
+        Ast::Function { args, .. } => args.iter().any(has_let_nodes),
+        Ast::MultiList { elements, .. } => elements.iter().any(has_let_nodes),
+        Ast::MultiHash { elements, .. } => elements.iter().any(|kvp| has_let_nodes(&kvp.value)),
+        Ast::Expref { ast, .. } => has_let_nodes(ast),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -587,6 +617,32 @@ mod tests {
         assert_eq!(result.steps[0].children.len(), 2);
         assert_eq!(result.steps[0].children[0].node_type, "field");
         assert_eq!(result.steps[0].children[1].node_type, "field");
+    }
+
+    // --- has_let_nodes tests ---
+
+    #[test]
+    fn test_has_let_nodes_simple_field() {
+        let ast = jpx_core::parse("foo.bar").unwrap();
+        assert!(!has_let_nodes(&ast));
+    }
+
+    #[test]
+    fn test_has_let_nodes_with_let() {
+        let ast = jpx_core::parse("let $x = name in $x").unwrap();
+        assert!(has_let_nodes(&ast));
+    }
+
+    #[test]
+    fn test_has_let_nodes_nested_in_function() {
+        let ast = jpx_core::parse("length(people)").unwrap();
+        assert!(!has_let_nodes(&ast));
+    }
+
+    #[test]
+    fn test_has_let_nodes_variable_in_filter() {
+        let ast = jpx_core::parse("let $min = `30` in people[?age > $min]").unwrap();
+        assert!(has_let_nodes(&ast));
     }
 
     // --- Complexity boundary tests ---

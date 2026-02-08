@@ -49,6 +49,14 @@ impl JpxEngine {
             .compile(expression)
             .map_err(|e| EngineError::InvalidExpression(e.to_string()))?;
 
+        if self.strict && crate::explain::has_let_nodes(expr.as_ast()) {
+            return Err(EngineError::InvalidExpression(
+                "Let expressions are not available in strict mode (standard JMESPath only). \
+                 Remove --strict to use let expressions."
+                    .to_string(),
+            ));
+        }
+
         let result = expr
             .search(input)
             .map_err(|e| EngineError::evaluation_failed(e.to_string()))?;
@@ -306,6 +314,24 @@ mod tests {
             assert_eq!(r.result, Some(json!(42)));
             assert!(r.error.is_none());
         }
+    }
+
+    #[test]
+    fn test_strict_rejects_let_expression() {
+        let engine = JpxEngine::strict();
+        let result = engine.evaluate("let $x = name in $x", &json!({"name": "alice"}));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("strict mode"), "error was: {err}");
+    }
+
+    #[test]
+    fn test_non_strict_allows_let_expression() {
+        let engine = JpxEngine::new();
+        let result = engine
+            .evaluate("let $x = name in $x", &json!({"name": "alice"}))
+            .unwrap();
+        assert_eq!(result, json!("alice"));
     }
 
     #[test]
