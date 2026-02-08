@@ -48,8 +48,8 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    // Should have 29 tools (consolidated from 32)
-    assert_eq!(tools.len(), 29, "Expected 29 tools, got {}", tools.len());
+    // Should have 30 tools (29 + suggest_function)
+    assert_eq!(tools.len(), 30, "Expected 30 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -1065,4 +1065,124 @@ async fn test_search_no_results() {
     assert!(!result.is_error);
     let text = result.first_text().unwrap();
     assert!(text.contains("[]"));
+}
+
+// =============================================================================
+// suggest_function tool
+// =============================================================================
+
+#[tokio::test]
+async fn test_suggest_deduplicate() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "suggest_function",
+            json!({"task": "remove duplicate values from an array"}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("unique"), "should suggest unique: {text}");
+    assert!(text.contains("relevance"));
+}
+
+#[tokio::test]
+async fn test_suggest_sort() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "suggest_function",
+            json!({"task": "sort an array of objects by a field"}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(
+        text.contains("sort_by") || text.contains("sort"),
+        "should suggest sort: {text}"
+    );
+}
+
+#[tokio::test]
+async fn test_suggest_convert_to_uppercase() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "suggest_function",
+            json!({"task": "convert a string to uppercase"}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("upper"), "should suggest upper: {text}");
+}
+
+#[tokio::test]
+async fn test_suggest_natural_language_prefix() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "suggest_function",
+            json!({"task": "I want to find the maximum value in an array"}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(
+        text.contains("max") || text.contains("max_by"),
+        "should suggest max: {text}"
+    );
+}
+
+#[tokio::test]
+async fn test_suggest_no_match() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("suggest_function", json!({"task": "xyzzy_nonexistent_qqq"}))
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    assert!(text.contains("[]"), "should return empty list: {text}");
+}
+
+#[tokio::test]
+async fn test_suggest_empty_task() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool("suggest_function", json!({"task": ""}))
+        .await;
+
+    assert!(result.is_error);
+}
+
+#[tokio::test]
+async fn test_suggest_respects_limit() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "suggest_function",
+            json!({"task": "string manipulation", "limit": 2}),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(&text).unwrap();
+    assert!(
+        parsed.len() <= 2,
+        "should respect limit: got {}",
+        parsed.len()
+    );
 }
