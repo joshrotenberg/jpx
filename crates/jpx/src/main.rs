@@ -126,6 +126,15 @@ fn run() -> Result<()> {
         return ops::check_queries(query_path, &args.color, &runtime);
     }
 
+    // jq-style: if the last positional arg is an existing file and no -f was given, use it as input
+    if args.file.is_none() && !args.null_input && args.positional_expressions.len() > 1 {
+        let last = args.positional_expressions.last().unwrap();
+        if std::path::Path::new(last).is_file() {
+            let file_arg = args.positional_expressions.pop().unwrap();
+            args.file = Some(file_arg);
+        }
+    }
+
     // Get expressions from positional args, -e flags, or file
     let expressions: Vec<String> = if let Some(query_path) = &args.query_file {
         match query_library::load_query_expression(query_path, args.query_name.as_deref(), false)? {
