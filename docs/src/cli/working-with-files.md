@@ -19,7 +19,15 @@ curl -s https://api.example.com/data | jpx 'items[0]'
 
 ### From a File
 
-Use `-f` or `--file` to read from a file:
+Pass the file as a trailing argument (jq-style):
+
+```bash
+jpx 'users[*].name' data.json
+
+jpx 'settings.theme' config.json
+```
+
+Or use `-f` / `--file` explicitly:
 
 ```bash
 jpx -f data.json 'users[*].name'

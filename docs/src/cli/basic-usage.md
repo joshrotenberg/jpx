@@ -17,9 +17,16 @@ curl -s https://api.example.com/data | jpx 'results[0]'
 ### File Input
 
 ```bash
+# Trailing argument (jq-style)
+jpx 'users[*].name' data.json
+
+# Explicit flag
 jpx 'users[*].name' -f data.json
 jpx --file users.json 'length(@)'
 ```
+
+When the last positional argument is an existing file, jpx automatically uses it as input.
+The `-f` flag is still supported for explicitness or when the file doesn't exist yet.
 
 ### Null Input
 
@@ -106,9 +113,10 @@ Output:
 
 ## Expression as Positional Argument
 
-The expression can be the first positional argument:
+The expression can be the first positional argument, with an optional trailing file:
 
 ```bash
+jpx 'users[*].name' data.json
 jpx 'users[*].name' -f data.json
 ```
 
