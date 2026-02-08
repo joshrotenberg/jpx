@@ -4,6 +4,7 @@ resolver = "3"
 default-members = ["crates/jpx"]
 
 [workspace.package]
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.90"
 authors = ["Josh Rotenberg <joshrotenberg@gmail.com>"]
