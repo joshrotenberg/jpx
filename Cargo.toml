@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/jpx", "crates/jpx-core", "crates/jpx-engine", "crates/jpx-mcp"]
+members = ["crates/jpx", "crates/jpx-core", "crates/jpx-engine", "crates/jpx-mcp", "python"]
 resolver = "3"
 default-members = ["crates/jpx"]
 

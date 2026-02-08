@@ -77,3 +77,54 @@ jobs:
       - name: Check MSRV
         # tower-mcp 0.5 requires 1.90+
         run: cargo check --no-default-features --workspace
+
+  python-test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create venv and install dependencies
+        working-directory: python
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install maturin pytest
+      - name: Build and install
+        working-directory: python
+        run: |
+          source .venv/bin/activate
+          maturin develop
+      - name: Run tests
+        working-directory: python
+        run: |
+          source .venv/bin/activate
+          pytest tests/ -v
+
+  python-wheels:
+    name: Python Wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build wheels
+        working-directory: python
+        run: maturin build --release
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: python/target/wheels/*.whl
