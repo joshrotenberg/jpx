@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Python bindings for jpx JMESPath engine"
 publish = false
 
+[package.metadata.dist]
+dist = false
+
 [lib]
 name = "_core"
 crate-type = ["cdylib"]

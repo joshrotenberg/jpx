@@ -29,6 +29,8 @@ on:
 env:
   # Use input tag for manual dispatch, otherwise use the pushed tag
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  # Prevent pyo3 build failures if Python > 3.13 is on the runner
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
 jobs:
   # Run 'dist plan' to determine what tasks we need to do
