@@ -32,7 +32,7 @@ For projects with multiple related queries, use a `.jpx` query library file. Thi
 users[?active].{name: name, email: email}
 
 -- :name admin-emails
--- :desc Extract just the admin email addresses  
+-- :desc Extract just the admin email addresses
 users[?role == `admin`].email
 
 -- :name user-stats
@@ -43,14 +43,6 @@ users[?role == `admin`].email
   admins: length(users[?role == `admin`])
 }
 ```
-
-### File Format
-
-- `-- :name <name>` starts a new query (required)
-- `-- :desc <description>` adds a description (optional)
-- `-- ` other comment lines are ignored
-- Everything else until the next `-- :name` is the query expression
-- Multi-line expressions are supported
 
 ### Using Query Libraries
 
@@ -108,6 +100,110 @@ All queries valid.
 
 This is useful in CI pipelines to catch syntax errors before deployment.
 
+## .jpx Format Specification
+
+The `.jpx` format is inspired by [SQLDelight](https://cashapp.github.io/sqldelight/) and [HugSQL](https://www.hugsql.org/) patterns: store multiple named queries in a single file with comment-based metadata directives.
+
+### Directives
+
+| Directive | Required | Description |
+|-----------|----------|-------------|
+| `-- :name <name>` | Yes | Starts a new query. The name is used for lookup via `-Q file.jpx:name`. |
+| `-- :desc <text>` | No | Adds a description to the current query. Shown by `--list-queries`. |
+| `-- <anything>` | - | Plain comment. Ignored by the parser. |
+
+A query definition begins at its `-- :name` directive and ends at the next `-- :name` directive or end of file.
+
+### Grammar
+
+```
+library     = { query }+
+query       = name_line [ desc_line ] { comment | blank | expr_line }+
+name_line   = "-- :name " NAME
+desc_line   = "-- :desc " TEXT
+comment     = "-- " TEXT | "--"
+blank       = empty or whitespace-only line
+expr_line   = any non-blank line not starting with "-- "
+```
+
+- **NAME**: Non-empty text after `-- :name `, trimmed of leading/trailing whitespace
+- **TEXT**: Arbitrary text for the rest of the line
+- Expression lines are joined with newlines in order, then the result is trimmed
+
+### Multi-Line Expressions
+
+Expression lines are concatenated with newline separators, preserving indentation. The final expression is trimmed of leading and trailing whitespace. This lets you write readable multi-line constructions:
+
+```
+-- :name user-report
+{
+  total: length(users),
+  active: length(users[?active]),
+  admins: length(users[?role == `admin`])
+}
+```
+
+The resulting expression is:
+
+```
+{
+  total: length(users),
+  active: length(users[?active]),
+  admins: length(users[?role == `admin`])
+}
+```
+
+### Blank Lines and Comments Within Queries
+
+Blank lines between `-- :name` directives are ignored -- they don't become part of the expression. You can use them freely for visual separation:
+
+```
+-- :name query-a
+length(@)
+
+-- This blank line above and this comment are ignored
+
+-- :name query-b
+keys(@)
+```
+
+Comments (`-- ` lines) between directives are also ignored.
+
+### Error Reporting
+
+The parser reports errors with line numbers for easy debugging:
+
+| Error | Example | Message |
+|-------|---------|---------|
+| Empty name | `-- :name ` | `Empty query name at line 3` |
+| No expression | `-- :name foo` followed by `-- :name bar` | `Query 'foo' has no expression at line 1` |
+| Duplicate name | Two `-- :name stats` | `Duplicate query name 'stats' at line 7` |
+| No queries | File with only comments | `No queries found. Use '-- :name <query-name>' to define queries.` |
+
+### Detection Logic
+
+jpx decides how to treat a query file based on these rules:
+
+1. **File extension**: Files ending in `.jpx` are always treated as query libraries
+2. **Content sniffing**: If the first non-empty line starts with `-- :name `, the file is treated as a library regardless of extension
+3. **Fallback**: Everything else is a simple single-expression file
+
+### Colon Syntax and Windows Paths
+
+The colon syntax `-Q file.jpx:query-name` is shorthand for `-Q file.jpx --query query-name`.
+
+On Windows, paths containing drive letters (e.g., `C:\queries\file.jpx`) are handled correctly -- the parser recognizes drive-letter prefixes and only splits on the final colon that separates the file path from the query name:
+
+```bash
+# Windows
+jpx -Q C:\queries\file.jpx:my-query data.json
+
+# Unix
+jpx -Q /opt/queries/file.jpx:my-query data.json
+```
+
+If your query name contains a colon, use the explicit `--query` flag instead.
+
 ## Real-World Examples
 
 ### NLP Analysis Library
@@ -160,7 +256,7 @@ Standardize how you extract data from APIs:
 }
 
 -- :name github-issues
--- :desc Format GitHub issues for display  
+-- :desc Format GitHub issues for display
 [*].{
   number: number,
   title: title,
@@ -233,6 +329,26 @@ Queries for processing structured logs:
 [?duration_ms > `1000`] | sort_by(@, &duration_ms) | reverse(@)
 ```
 
+## Bundled Examples
+
+jpx ships with several example `.jpx` files you can reference or copy:
+
+| File | Description |
+|------|-------------|
+| `examples/nlp.jpx` | Text processing and NLP pipelines |
+| `examples/hacker-news.jpx` | Hacker News API analysis queries |
+| `examples/github.jpx` | GitHub API response processing |
+| `examples/logs.jpx` | Structured log analysis |
+| `examples/data-transforms.jpx` | Common ETL transformations |
+
+Additional query libraries used in tests:
+
+| File | Description |
+|------|-------------|
+| `crates/jpx/queries/user-summary.jpx` | User data aggregation |
+| `crates/jpx/queries/server-stats.jpx` | Server metrics queries |
+| `crates/jpx/queries/order-report.jpx` | Order data reporting |
+
 ## Best Practices
 
 ### Naming Conventions
@@ -278,21 +394,10 @@ Add query validation to your CI pipeline:
 
 | Option | Description |
 |--------|-------------|
-| `-Q, --query-file <FILE>` | Load expression from file |
+| `-Q, --query-file <FILE>` | Load expression from file or query library |
 | `--query <NAME>` | Select a named query from a .jpx library |
 | `--list-queries` | List all queries in a .jpx file |
 | `--check` | Validate all queries without running |
-
-### Colon Syntax
-
-The colon syntax `-Q file.jpx:query-name` is shorthand for `-Q file.jpx --query query-name`.
-
-### Detection Logic
-
-jpx automatically detects query libraries:
-1. Files ending in `.jpx` are always treated as libraries
-2. Files starting with `-- :name` are treated as libraries
-3. Everything else is a simple single-query file
 
 ## Migration from Simple Files
 
