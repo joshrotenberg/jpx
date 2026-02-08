@@ -40,6 +40,10 @@ tracing-subscriber = { workspace = true }
 # HTTP middleware
 tower = { version = "0.5", features = ["timeout"] }
 
+[features]
+default = ["let-expr"]
+let-expr = ["jpx-engine/let-expr"]
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tower-mcp = { workspace = true, features = ["http", "testing"] }
