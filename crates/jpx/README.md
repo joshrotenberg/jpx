@@ -38,7 +38,7 @@ jq '.name | ascii_upcase'               jpx 'upper(name)'
 
 **Choose jq** for: streaming large files, custom function definitions, complex recursive transformations.
 
-**[Full comparison →](https://joshrotenberg.github.io/jmespath-extensions/examples/jq-comparison.html)**
+**[Full comparison →](https://joshrotenberg.github.io/jpx/cli/why-jpx/)**
 
 ## Quick Start (Docker)
 
@@ -104,7 +104,7 @@ cargo install jpx-mcp
 docker run -i --rm ghcr.io/joshrotenberg/jpx-mcp
 ```
 
-See the [MCP documentation](https://joshrotenberg.github.io/jmespath-extensions/server/mcp/overview.html) for setup instructions with Claude Desktop.
+See the [MCP documentation](https://joshrotenberg.github.io/jpx/mcp/overview/) for setup instructions with Claude Desktop.
 
 ## Usage
 
@@ -526,16 +526,16 @@ echo '{"ip": "192.168.1.1"}' | jpx 'is_ipv4(ip)'
 ### Expression Functions (Higher-Order)
 
 ```bash
-# Filter with expression (expression string first, then array)
-echo '[{"age": 25}, {"age": 17}, {"age": 30}]' | jpx 'filter_expr(`"age >= \`18\`"`, @)'
+# Filter with expression reference
+echo '[{"age": 25}, {"age": 17}, {"age": 30}]' | jpx 'filter_expr(&age >= `18`, @)'
 # [{"age": 25}, {"age": 30}]
 
-# Map with expression (extract field from each object)
-echo '[{"name": "Alice"}, {"name": "Bob"}]' | jpx 'map_expr(`"name"`, @)'
+# Map with expression reference
+echo '[{"name": "Alice"}, {"name": "Bob"}]' | jpx 'map_expr(&name, @)'
 # ["Alice", "Bob"]
 
-# Group by expression
-echo '[{"type": "a", "v": 1}, {"type": "b", "v": 2}, {"type": "a", "v": 3}]' | jpx 'group_by_expr(`"type"`, @)'
+# Group by expression reference
+echo '[{"type": "a", "v": 1}, {"type": "b", "v": 2}, {"type": "a", "v": 3}]' | jpx 'group_by_expr(&type, @)'
 # {"a": [{"type": "a", "v": 1}, {"type": "a", "v": 3}], "b": [{"type": "b", "v": 2}]}
 ```
 
