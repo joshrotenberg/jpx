@@ -200,4 +200,4 @@ echo '{"data": [3, 1, 4]}' \
 Variables are prefixed with `$` and scoped to the `in` body. Multiple bindings are separated by commas. See the [Let Expressions guide](../guides/let-expressions.md) for full details.
 
 !!! note
-    Let expressions are disabled in [strict mode](strict-mode.md) since they are a JEP-18 extension.
+    Let expressions are disabled in [strict mode](../configuration/strict-mode.md) since they are a JEP-18 extension.

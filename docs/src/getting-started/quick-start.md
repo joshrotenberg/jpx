@@ -80,4 +80,5 @@ jpx --describe unique
 - [JMESPath Primer](./jmespath-primer.md) - Learn the query language
 - [Examples](../cli/examples.md) - Common tasks and recipes
 - [Basic Usage](../cli/basic-usage.md) - More CLI options
+- [Configuration](../configuration/index.md) - Customize jpx with `jpx.toml`
 - [Function Reference](../functions/overview.md) - All functions by category

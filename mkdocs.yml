@@ -85,9 +85,10 @@ nav:
     - String Literals & Escaping: cli/escaping.md
     - Working with Files: cli/working-with-files.md
     - Query Files: cli/query-files.md
-    - Configuration: cli/configuration.md
-    - Strict Mode: cli/strict-mode.md
     - Why jpx?: cli/why-jpx.md
+  - Configuration:
+    - jpx.toml: configuration/index.md
+    - Strict Mode: configuration/strict-mode.md
   - MCP Server:
     - Overview: mcp/overview.md
     - Setup: mcp/setup.md
