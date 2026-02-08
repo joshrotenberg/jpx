@@ -272,7 +272,7 @@ pub use discovery::{
     ToolSpec,
 };
 pub use error::{EngineError, EvaluationErrorKind, Result};
-pub use explain::{ExplainResult, ExplainStep};
+pub use explain::{ExplainResult, ExplainStep, has_let_nodes};
 pub use introspection::{FunctionDetail, SearchResult, SimilarFunctionsResult};
 pub use json_utils::{FieldAnalysis, PathInfo, StatsResult};
 pub use query_store::{QueryStore, StoredQuery};
