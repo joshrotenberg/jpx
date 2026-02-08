@@ -159,3 +159,113 @@ impl RuntimeBuilder {
         rt
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn new_runtime_has_no_functions() {
+        let rt = Runtime::new();
+        assert!(rt.get_function("abs").is_none());
+        assert_eq!(rt.function_names().count(), 0);
+    }
+
+    #[test]
+    fn strict_runtime_has_26_builtins() {
+        let rt = Runtime::strict();
+        assert_eq!(rt.function_names().count(), 26);
+        assert!(rt.get_function("abs").is_some());
+        assert!(rt.get_function("length").is_some());
+        assert!(rt.get_function("sort").is_some());
+    }
+
+    #[test]
+    fn register_and_get_function() {
+        let mut rt = Runtime::new();
+        rt.register_function("abs", Box::new(AbsFn::new()));
+        assert!(rt.get_function("abs").is_some());
+        assert!(rt.get_function("nonexistent").is_none());
+    }
+
+    #[test]
+    fn deregister_function() {
+        let mut rt = Runtime::strict();
+        assert!(rt.get_function("abs").is_some());
+        let removed = rt.deregister_function("abs");
+        assert!(removed.is_some());
+        assert!(rt.get_function("abs").is_none());
+        assert_eq!(rt.function_names().count(), 25);
+    }
+
+    #[test]
+    fn deregister_nonexistent_returns_none() {
+        let mut rt = Runtime::new();
+        assert!(rt.deregister_function("nope").is_none());
+    }
+
+    #[test]
+    fn builder_with_standard() {
+        let rt = Runtime::builder().with_standard().build();
+        assert_eq!(rt.function_names().count(), 26);
+    }
+
+    #[test]
+    #[cfg(feature = "extensions")]
+    fn builder_with_category() {
+        let rt = Runtime::builder()
+            .with_standard()
+            .with_category(Category::String)
+            .build();
+        assert!(rt.function_names().count() > 26);
+        assert!(rt.get_function("lower").is_some());
+    }
+
+    #[test]
+    #[cfg(feature = "extensions")]
+    fn builder_with_all_extensions() {
+        let rt = Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build();
+        assert!(rt.function_names().count() > 26);
+    }
+
+    #[test]
+    #[cfg(feature = "extensions")]
+    fn builder_without_function() {
+        let rt = Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .without_function("lower")
+            .build();
+        assert!(rt.get_function("lower").is_none());
+        assert!(rt.get_function("upper").is_some());
+    }
+
+    #[test]
+    fn compile_with_runtime() {
+        let rt = Runtime::strict();
+        let expr = rt.compile("length(@)").unwrap();
+        let result = expr.search(&json!([1, 2, 3])).unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn unknown_function_compile_succeeds_search_fails() {
+        let rt = Runtime::new();
+        let expr = rt.compile("nonexistent(@)").unwrap();
+        let result = expr.search(&json!(null));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn function_names_iterator() {
+        let rt = Runtime::strict();
+        let names: Vec<&str> = rt.function_names().collect();
+        assert!(names.contains(&"abs"));
+        assert!(names.contains(&"length"));
+        assert!(names.contains(&"values"));
+    }
+}

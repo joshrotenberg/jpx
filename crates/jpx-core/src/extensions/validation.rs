@@ -334,3 +334,255 @@ impl Function for IsHexFn {
         Ok(Value::Bool(is_valid))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_is_ipv4() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_ipv4(@)").unwrap();
+
+        let data = json!("192.168.1.1");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("not an ip");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_ipv6() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_ipv6(@)").unwrap();
+
+        let data = json!("::1");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("2001:db8::1");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_email() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_email(@)").unwrap();
+
+        let data = json!("test@example.com");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("not-an-email");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_luhn_check_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("luhn_check(@)").unwrap();
+
+        // Valid Luhn number
+        let data = json!("79927398713");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_luhn_check_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("luhn_check(@)").unwrap();
+
+        let data = json!("79927398710");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_credit_card_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_credit_card(@)").unwrap();
+
+        // Test Visa number (passes Luhn)
+        let data = json!("4111111111111111");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_credit_card_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_credit_card(@)").unwrap();
+
+        // Invalid number
+        let data = json!("1234567890123456");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_credit_card_too_short() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_credit_card(@)").unwrap();
+
+        let data = json!("123456");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_phone_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_phone(@)").unwrap();
+
+        let data = json!("+1-555-123-4567");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("(555) 123-4567");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_phone_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_phone(@)").unwrap();
+
+        let data = json!("123");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_jwt_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_jwt(@)").unwrap();
+
+        let data = json!(
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        );
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_jwt_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_jwt(@)").unwrap();
+
+        // Only two parts - invalid
+        let data = json!("only.twoparts");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+
+        // Contains invalid characters for base64url
+        let data = json!("abc.def!ghi.jkl");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_iso_date_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_iso_date(@)").unwrap();
+
+        let data = json!("2023-12-13T15:30:00Z");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("2023-12-13");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_iso_date_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_iso_date(@)").unwrap();
+
+        let data = json!("12/13/2023");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_json_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_json(@)").unwrap();
+
+        let data = json!(r#"{"a": 1, "b": [2, 3]}"#);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_json_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_json(@)").unwrap();
+
+        let data = json!("not json");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_base64_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_base64(@)").unwrap();
+
+        let data = json!("SGVsbG8gV29ybGQ=");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_base64_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_base64(@)").unwrap();
+
+        let data = json!("not valid base64!!!");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_is_hex_valid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_hex(@)").unwrap();
+
+        let data = json!("deadbeef");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+
+        let data = json!("ABCDEF0123456789");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_hex_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_hex(@)").unwrap();
+
+        let data = json!("not hex!");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+
+        let data = json!("");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+}

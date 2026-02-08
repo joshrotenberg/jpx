@@ -186,3 +186,119 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(IsPrivateIpFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_ip_to_int() {
+        let runtime = setup_runtime();
+        let data = json!("192.168.1.1");
+        let expr = runtime.compile("ip_to_int(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // 192.168.1.1 = 192*256^3 + 168*256^2 + 1*256 + 1 = 3232235777
+        assert_eq!(result.as_f64().unwrap(), 3232235777.0);
+    }
+
+    #[test]
+    fn test_int_to_ip() {
+        let runtime = setup_runtime();
+        let data = json!(3232235777_u64);
+        let expr = runtime.compile("int_to_ip(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "192.168.1.1");
+    }
+
+    #[test]
+    fn test_ip_roundtrip() {
+        let runtime = setup_runtime();
+        let data = json!("10.0.0.1");
+        let expr = runtime.compile("int_to_ip(ip_to_int(@))").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "10.0.0.1");
+    }
+
+    #[test]
+    fn test_cidr_contains_true() {
+        let runtime = setup_runtime();
+        let data = json!({"cidr": "192.168.1.0/24", "ip": "192.168.1.100"});
+        let expr = runtime.compile("cidr_contains(cidr, ip)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_cidr_contains_false() {
+        let runtime = setup_runtime();
+        let data = json!({"cidr": "192.168.1.0/24", "ip": "192.168.2.1"});
+        let expr = runtime.compile("cidr_contains(cidr, ip)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_cidr_network() {
+        let runtime = setup_runtime();
+        let data = json!("192.168.1.100/24");
+        let expr = runtime.compile("cidr_network(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "192.168.1.0");
+    }
+
+    #[test]
+    fn test_cidr_broadcast() {
+        let runtime = setup_runtime();
+        let data = json!("192.168.1.0/24");
+        let expr = runtime.compile("cidr_broadcast(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "192.168.1.255");
+    }
+
+    #[test]
+    fn test_cidr_prefix() {
+        let runtime = setup_runtime();
+        let data = json!("10.0.0.0/8");
+        let expr = runtime.compile("cidr_prefix(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 8.0);
+    }
+
+    #[test]
+    fn test_is_private_ip_true() {
+        let runtime = setup_runtime();
+        // 192.168.x.x is private
+        let data = json!("192.168.1.1");
+        let expr = runtime.compile("is_private_ip(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_private_ip_10() {
+        let runtime = setup_runtime();
+        // 10.x.x.x is private
+        let data = json!("10.0.0.1");
+        let expr = runtime.compile("is_private_ip(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_is_private_ip_false() {
+        let runtime = setup_runtime();
+        // 8.8.8.8 is public (Google DNS)
+        let data = json!("8.8.8.8");
+        let expr = runtime.compile("is_private_ip(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+}

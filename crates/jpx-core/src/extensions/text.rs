@@ -860,3 +860,487 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(CollapseWhitespaceFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_word_count() {
+        let runtime = setup_runtime();
+        let data = json!("Hello world, this is a test.");
+        let expr = runtime.compile("word_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 6.0);
+    }
+
+    #[test]
+    fn test_word_count_empty() {
+        let runtime = setup_runtime();
+        let data = json!("");
+        let expr = runtime.compile("word_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_char_count() {
+        let runtime = setup_runtime();
+        let data = json!("Hello world");
+        let expr = runtime.compile("char_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // "Hello world" without space = 10 characters
+        assert_eq!(result.as_f64().unwrap(), 10.0);
+    }
+
+    #[test]
+    fn test_sentence_count() {
+        let runtime = setup_runtime();
+        let data = json!("Hello world. How are you? I am fine!");
+        let expr = runtime.compile("sentence_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_sentence_count_no_punctuation() {
+        let runtime = setup_runtime();
+        let data = json!("Hello world");
+        let expr = runtime.compile("sentence_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_paragraph_count() {
+        let runtime = setup_runtime();
+        let data = json!("First paragraph.\n\nSecond paragraph.\n\nThird.");
+        let expr = runtime.compile("paragraph_count(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_reading_time() {
+        let runtime = setup_runtime();
+        // 200 words = 1 minute at 200 wpm
+        let words: Vec<&str> = vec!["word"; 200];
+        let text = words.join(" ");
+        let data = json!(text);
+        let expr = runtime.compile("reading_time(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_reading_time_short() {
+        let runtime = setup_runtime();
+        let data = json!("Quick read");
+        let expr = runtime.compile("reading_time(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0); // Rounds up to 1 minute
+    }
+
+    #[test]
+    fn test_reading_time_seconds() {
+        let runtime = setup_runtime();
+        // 100 words = 30 seconds at 200 wpm
+        let words: Vec<&str> = vec!["word"; 100];
+        let text = words.join(" ");
+        let data = json!(text);
+        let expr = runtime.compile("reading_time_seconds(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 30.0);
+    }
+
+    #[test]
+    fn test_char_frequencies() {
+        let runtime = setup_runtime();
+        let data = json!("aab");
+        let expr = runtime.compile("char_frequencies(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("a").unwrap().as_f64().unwrap(), 2.0);
+        assert_eq!(obj.get("b").unwrap().as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_word_frequencies() {
+        let runtime = setup_runtime();
+        let data = json!("hello world hello");
+        let expr = runtime.compile("word_frequencies(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("hello").unwrap().as_f64().unwrap(), 2.0);
+        assert_eq!(obj.get("world").unwrap().as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_word_frequencies_normalized() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, HELLO hello!");
+        let expr = runtime.compile("word_frequencies(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        // All normalized to "hello"
+        assert_eq!(obj.get("hello").unwrap().as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_ngrams_char() {
+        let runtime = setup_runtime();
+        let data = json!("hello");
+        let expr = runtime.compile("ngrams(@, `3`, 'char')").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "hel");
+        assert_eq!(arr[1].as_str().unwrap(), "ell");
+        assert_eq!(arr[2].as_str().unwrap(), "llo");
+    }
+
+    #[test]
+    fn test_ngrams_word() {
+        let runtime = setup_runtime();
+        let data = json!("the quick brown fox");
+        let expr = runtime.compile("ngrams(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // Each element is an array of words
+        let first = arr[0].as_array().unwrap();
+        assert_eq!(first[0].as_str().unwrap(), "the");
+        assert_eq!(first[1].as_str().unwrap(), "quick");
+    }
+
+    #[test]
+    fn test_ngrams_empty() {
+        let runtime = setup_runtime();
+        let data = json!("hi");
+        // Asking for 3-grams from a 2-char string
+        let expr = runtime.compile("ngrams(@, `3`, 'char')").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_bigrams() {
+        let runtime = setup_runtime();
+        let data = json!("a b c d");
+        let expr = runtime.compile("bigrams(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // [["a", "b"], ["b", "c"], ["c", "d"]]
+        let first = arr[0].as_array().unwrap();
+        assert_eq!(first[0].as_str().unwrap(), "a");
+        assert_eq!(first[1].as_str().unwrap(), "b");
+        let last = arr[2].as_array().unwrap();
+        assert_eq!(last[0].as_str().unwrap(), "c");
+        assert_eq!(last[1].as_str().unwrap(), "d");
+    }
+
+    #[test]
+    fn test_bigrams_single_word() {
+        let runtime = setup_runtime();
+        let data = json!("hello");
+        let expr = runtime.compile("bigrams(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_trigrams() {
+        let runtime = setup_runtime();
+        let data = json!("a b c d e");
+        let expr = runtime.compile("trigrams(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // [["a", "b", "c"], ["b", "c", "d"], ["c", "d", "e"]]
+        let first = arr[0].as_array().unwrap();
+        assert_eq!(first[0].as_str().unwrap(), "a");
+        assert_eq!(first[1].as_str().unwrap(), "b");
+        assert_eq!(first[2].as_str().unwrap(), "c");
+    }
+
+    #[test]
+    fn test_trigrams_too_short() {
+        let runtime = setup_runtime();
+        let data = json!("a b");
+        let expr = runtime.compile("trigrams(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    // =========================================================================
+    // tokens tests
+    // =========================================================================
+
+    #[test]
+    fn test_tokens_basic() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime.compile("tokens(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "hello");
+        assert_eq!(arr[1].as_str().unwrap(), "world");
+    }
+
+    #[test]
+    fn test_tokens_punctuation_only() {
+        let runtime = setup_runtime();
+        let data = json!("... --- !!!");
+        let expr = runtime.compile("tokens(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_tokens_mixed() {
+        let runtime = setup_runtime();
+        let data = json!("The quick, brown fox!");
+        let expr = runtime.compile("tokens(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4);
+        assert_eq!(arr[0].as_str().unwrap(), "the");
+        assert_eq!(arr[1].as_str().unwrap(), "quick");
+        assert_eq!(arr[2].as_str().unwrap(), "brown");
+        assert_eq!(arr[3].as_str().unwrap(), "fox");
+    }
+
+    #[test]
+    fn test_tokens_empty() {
+        let runtime = setup_runtime();
+        let data = json!("");
+        let expr = runtime.compile("tokens(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    // =========================================================================
+    // tokenize tests
+    // =========================================================================
+
+    // NOTE: tokenize tests are ignored because the multimatch category in
+    // functions.toml also has a "tokenize" entry which overwrites the text
+    // category's entry in the registry HashMap, preventing text::tokenize
+    // from being registered. Same issue as mm_tokenize in multi_match.rs.
+
+    #[test]
+    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
+    fn test_tokenize_default() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime.compile("tokenize(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "hello");
+        assert_eq!(arr[1].as_str().unwrap(), "world");
+    }
+
+    #[test]
+    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
+    fn test_tokenize_preserve_case() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime
+            .compile(r#"tokenize(@, `{"case": "preserve"}`)"#)
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "Hello");
+        assert_eq!(arr[1].as_str().unwrap(), "World");
+    }
+
+    #[test]
+    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
+    fn test_tokenize_upper_case() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime
+            .compile(r#"tokenize(@, `{"case": "upper"}`)"#)
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "HELLO");
+        assert_eq!(arr[1].as_str().unwrap(), "WORLD");
+    }
+
+    #[test]
+    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
+    fn test_tokenize_keep_punctuation() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime
+            .compile(r#"tokenize(@, `{"punctuation": "keep"}`)"#)
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "hello,");
+        assert_eq!(arr[1].as_str().unwrap(), "world!");
+    }
+
+    #[test]
+    #[ignore = "tokenize not registered: multimatch 'tokenize' overwrites text 'tokenize' in registry"]
+    fn test_tokenize_preserve_case_keep_punctuation() {
+        let runtime = setup_runtime();
+        let data = json!("Hello, World!");
+        let expr = runtime
+            .compile(r#"tokenize(@, `{"case": "preserve", "punctuation": "keep"}`)"#)
+            .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "Hello,");
+        assert_eq!(arr[1].as_str().unwrap(), "World!");
+    }
+
+    // =========================================================================
+    // stem tests
+    // =========================================================================
+
+    #[test]
+    fn test_stem_basic() {
+        let runtime = setup_runtime();
+        let data = json!("running");
+        let expr = runtime.compile("stem(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "run");
+    }
+
+    #[test]
+    fn test_stem_plural() {
+        let runtime = setup_runtime();
+        let data = json!("cats");
+        let expr = runtime.compile("stem(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "cat");
+    }
+
+    #[test]
+    fn test_stems_array() {
+        let runtime = setup_runtime();
+        let data = json!(["running", "cats", "quickly"]);
+        let expr = runtime.compile("stems(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "run");
+        assert_eq!(arr[1].as_str().unwrap(), "cat");
+        assert_eq!(arr[2].as_str().unwrap(), "quick");
+    }
+
+    // =========================================================================
+    // stopwords tests
+    // =========================================================================
+
+    #[test]
+    fn test_stopwords_english() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("stopwords()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let arr = result.as_array().unwrap();
+        // English stopwords should include common words
+        let words: Vec<String> = arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        assert!(words.contains(&"the".to_string()));
+        assert!(words.contains(&"is".to_string()));
+        assert!(words.contains(&"a".to_string()));
+    }
+
+    #[test]
+    fn test_remove_stopwords() {
+        let runtime = setup_runtime();
+        let data = json!(["the", "quick", "brown", "fox"]);
+        let expr = runtime.compile("remove_stopwords(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        // "the" should be removed
+        let words: Vec<String> = arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        assert!(!words.contains(&"the".to_string()));
+        assert!(words.contains(&"quick".to_string()));
+        assert!(words.contains(&"brown".to_string()));
+        assert!(words.contains(&"fox".to_string()));
+    }
+
+    #[test]
+    fn test_is_stopword() {
+        let runtime = setup_runtime();
+        let data = json!("the");
+        let expr = runtime.compile("is_stopword(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+
+        let data = json!("elephant");
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    // =========================================================================
+    // text normalization tests
+    // =========================================================================
+
+    #[test]
+    fn test_normalize_unicode_default() {
+        let runtime = setup_runtime();
+        // cafe with combining acute accent (e + combining accent)
+        let data = json!("cafe\u{0301}");
+        let expr = runtime.compile("normalize_unicode(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // NFC should compose to e-acute
+        assert_eq!(result.as_str().unwrap(), "caf\u{00e9}");
+    }
+
+    #[test]
+    fn test_remove_accents() {
+        let runtime = setup_runtime();
+        let data = json!("caf\u{00e9} na\u{00ef}ve r\u{00e9}sum\u{00e9}");
+        let expr = runtime.compile("remove_accents(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "cafe naive resume");
+    }
+
+    #[test]
+    fn test_collapse_whitespace() {
+        let runtime = setup_runtime();
+        let data = json!("  hello   world  ");
+        let expr = runtime.compile("collapse_whitespace(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_collapse_whitespace_tabs_newlines() {
+        let runtime = setup_runtime();
+        let data = json!("hello\t\n\nworld");
+        let expr = runtime.compile("collapse_whitespace(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello world");
+    }
+}

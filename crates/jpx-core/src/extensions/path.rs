@@ -102,3 +102,43 @@ impl Function for PathJoinFn {
         Ok(Value::String(result))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_path_basename() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_basename(@)").unwrap();
+        let data = json!("/path/to/file.txt");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "file.txt");
+    }
+
+    #[test]
+    fn test_path_dirname() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_dirname(@)").unwrap();
+        let data = json!("/path/to/file.txt");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "/path/to");
+    }
+
+    #[test]
+    fn test_path_ext() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_ext(@)").unwrap();
+        let data = json!("/path/to/file.txt");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), ".txt");
+    }
+}

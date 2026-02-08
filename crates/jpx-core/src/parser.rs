@@ -526,3 +526,301 @@ impl<'a> Parser<'a> {
         Ok(nodes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::Comparator;
+
+    #[test]
+    fn parse_field() {
+        let ast = parse("foo").unwrap();
+        assert!(matches!(ast, Ast::Field { name, .. } if name == "foo"));
+    }
+
+    #[test]
+    fn parse_identity() {
+        let ast = parse("@").unwrap();
+        assert!(matches!(ast, Ast::Identity { .. }));
+    }
+
+    #[test]
+    fn parse_subexpr() {
+        let ast = parse("foo.bar").unwrap();
+        assert!(matches!(ast, Ast::Subexpr { .. }));
+    }
+
+    #[test]
+    fn parse_deeply_nested_subexpr() {
+        let ast = parse("a.b.c.d.e").unwrap();
+        assert!(matches!(ast, Ast::Subexpr { .. }));
+    }
+
+    #[test]
+    fn parse_index_positive() {
+        let ast = parse("[0]").unwrap();
+        assert!(matches!(ast, Ast::Index { idx: 0, .. }));
+    }
+
+    #[test]
+    fn parse_index_negative() {
+        let ast = parse("[-1]").unwrap();
+        assert!(matches!(ast, Ast::Index { idx: -1, .. }));
+    }
+
+    #[test]
+    fn parse_slice_basic() {
+        let ast = parse("[0:5]").unwrap();
+        match ast {
+            Ast::Projection { lhs, .. } => {
+                assert!(matches!(
+                    *lhs,
+                    Ast::Slice {
+                        start: Some(0),
+                        stop: Some(5),
+                        step: 1,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("expected Projection with Slice lhs"),
+        }
+    }
+
+    #[test]
+    fn parse_slice_with_step() {
+        let ast = parse("[::2]").unwrap();
+        match ast {
+            Ast::Projection { lhs, .. } => {
+                assert!(matches!(
+                    *lhs,
+                    Ast::Slice {
+                        start: None,
+                        stop: None,
+                        step: 2,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("expected Projection with Slice lhs"),
+        }
+    }
+
+    #[test]
+    fn parse_slice_negative_step() {
+        let ast = parse("[::-1]").unwrap();
+        match ast {
+            Ast::Projection { lhs, .. } => {
+                assert!(matches!(*lhs, Ast::Slice { step: -1, .. }));
+            }
+            _ => panic!("expected Projection with Slice lhs"),
+        }
+    }
+
+    #[test]
+    fn parse_wildcard_values() {
+        let ast = parse("*").unwrap();
+        assert!(matches!(ast, Ast::Projection { .. }));
+    }
+
+    #[test]
+    fn parse_wildcard_index() {
+        let ast = parse("[*]").unwrap();
+        assert!(matches!(ast, Ast::Projection { .. }));
+    }
+
+    #[test]
+    fn parse_flatten() {
+        let ast = parse("[]").unwrap();
+        match ast {
+            Ast::Projection { lhs, .. } => {
+                assert!(matches!(*lhs, Ast::Flatten { .. }));
+            }
+            _ => panic!("expected Projection with Flatten"),
+        }
+    }
+
+    #[test]
+    fn parse_filter() {
+        let ast = parse("[?a > `1`]").unwrap();
+        assert!(matches!(ast, Ast::Projection { .. }));
+    }
+
+    #[test]
+    fn parse_or() {
+        let ast = parse("a || b").unwrap();
+        assert!(matches!(ast, Ast::Or { .. }));
+    }
+
+    #[test]
+    fn parse_and() {
+        let ast = parse("a && b").unwrap();
+        assert!(matches!(ast, Ast::And { .. }));
+    }
+
+    #[test]
+    fn parse_not() {
+        let ast = parse("!a").unwrap();
+        assert!(matches!(ast, Ast::Not { .. }));
+    }
+
+    #[test]
+    fn parse_pipe() {
+        let ast = parse("a | b").unwrap();
+        assert!(matches!(ast, Ast::Subexpr { .. }));
+    }
+
+    #[test]
+    fn parse_function_call() {
+        let ast = parse("length(@)").unwrap();
+        match ast {
+            Ast::Function { name, args, .. } => {
+                assert_eq!(name, "length");
+                assert_eq!(args.len(), 1);
+            }
+            _ => panic!("expected Function"),
+        }
+    }
+
+    #[test]
+    fn parse_multi_list() {
+        let ast = parse("[a, b, c]").unwrap();
+        match ast {
+            Ast::MultiList { elements, .. } => {
+                assert_eq!(elements.len(), 3);
+            }
+            _ => panic!("expected MultiList"),
+        }
+    }
+
+    #[test]
+    fn parse_multi_hash() {
+        let ast = parse("{a: b, c: d}").unwrap();
+        match ast {
+            Ast::MultiHash { elements, .. } => {
+                assert_eq!(elements.len(), 2);
+            }
+            _ => panic!("expected MultiHash"),
+        }
+    }
+
+    #[test]
+    fn parse_literal_string() {
+        let ast = parse("`\"hello\"`").unwrap();
+        assert!(matches!(ast, Ast::Literal { .. }));
+    }
+
+    #[test]
+    fn parse_literal_number() {
+        let ast = parse("`42`").unwrap();
+        assert!(matches!(ast, Ast::Literal { .. }));
+    }
+
+    #[test]
+    fn parse_literal_null() {
+        let ast = parse("`null`").unwrap();
+        assert!(matches!(ast, Ast::Literal { .. }));
+    }
+
+    #[test]
+    fn parse_raw_string() {
+        let ast = parse("'hello'").unwrap();
+        match ast {
+            Ast::Literal { value, .. } => {
+                assert_eq!(value, serde_json::json!("hello"));
+            }
+            _ => panic!("expected Literal from raw string"),
+        }
+    }
+
+    #[test]
+    fn parse_expref() {
+        let ast = parse("&foo").unwrap();
+        assert!(matches!(ast, Ast::Expref { .. }));
+    }
+
+    #[test]
+    fn parse_all_comparators() {
+        for (expr, cmp) in [
+            ("a == b", Comparator::Equal),
+            ("a != b", Comparator::NotEqual),
+            ("a > b", Comparator::GreaterThan),
+            ("a >= b", Comparator::GreaterThanEqual),
+            ("a < b", Comparator::LessThan),
+            ("a <= b", Comparator::LessThanEqual),
+        ] {
+            let ast = parse(expr).unwrap();
+            match ast {
+                Ast::Comparison { comparator, .. } => assert_eq!(comparator, cmp, "for {expr}"),
+                _ => panic!("expected Comparison for {expr}"),
+            }
+        }
+    }
+
+    #[test]
+    fn parse_quoted_identifier() {
+        let ast = parse("\"foo bar\"").unwrap();
+        match ast {
+            Ast::Field { name, .. } => assert_eq!(name, "foo bar"),
+            _ => panic!("expected Field from quoted identifier"),
+        }
+    }
+
+    #[test]
+    fn parse_parenthesized_expression() {
+        let ast = parse("(a)").unwrap();
+        assert!(matches!(ast, Ast::Field { .. }));
+    }
+
+    #[test]
+    fn error_empty_expression() {
+        let result = parse("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_unclosed_bracket() {
+        let result = parse("[0");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_trailing_garbage() {
+        let result = parse("foo bar");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_quoted_string_as_function() {
+        let result = parse("\"foo\"()");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_trailing_comma_in_list() {
+        let result = parse("[a, b,]");
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn parse_let_expression() {
+        let ast = parse("let $x = `1` in $x").unwrap();
+        assert!(matches!(ast, Ast::Let { .. }));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn parse_variable_ref() {
+        // This will parse fine, but searching will fail (no scope)
+        let ast = parse("$x").unwrap();
+        assert!(matches!(ast, Ast::VariableRef { .. }));
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn error_let_missing_in() {
+        let result = parse("let $x = `1` $x");
+        assert!(result.is_err());
+    }
+}

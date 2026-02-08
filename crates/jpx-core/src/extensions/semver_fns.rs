@@ -219,3 +219,138 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(SemverIsValidFn::new()),
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_semver_parse() {
+        let runtime = setup_runtime();
+        let data = json!("1.2.3");
+        let expr = runtime.compile("semver_parse(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("major").unwrap().as_f64().unwrap(), 1.0);
+        assert_eq!(obj.get("minor").unwrap().as_f64().unwrap(), 2.0);
+        assert_eq!(obj.get("patch").unwrap().as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_semver_parse_with_pre() {
+        let runtime = setup_runtime();
+        let data = json!("1.0.0-alpha.1");
+        let expr = runtime.compile("semver_parse(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("major").unwrap().as_f64().unwrap(), 1.0);
+        assert_eq!(obj.get("pre").unwrap().as_str().unwrap(), "alpha.1");
+    }
+
+    #[test]
+    fn test_semver_major() {
+        let runtime = setup_runtime();
+        let data = json!("2.3.4");
+        let expr = runtime.compile("semver_major(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 2.0);
+    }
+
+    #[test]
+    fn test_semver_minor() {
+        let runtime = setup_runtime();
+        let data = json!("2.3.4");
+        let expr = runtime.compile("semver_minor(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_semver_patch_fn() {
+        let runtime = setup_runtime();
+        let data = json!("2.3.4");
+        let expr = runtime.compile("semver_patch(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 4.0);
+    }
+
+    #[test]
+    fn test_semver_compare_less() {
+        let runtime = setup_runtime();
+        let data = json!(["1.0.0", "2.0.0"]);
+        let expr = runtime.compile("semver_compare(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), -1.0);
+    }
+
+    #[test]
+    fn test_semver_compare_equal() {
+        let runtime = setup_runtime();
+        let data = json!(["1.0.0", "1.0.0"]);
+        let expr = runtime.compile("semver_compare(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_semver_compare_greater() {
+        let runtime = setup_runtime();
+        let data = json!(["2.0.0", "1.0.0"]);
+        let expr = runtime.compile("semver_compare(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_semver_satisfies_true() {
+        let runtime = setup_runtime();
+        let data = json!(["1.2.3", "^1.0.0"]);
+        let expr = runtime.compile("semver_satisfies(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_semver_satisfies_false() {
+        let runtime = setup_runtime();
+        let data = json!(["2.0.0", "^1.0.0"]);
+        let expr = runtime.compile("semver_satisfies(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+
+    #[test]
+    fn test_semver_satisfies_tilde() {
+        let runtime = setup_runtime();
+        let data = json!(["1.2.5", "~1.2.0"]);
+        let expr = runtime.compile("semver_satisfies(@[0], @[1])").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_semver_is_valid_true() {
+        let runtime = setup_runtime();
+        let data = json!("1.2.3");
+        let expr = runtime.compile("semver_is_valid(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(true));
+    }
+
+    #[test]
+    fn test_semver_is_valid_false() {
+        let runtime = setup_runtime();
+        let data = json!("not-a-version");
+        let expr = runtime.compile("semver_is_valid(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(false));
+    }
+}

@@ -1849,3 +1849,1417 @@ impl Function for CycleFn {
         Ok(Value::Array(result))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_unique() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("unique(@)").unwrap();
+        let data = json!([1, 2, 1]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+    }
+
+    #[test]
+    fn test_first() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("first(@)").unwrap();
+        let data = json!([1, 2]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_last() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("last(@)").unwrap();
+        let data = json!([1, 2]);
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_range() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("range(`0`, `5`)").unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+    }
+
+    #[test]
+    fn test_butlast() {
+        // butlast is an alias for initial
+        let runtime = setup_runtime();
+        let expr = runtime.compile("butlast(@)").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_interpose() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("interpose(@, `0`)").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 0);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[3].as_f64().unwrap() as i64, 0);
+        assert_eq!(arr[4].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_interpose_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("interpose(@, `0`)").unwrap();
+        let data = json!([]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_interpose_single() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("interpose(@, `0`)").unwrap();
+        let data = json!([1]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_interpose_string_separator() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("interpose(@, `\"-\"`)").unwrap();
+        let data = json!(["a", "b", "c"]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        assert_eq!(arr[0].as_str().unwrap(), "a");
+        assert_eq!(arr[1].as_str().unwrap(), "-");
+        assert_eq!(arr[2].as_str().unwrap(), "b");
+        assert_eq!(arr[3].as_str().unwrap(), "-");
+        assert_eq!(arr[4].as_str().unwrap(), "c");
+    }
+
+    #[test]
+    fn test_zipmap() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("zipmap(`[\"a\", \"b\", \"c\"]`, `[1, 2, 3]`)")
+            .unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 3);
+        assert_eq!(obj.get("a").unwrap().as_f64().unwrap() as i64, 1);
+        assert_eq!(obj.get("b").unwrap().as_f64().unwrap() as i64, 2);
+        assert_eq!(obj.get("c").unwrap().as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_zipmap_unequal_lengths() {
+        let runtime = setup_runtime();
+        // Keys shorter than values
+        let expr = runtime
+            .compile("zipmap(`[\"x\", \"y\"]`, `[10, 20, 30]`)")
+            .unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 2);
+        assert_eq!(obj.get("x").unwrap().as_f64().unwrap() as i64, 10);
+        assert_eq!(obj.get("y").unwrap().as_f64().unwrap() as i64, 20);
+    }
+
+    #[test]
+    fn test_zipmap_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("zipmap(`[]`, `[]`)").unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 0);
+    }
+
+    #[test]
+    fn test_partition_by() {
+        let runtime = setup_runtime();
+        // Test with objects - partition by "type" field
+        let expr = runtime.compile(r#"partition_by(@, `"type"`)"#).unwrap();
+        let data: serde_json::Value = serde_json::from_str(
+            r#"[{"type": "a", "v": 1}, {"type": "a", "v": 2}, {"type": "b", "v": 3}, {"type": "a", "v": 4}]"#,
+        )
+        .unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+
+        let partition1 = arr[0].as_array().unwrap();
+        assert_eq!(partition1.len(), 2); // Two "a" items
+
+        let partition2 = arr[1].as_array().unwrap();
+        assert_eq!(partition2.len(), 1); // One "b" item
+
+        let partition3 = arr[2].as_array().unwrap();
+        assert_eq!(partition3.len(), 1); // One more "a" item
+    }
+
+    #[test]
+    fn test_partition_by_primitives() {
+        let runtime = setup_runtime();
+        // For primitives, use any field name - it will use the value itself
+        let expr = runtime.compile(r#"partition_by(@, `"_"`)"#).unwrap();
+        let data = json!([1, 1, 2, 2, 1, 1]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+
+        let partition1 = arr[0].as_array().unwrap();
+        assert_eq!(partition1.len(), 2);
+        assert_eq!(partition1[0].as_f64().unwrap() as i64, 1);
+
+        let partition2 = arr[1].as_array().unwrap();
+        assert_eq!(partition2.len(), 2);
+        assert_eq!(partition2[0].as_f64().unwrap() as i64, 2);
+
+        let partition3 = arr[2].as_array().unwrap();
+        assert_eq!(partition3.len(), 2);
+        assert_eq!(partition3[0].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_partition_by_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile(r#"partition_by(@, `"type"`)"#).unwrap();
+        let data = json!([]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_partition_by_single() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile(r#"partition_by(@, `"type"`)"#).unwrap();
+        let data: serde_json::Value = serde_json::from_str(r#"[{"type": "a"}]"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        let partition1 = arr[0].as_array().unwrap();
+        assert_eq!(partition1.len(), 1);
+    }
+
+    #[test]
+    fn test_dedupe() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data = json!([1, 1, 2, 2, 1, 1]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_dedupe_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data = json!([]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_dedupe_no_consecutive() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data = json!([1, 2, 3]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_dedupe_strings() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data = json!(["a", "a", "b", "a"]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "a");
+        assert_eq!(arr[1].as_str().unwrap(), "b");
+        assert_eq!(arr[2].as_str().unwrap(), "a");
+    }
+
+    #[test]
+    fn test_dedupe_objects() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"[{"x": 1}, {"x": 1}, {"x": 2}, {"x": 1}]"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_dedupe_all_same() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("dedupe(@)").unwrap();
+        let data = json!([1, 1, 1]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_zipmap_duplicate_keys() {
+        // Later key should overwrite earlier one
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("zipmap(`[\"a\", \"b\", \"a\"]`, `[1, 2, 3]`)")
+            .unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 2);
+        assert_eq!(obj.get("a").unwrap().as_f64().unwrap() as i64, 3); // Last value wins
+        assert_eq!(obj.get("b").unwrap().as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_zipmap_values_longer() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("zipmap(`[\"a\"]`, `[1, 2, 3]`)").unwrap();
+        let data = json!(null);
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 1);
+        assert_eq!(obj.get("a").unwrap().as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_partition_by_missing_field() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile(r#"partition_by(@, `"type"`)"#).unwrap();
+        // Some objects have type, some don't
+        let data: serde_json::Value =
+            serde_json::from_str(r#"[{"type": "a"}, {"name": "no-type"}, {"type": "a"}]"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        // Should partition into 3: [type:a], [no type -> null], [type:a]
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_partition_by_all_same() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile(r#"partition_by(@, `"type"`)"#).unwrap();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"[{"type": "a"}, {"type": "a"}, {"type": "a"}]"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        let partition = arr[0].as_array().unwrap();
+        assert_eq!(partition.len(), 3);
+    }
+
+    #[test]
+    fn test_interpose_null_separator() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("interpose(@, `null`)").unwrap();
+        let data = json!([1, 2]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert!(arr[1].is_null());
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_interpose_object_separator() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile(r#"interpose(@, `{"sep": true}`)"#).unwrap();
+        let data = json!([1, 2]);
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert!(arr[1].as_object().is_some());
+    }
+
+    // =========================================================================
+    // zip tests
+    // =========================================================================
+
+    #[test]
+    fn test_zip_basic() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2, 3], "b": ["x", "y", "z"]}"#).unwrap();
+        let expr = runtime.compile("zip(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_array().unwrap()[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[0].as_array().unwrap()[1].as_str().unwrap(), "x");
+    }
+
+    #[test]
+    fn test_zip_unequal_lengths() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2], "b": ["x", "y", "z"]}"#).unwrap();
+        let expr = runtime.compile("zip(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        // Stops at shorter array
+        assert_eq!(arr.len(), 2);
+    }
+
+    #[test]
+    fn test_zip_empty_array() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(r#"{"a": [], "b": [1, 2, 3]}"#).unwrap();
+        let expr = runtime.compile("zip(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_zip_with_objects() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"names": ["Alice", "Bob"], "scores": [95, 87]}"#).unwrap();
+        let expr = runtime.compile("zip(names, scores)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_array().unwrap()[0].as_str().unwrap(), "Alice");
+        assert_eq!(arr[0].as_array().unwrap()[1].as_f64().unwrap() as i64, 95);
+    }
+
+    // =========================================================================
+    // chunk tests
+    // =========================================================================
+
+    #[test]
+    fn test_chunk_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5]);
+        let expr = runtime.compile("chunk(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // [1,2], [3,4], [5]
+        assert_eq!(arr[0].as_array().unwrap().len(), 2);
+        assert_eq!(arr[2].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_chunk_exact_fit() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5, 6]);
+        let expr = runtime.compile("chunk(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_array().unwrap().len(), 3);
+        assert_eq!(arr[1].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_chunk_size_larger_than_array() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("chunk(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_chunk_size_one() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("chunk(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_chunk_and_process_pipeline() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let expr = runtime.compile("chunk(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        // [1,2,3], [4,5,6], [7,8,9], [10]
+        assert_eq!(arr.len(), 4);
+    }
+
+    // =========================================================================
+    // take tests
+    // =========================================================================
+
+    #[test]
+    fn test_take_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5]);
+        let expr = runtime.compile("take(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_take_more_than_length() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2]);
+        let expr = runtime.compile("take(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+    }
+
+    #[test]
+    fn test_take_zero() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("take(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    // =========================================================================
+    // drop tests
+    // =========================================================================
+
+    #[test]
+    fn test_drop_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5]);
+        let expr = runtime.compile("drop(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_drop_more_than_length() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2]);
+        let expr = runtime.compile("drop(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_drop_zero() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("drop(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    // =========================================================================
+    // flatten_deep tests
+    // =========================================================================
+
+    #[test]
+    fn test_flatten_deep_basic() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2], [3, 4]]);
+        let expr = runtime.compile("flatten_deep(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4);
+    }
+
+    #[test]
+    fn test_flatten_deep_nested() {
+        let runtime = setup_runtime();
+        let data = json!([1, [2, [3, [4, [5]]]]]);
+        let expr = runtime.compile("flatten_deep(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5);
+        assert_eq!(arr[4].as_f64().unwrap() as i64, 5);
+    }
+
+    #[test]
+    fn test_flatten_deep_already_flat() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("flatten_deep(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_flatten_deep_mixed() {
+        let runtime = setup_runtime();
+        let data = json!([1, [2, 3], [[4]], [[[5, 6]]]]);
+        let expr = runtime.compile("flatten_deep(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 6);
+    }
+
+    // =========================================================================
+    // compact tests
+    // =========================================================================
+
+    #[test]
+    fn test_compact_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, null, 2, false, 3]);
+        let expr = runtime.compile("compact(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_compact_keeps_zero_and_empty_string() {
+        let runtime = setup_runtime();
+        let data = json!([0, "", null, true]);
+        let expr = runtime.compile("compact(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // 0, "", true
+    }
+
+    #[test]
+    fn test_compact_all_falsy() {
+        let runtime = setup_runtime();
+        let data = json!([null, false, null]);
+        let expr = runtime.compile("compact(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    // =========================================================================
+    // index_at tests
+    // =========================================================================
+
+    #[test]
+    fn test_index_at_positive() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c", "d"]);
+        let expr = runtime.compile("index_at(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "c");
+    }
+
+    #[test]
+    fn test_index_at_negative() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c", "d"]);
+        let expr = runtime.compile("index_at(@, `-1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "d");
+    }
+
+    #[test]
+    fn test_index_at_negative_second() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c", "d"]);
+        let expr = runtime.compile("index_at(@, `-2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "c");
+    }
+
+    #[test]
+    fn test_index_at_out_of_bounds() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c"]);
+        let expr = runtime.compile("index_at(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    // =========================================================================
+    // includes tests
+    // =========================================================================
+
+    #[test]
+    fn test_includes_number() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5]);
+        let expr = runtime.compile("includes(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_includes_not_found() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("includes(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_includes_string() {
+        let runtime = setup_runtime();
+        let data = json!(["apple", "banana", "cherry"]);
+        let expr = runtime.compile(r#"includes(@, `"banana"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_includes_object() {
+        let runtime = setup_runtime();
+        let data = json!([{"a": 1}, {"b": 2}]);
+        let expr = runtime.compile(r#"includes(@, `{"a": 1}`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    // =========================================================================
+    // find_index tests
+    // =========================================================================
+
+    #[test]
+    fn test_find_index_found() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c", "d"]);
+        let expr = runtime.compile(r#"find_index(@, `"c"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_find_index_not_found() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c"]);
+        let expr = runtime.compile(r#"find_index(@, `"z"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, -1);
+    }
+
+    // =========================================================================
+    // group_by tests
+    // =========================================================================
+
+    #[test]
+    fn test_group_by_basic() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(
+            r#"[{"type": "a", "v": 1}, {"type": "b", "v": 2}, {"type": "a", "v": 3}]"#,
+        )
+        .unwrap();
+        let expr = runtime.compile(r#"group_by(@, `"type"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("a").unwrap().as_array().unwrap().len(), 2);
+        assert_eq!(obj.get("b").unwrap().as_array().unwrap().len(), 1);
+    }
+
+    // =========================================================================
+    // index_by tests
+    // =========================================================================
+
+    #[test]
+    fn test_index_by_basic() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"[{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]"#)
+                .unwrap();
+        let expr = runtime.compile(r#"index_by(@, `"id"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 2);
+        // Keys are string versions of the id
+        let alice = obj.get("1").unwrap().as_object().unwrap();
+        assert_eq!(alice.get("name").unwrap().as_str().unwrap(), "alice");
+        let bob = obj.get("2").unwrap().as_object().unwrap();
+        assert_eq!(bob.get("name").unwrap().as_str().unwrap(), "bob");
+    }
+
+    #[test]
+    fn test_index_by_string_key() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(
+            r#"[{"code": "US", "name": "United States"}, {"code": "UK", "name": "United Kingdom"}]"#,
+        )
+        .unwrap();
+        let expr = runtime.compile(r#"index_by(@, `"code"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 2);
+        let us = obj.get("US").unwrap().as_object().unwrap();
+        assert_eq!(us.get("name").unwrap().as_str().unwrap(), "United States");
+    }
+
+    #[test]
+    fn test_index_by_duplicate_keys() {
+        // Last value wins for duplicate keys
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(
+            r#"[{"type": "a", "v": 1}, {"type": "a", "v": 2}, {"type": "a", "v": 3}]"#,
+        )
+        .unwrap();
+        let expr = runtime.compile(r#"index_by(@, `"type"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 1);
+        // Last value (v=3) wins
+        let a = obj.get("a").unwrap().as_object().unwrap();
+        assert_eq!(a.get("v").unwrap().as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_index_by_missing_key() {
+        // Items without the key field are skipped
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(
+            r#"[{"id": 1, "name": "alice"}, {"name": "bob"}, {"id": 3, "name": "charlie"}]"#,
+        )
+        .unwrap();
+        let expr = runtime.compile(r#"index_by(@, `"id"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 2);
+        assert!(obj.contains_key("1"));
+        assert!(obj.contains_key("3"));
+        assert!(!obj.contains_key("2")); // bob was skipped
+    }
+
+    #[test]
+    fn test_index_by_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile(r#"index_by(@, `"id"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert!(obj.is_empty());
+    }
+
+    // =========================================================================
+    // set operations tests
+    // =========================================================================
+
+    #[test]
+    fn test_difference() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2, 3, 4], "b": [2, 4]}"#).unwrap();
+        let expr = runtime.compile("difference(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // 1, 3
+    }
+
+    #[test]
+    fn test_intersection() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2, 3], "b": [2, 3, 4]}"#).unwrap();
+        let expr = runtime.compile("intersection(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // 2, 3
+    }
+
+    #[test]
+    fn test_union() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2], "b": [2, 3]}"#).unwrap();
+        let expr = runtime.compile("union(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // 1, 2, 3
+    }
+
+    // =========================================================================
+    // frequencies tests
+    // =========================================================================
+
+    #[test]
+    fn test_frequencies_basic() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "a", "c", "a", "b"]);
+        let expr = runtime.compile("frequencies(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("a").unwrap().as_f64().unwrap() as i64, 3);
+        assert_eq!(obj.get("b").unwrap().as_f64().unwrap() as i64, 2);
+        assert_eq!(obj.get("c").unwrap().as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_frequencies_numbers() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 1, 1, 2, 3]);
+        let expr = runtime.compile("frequencies(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("1").unwrap().as_f64().unwrap() as i64, 3);
+        assert_eq!(obj.get("2").unwrap().as_f64().unwrap() as i64, 2);
+    }
+
+    // =========================================================================
+    // mode tests
+    // =========================================================================
+
+    #[test]
+    fn test_mode_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 2, 3, 2, 4]);
+        let expr = runtime.compile("mode(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_mode_empty() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("mode(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    // =========================================================================
+    // cartesian tests
+    // =========================================================================
+
+    #[test]
+    fn test_cartesian_basic() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2], "b": ["x", "y"]}"#).unwrap();
+        let expr = runtime.compile("cartesian(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4); // [1,x], [1,y], [2,x], [2,y]
+    }
+
+    #[test]
+    fn test_cartesian_empty() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(r#"{"a": [], "b": [1, 2]}"#).unwrap();
+        let expr = runtime.compile("cartesian(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_cartesian_n_way_two_arrays() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2], ["a", "b"]]);
+        let expr = runtime.compile("cartesian(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4); // [1,a], [1,b], [2,a], [2,b]
+    }
+
+    #[test]
+    fn test_cartesian_n_way_three_arrays() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2], ["a", "b"], [true, false]]);
+        let expr = runtime.compile("cartesian(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 8); // 2 * 2 * 2 = 8 combinations
+    }
+
+    #[test]
+    fn test_cartesian_n_way_single_array() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2, 3]]);
+        let expr = runtime.compile("cartesian(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // [1], [2], [3]
+    }
+
+    #[test]
+    fn test_cartesian_n_way_empty() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("cartesian(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    // =========================================================================
+    // Edge cases
+    // =========================================================================
+
+    #[test]
+    fn test_first_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("first(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_last_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("last(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_unique_preserves_order() {
+        let runtime = setup_runtime();
+        let data = json!(["c", "a", "b", "a", "c"]);
+        let expr = runtime.compile("unique(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "c");
+        assert_eq!(arr[1].as_str().unwrap(), "a");
+        assert_eq!(arr[2].as_str().unwrap(), "b");
+    }
+
+    #[test]
+    fn test_unique_different_types() {
+        let runtime = setup_runtime();
+        let data = json!([1, "1", 1, "1"]);
+        let expr = runtime.compile("unique(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // 1 and "1" are different
+    }
+
+    #[test]
+    fn test_range_with_step() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("range(`1`, `10`, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5); // 1, 3, 5, 7, 9
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[4].as_f64().unwrap() as i64, 9);
+    }
+
+    #[test]
+    fn test_range_descending() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("range(`5`, `0`, `-1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 5); // 5, 4, 3, 2, 1
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 5);
+        assert_eq!(arr[4].as_f64().unwrap() as i64, 1);
+    }
+
+    // =========================================================================
+    // Pipeline patterns with arrays
+    // =========================================================================
+
+    #[test]
+    fn test_pipeline_unique_sort() {
+        let runtime = setup_runtime();
+        let data = json!(["redis", "database", "redis", "nosql", "database"]);
+        let expr = runtime.compile("unique(@) | sort(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_str().unwrap(), "database");
+        assert_eq!(arr[1].as_str().unwrap(), "nosql");
+        assert_eq!(arr[2].as_str().unwrap(), "redis");
+    }
+
+    #[test]
+    fn test_pipeline_filter_take() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let expr = runtime.compile("[?@ > `3`] | take(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 4);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 5);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 6);
+    }
+
+    #[test]
+    fn test_pipeline_flatten_unique() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2], [2, 3], [3, 4]]);
+        let expr = runtime.compile("flatten_deep(@) | unique(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4); // 1, 2, 3, 4
+    }
+
+    #[test]
+    fn test_large_array_processing() {
+        let runtime = setup_runtime();
+        // Create array with 1000 elements
+        let items: Vec<i32> = (1..=1000).collect();
+        let json_str = serde_json::to_string(&items).unwrap();
+        let data: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        let expr = runtime.compile("length(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 1000);
+    }
+
+    #[test]
+    fn test_transpose_basic() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2, 3], [4, 5, 6]]);
+        let expr = runtime.compile("transpose(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // First column: [1, 4]
+        let col0 = arr[0].as_array().unwrap();
+        assert_eq!(col0[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(col0[1].as_f64().unwrap() as i64, 4);
+        // Second column: [2, 5]
+        let col1 = arr[1].as_array().unwrap();
+        assert_eq!(col1[0].as_f64().unwrap() as i64, 2);
+        assert_eq!(col1[1].as_f64().unwrap() as i64, 5);
+    }
+
+    #[test]
+    fn test_transpose_empty() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("transpose(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_transpose_unequal_rows() {
+        let runtime = setup_runtime();
+        let data = json!([[1, 2], [3, 4, 5], [6, 7]]);
+        let expr = runtime.compile("transpose(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        // Should use minimum length (2)
+        assert_eq!(arr.len(), 2);
+    }
+
+    #[test]
+    fn test_pairwise_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4]);
+        let expr = runtime.compile("pairwise(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // First pair: [1, 2]
+        let pair0 = arr[0].as_array().unwrap();
+        assert_eq!(pair0[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(pair0[1].as_f64().unwrap() as i64, 2);
+        // Second pair: [2, 3]
+        let pair1 = arr[1].as_array().unwrap();
+        assert_eq!(pair1[0].as_f64().unwrap() as i64, 2);
+        assert_eq!(pair1[1].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_pairwise_short_array() {
+        let runtime = setup_runtime();
+        let data = json!([1]);
+        let expr = runtime.compile("pairwise(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_sliding_window_alias() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 4, 5]);
+        let expr = runtime.compile("sliding_window(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        // First window: [1, 2, 3]
+        let win0 = arr[0].as_array().unwrap();
+        assert_eq!(win0.len(), 3);
+        assert_eq!(win0[0].as_f64().unwrap() as i64, 1);
+    }
+
+    // indices_array tests
+    #[test]
+    fn test_indices_array_found() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3, 2, 4, 2]);
+        let expr = runtime.compile("indices_array(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 3);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 5);
+    }
+
+    #[test]
+    fn test_indices_array_not_found() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("indices_array(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_indices_array_strings() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "a", "c", "a"]);
+        let expr = runtime.compile(r#"indices_array(@, `"a"`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 0);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 4);
+    }
+
+    // inside_array tests
+    #[test]
+    fn test_inside_array_true() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 2], "b": [1, 2, 3, 4]}"#).unwrap();
+        let expr = runtime.compile("inside_array(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_inside_array_false() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"a": [1, 5], "b": [1, 2, 3, 4]}"#).unwrap();
+        let expr = runtime.compile("inside_array(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_inside_array_empty() {
+        let runtime = setup_runtime();
+        let data: serde_json::Value = serde_json::from_str(r#"{"a": [], "b": [1, 2, 3]}"#).unwrap();
+        let expr = runtime.compile("inside_array(a, b)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.as_bool().unwrap());
+    }
+
+    // bsearch tests
+    #[test]
+    fn test_bsearch_found() {
+        let runtime = setup_runtime();
+        let data = json!([1, 3, 5, 7, 9]);
+        let expr = runtime.compile("bsearch(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_bsearch_not_found_middle() {
+        let runtime = setup_runtime();
+        let data = json!([1, 3, 5, 7, 9]);
+        let expr = runtime.compile("bsearch(@, `4`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, -3);
+    }
+
+    #[test]
+    fn test_bsearch_not_found_start() {
+        let runtime = setup_runtime();
+        let data = json!([1, 3, 5, 7, 9]);
+        let expr = runtime.compile("bsearch(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, -1);
+    }
+
+    #[test]
+    fn test_bsearch_not_found_end() {
+        let runtime = setup_runtime();
+        let data = json!([1, 3, 5, 7, 9]);
+        let expr = runtime.compile("bsearch(@, `10`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, -6);
+    }
+
+    #[test]
+    fn test_bsearch_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("bsearch(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_f64().unwrap() as i64, -1);
+    }
+
+    // repeat_array tests
+    #[test]
+    fn test_repeat_array_basic() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("repeat_array(`1`, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 1);
+    }
+
+    #[test]
+    fn test_repeat_array_string() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile(r#"repeat_array(`"x"`, `4`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 4);
+        assert_eq!(arr[0].as_str().unwrap(), "x");
+        assert_eq!(arr[3].as_str().unwrap(), "x");
+    }
+
+    #[test]
+    fn test_repeat_array_zero() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("repeat_array(`1`, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_repeat_array_object() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile(r#"repeat_array(`{"a": 1}`, `2`)"#).unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(
+            arr[0]
+                .as_object()
+                .unwrap()
+                .get("a")
+                .unwrap()
+                .as_f64()
+                .unwrap() as i64,
+            1
+        );
+    }
+
+    // cycle tests
+    #[test]
+    fn test_cycle_basic() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("cycle(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 6);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[2].as_f64().unwrap() as i64, 3);
+        assert_eq!(arr[3].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[4].as_f64().unwrap() as i64, 2);
+        assert_eq!(arr[5].as_f64().unwrap() as i64, 3);
+    }
+
+    #[test]
+    fn test_cycle_strings() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b"]);
+        let expr = runtime.compile("cycle(@, `3`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 6);
+        assert_eq!(arr[0].as_str().unwrap(), "a");
+        assert_eq!(arr[1].as_str().unwrap(), "b");
+        assert_eq!(arr[2].as_str().unwrap(), "a");
+    }
+
+    #[test]
+    fn test_cycle_zero() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("cycle(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_cycle_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("cycle(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_cycle_once() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2]);
+        let expr = runtime.compile("cycle(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
+        assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+    }
+}

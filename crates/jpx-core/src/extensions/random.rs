@@ -189,3 +189,45 @@ impl Function for UuidFn {
         Ok(Value::String(id.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Runtime;
+    use serde_json::json;
+
+    fn setup_runtime() -> Runtime {
+        Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build()
+    }
+
+    #[test]
+    fn test_random() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let value = result.as_f64().unwrap();
+        assert!((0.0..1.0).contains(&value));
+    }
+
+    #[test]
+    fn test_shuffle() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("shuffle(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_uuid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("uuid()").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let uuid_str = result.as_str().unwrap();
+        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        assert_eq!(uuid_str.len(), 36);
+    }
+}
