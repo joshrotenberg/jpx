@@ -333,6 +333,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine version
+        id: meta
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          VERSION="${TAG#jpx-v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Download release binary
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -359,11 +366,11 @@ jobs:
           file: ./docker/cli/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.plan.outputs.tag }}-amd64
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}-amd64
           labels: |
             org.opencontainers.image.title=jpx
             org.opencontainers.image.description=JMESPath CLI with extended functions
-            org.opencontainers.image.version=${{ needs.plan.outputs.tag }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
   # Build Docker image for linux/arm64 from source
@@ -381,6 +388,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.plan.outputs.tag }}
+
+      - name: Determine version
+        id: meta
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          VERSION="${TAG#jpx-v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -402,12 +416,14 @@ jobs:
           file: ./docker/cli/Dockerfile.build
           platforms: linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.plan.outputs.tag }}-arm64
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}-arm64
           labels: |
             org.opencontainers.image.title=jpx
             org.opencontainers.image.description=JMESPath CLI with extended functions
-            org.opencontainers.image.version=${{ needs.plan.outputs.tag }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # Create multi-arch manifest for Docker CLI
   docker-manifest:
@@ -438,25 +454,25 @@ jobs:
 
           # Create manifest for version tag
           docker buildx imagetools create -t ${IMAGE}:${VERSION} \
-            ${IMAGE}:${TAG}-amd64 \
-            ${IMAGE}:${TAG}-arm64
+            ${IMAGE}:${VERSION}-amd64 \
+            ${IMAGE}:${VERSION}-arm64
 
           # Create manifest for major.minor tag
           docker buildx imagetools create -t ${IMAGE}:${MAJOR_MINOR} \
-            ${IMAGE}:${TAG}-amd64 \
-            ${IMAGE}:${TAG}-arm64
+            ${IMAGE}:${VERSION}-amd64 \
+            ${IMAGE}:${VERSION}-arm64
 
           # Create manifest for major tag (only if major > 0)
           if [ "$MAJOR" != "0" ]; then
             docker buildx imagetools create -t ${IMAGE}:${MAJOR} \
-              ${IMAGE}:${TAG}-amd64 \
-              ${IMAGE}:${TAG}-arm64
+              ${IMAGE}:${VERSION}-amd64 \
+              ${IMAGE}:${VERSION}-arm64
           fi
 
           # Create manifest for latest tag
           docker buildx imagetools create -t ${IMAGE}:latest \
-            ${IMAGE}:${TAG}-amd64 \
-            ${IMAGE}:${TAG}-arm64
+            ${IMAGE}:${VERSION}-amd64 \
+            ${IMAGE}:${VERSION}-arm64
 
       - name: Verify multi-arch image
         run: |

@@ -1,0 +1,38 @@
+# Build artifacts
+target/
+**/target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# CI/CD
+.github/
+
+# Documentation
+/site/
+/docs/
+*.md
+!README.md
+
+# Python bindings and build artifacts
+python/.venv/
+python/**/__pycache__/
+python/**/*.so
+python/**/*.pyd
+.pytest_cache/
+
+# Examples and test fixtures
+examples/
+
+# Misc
+.DS_Store
+*.log
+CLAUDE.md
