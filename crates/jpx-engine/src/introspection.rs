@@ -473,9 +473,32 @@ pub(crate) fn parse_category(name: &str) -> Option<Category> {
         .copied()
 }
 
-/// Count parameters in a function signature
+/// Count parameters in a function signature, ignoring commas inside brackets.
+///
+/// Handles signatures like `array, array[[string, string]] -> array` correctly
+/// by tracking bracket depth and only counting top-level commas before `->`.
 fn count_params(signature: &str) -> usize {
-    signature.matches(',').count() + 1
+    // Only look at the input side (before "->")
+    let input = match signature.find("->") {
+        Some(pos) => &signature[..pos],
+        None => signature,
+    };
+    let input = input.trim();
+    if input.is_empty() {
+        return 0;
+    }
+
+    let mut params = 1;
+    let mut depth = 0;
+    for ch in input.chars() {
+        match ch {
+            '[' | '(' => depth += 1,
+            ']' | ')' => depth -= 1,
+            ',' if depth == 0 => params += 1,
+            _ => {}
+        }
+    }
+    params
 }
 
 /// Extract keywords from a description for related concept matching
@@ -965,6 +988,50 @@ mod tests {
             !result.same_category.iter().any(|f| f.name == "upper"),
             "same_category should not contain the function itself"
         );
+    }
+
+    #[test]
+    fn test_count_params_simple() {
+        assert_eq!(super::count_params("string -> string"), 1);
+        assert_eq!(super::count_params("string, string -> string"), 2);
+        assert_eq!(super::count_params("string, number, string -> string"), 3);
+    }
+
+    #[test]
+    fn test_count_params_brackets() {
+        // order_by: array, array[[string, string]] -> array
+        assert_eq!(
+            super::count_params("array, array[[string, string]] -> array"),
+            2
+        );
+        // nested brackets
+        assert_eq!(super::count_params("array[object[string, number]] -> array"), 1);
+    }
+
+    #[test]
+    fn test_count_params_optional_and_variadic() {
+        assert_eq!(super::count_params("string, string? -> string"), 2);
+        assert_eq!(super::count_params("string, ...any -> array"), 2);
+    }
+
+    #[test]
+    fn test_count_params_empty() {
+        assert_eq!(super::count_params("-> string"), 0);
+    }
+
+    #[test]
+    fn test_similar_signature_uses_correct_arity() {
+        let engine = super::super::JpxEngine::new();
+        // order_by has 2 params; similar_signature should match other 2-param functions
+        let result = engine.similar_functions("order_by").unwrap();
+        for f in &result.similar_signature {
+            let arity = super::count_params(&f.signature);
+            assert_eq!(
+                arity, 2,
+                "similar_signature match '{}' (sig: '{}') should have arity 2, got {}",
+                f.name, f.signature, arity
+            );
+        }
     }
 
     #[test]
