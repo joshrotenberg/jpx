@@ -503,4 +503,149 @@ mod tests {
         // flatten wraps a field access
         assert!(!result.steps.is_empty());
     }
+
+    /// Recursively search for a node_type anywhere in the step tree.
+    fn contains_node_type(step: &ExplainStep, target: &str) -> bool {
+        if step.node_type == target {
+            return true;
+        }
+        step.children.iter().any(|c| contains_node_type(c, target))
+    }
+
+    // --- Missing AST node coverage ---
+
+    #[test]
+    fn test_variable_ref() {
+        let result = engine().explain("let $x = name in $x").unwrap();
+        // The let body references $x, which produces a variable_ref node
+        assert!(
+            result
+                .steps
+                .iter()
+                .any(|s| contains_node_type(s, "variable_ref"))
+        );
+    }
+
+    #[test]
+    fn test_let_expression() {
+        let result = engine().explain("let $x = name in upper($x)").unwrap();
+        let top = &result.steps[0];
+        assert_eq!(top.node_type, "let");
+        assert!(top.description.contains("1 variable"));
+        // Children: one binding + the body
+        assert_eq!(top.children.len(), 2);
+        assert!(result.functions_used.contains(&"upper".to_string()));
+    }
+
+    #[test]
+    fn test_expref() {
+        let result = engine().explain("sort_by(users, &age)").unwrap();
+        assert!(
+            result
+                .steps
+                .iter()
+                .any(|s| contains_node_type(s, "expression_reference"))
+        );
+        assert!(result.functions_used.contains(&"sort_by".to_string()));
+    }
+
+    #[test]
+    fn test_object_values() {
+        // `*` on its own produces ObjectValues
+        let result = engine().explain("*").unwrap();
+        assert!(
+            result
+                .steps
+                .iter()
+                .any(|s| contains_node_type(s, "object_values"))
+        );
+    }
+
+    #[test]
+    fn test_not_expression() {
+        let result = engine().explain("!active").unwrap();
+        assert_eq!(result.steps[0].node_type, "not");
+        assert!(result.steps[0].description.contains("NOT"));
+        assert_eq!(result.steps[0].children.len(), 1);
+    }
+
+    #[test]
+    fn test_and_expression() {
+        let result = engine().explain("a && b").unwrap();
+        assert_eq!(result.steps[0].node_type, "and");
+        assert!(result.steps[0].description.contains("AND"));
+        assert_eq!(result.steps[0].children.len(), 2);
+        assert_eq!(result.steps[0].children[0].node_type, "field");
+        assert_eq!(result.steps[0].children[1].node_type, "field");
+    }
+
+    #[test]
+    fn test_or_expression() {
+        let result = engine().explain("a || b").unwrap();
+        assert_eq!(result.steps[0].node_type, "or");
+        assert!(result.steps[0].description.contains("OR"));
+        assert_eq!(result.steps[0].children.len(), 2);
+        assert_eq!(result.steps[0].children[0].node_type, "field");
+        assert_eq!(result.steps[0].children[1].node_type, "field");
+    }
+
+    // --- Complexity boundary tests ---
+
+    #[test]
+    fn test_complexity_simple_field() {
+        let result = engine().explain("name").unwrap();
+        assert_eq!(result.complexity, "simple");
+    }
+
+    #[test]
+    fn test_complexity_simple_identity() {
+        let result = engine().explain("@").unwrap();
+        assert_eq!(result.complexity, "simple");
+    }
+
+    #[test]
+    fn test_complexity_moderate_with_function() {
+        let result = engine().explain("length(@)").unwrap();
+        // Has a function (count=1) but low depth, so "moderate"
+        assert_eq!(result.complexity, "moderate");
+        assert!(result.functions_used.contains(&"length".to_string()));
+    }
+
+    #[test]
+    fn test_complexity_moderate_with_filter() {
+        let result = engine().explain("users[?active]").unwrap();
+        // Has a filter condition, which makes it at least moderate
+        assert_eq!(result.complexity, "moderate");
+    }
+
+    #[test]
+    fn test_complexity_complex_multi_function() {
+        // Three functions pushes func_count > 2, triggering "complex"
+        let result = engine().explain("sort(keys(@)) | join(', ', @)").unwrap();
+        assert_eq!(result.functions_used.len(), 3);
+        assert_eq!(result.complexity, "complex");
+    }
+
+    // --- Other tests ---
+
+    #[test]
+    fn test_explain_comparison_operators() {
+        let result = engine().explain("a > b").unwrap();
+        assert_eq!(result.steps[0].node_type, "comparison");
+        assert!(result.steps[0].description.contains(">"));
+        assert_eq!(result.steps[0].children.len(), 2);
+    }
+
+    #[test]
+    fn test_explain_slice() {
+        let result = engine().explain("items[1:3]").unwrap();
+        assert!(result.steps.iter().any(|s| contains_node_type(s, "slice")));
+    }
+
+    #[test]
+    fn test_explain_literal() {
+        let result = engine().explain("`42`").unwrap();
+        assert_eq!(result.steps[0].node_type, "literal");
+        assert!(result.steps[0].description.contains("42"));
+    }
 }

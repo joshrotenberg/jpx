@@ -811,4 +811,83 @@ mod tests {
         // "hello" appears in 2 docs, "world" in 2 docs
         assert!(terms[0].1 >= terms.last().unwrap().1);
     }
+
+    #[test]
+    fn test_empty_index_search() {
+        let index = Bm25Index::new(IndexOptions::default());
+        let results = index.search("anything", 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_empty_query_search() {
+        let docs = vec![json!("hello world"), json!("goodbye world")];
+        let index = Bm25Index::build(&docs, IndexOptions::default());
+        let results = index.search("", 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_single_document_index() {
+        let docs = vec![json!("the rust programming language")];
+        let index = Bm25Index::build(&docs, IndexOptions::default());
+
+        assert_eq!(index.doc_count, 1);
+
+        let results = index.search("rust", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "0");
+        assert!(results[0].score > 0.0);
+    }
+
+    #[test]
+    fn test_stem_simple_plural_s() {
+        assert_eq!(stem_simple("databases"), "database");
+    }
+
+    #[test]
+    fn test_stem_simple_plural_ies() {
+        assert_eq!(stem_simple("queries"), "query");
+    }
+
+    #[test]
+    fn test_stem_simple_plural_xes() {
+        assert_eq!(stem_simple("boxes"), "box");
+    }
+
+    #[test]
+    fn test_stem_simple_short_word() {
+        assert_eq!(stem_simple("is"), "is");
+    }
+
+    #[test]
+    fn test_stem_simple_no_change() {
+        assert_eq!(stem_simple("data"), "data");
+    }
+
+    #[test]
+    fn test_idf_zero_for_unknown_term() {
+        let docs = vec![json!("hello world"), json!("goodbye world")];
+        let index = Bm25Index::build(&docs, IndexOptions::default());
+        let idf = index.idf("nonexistent_term");
+        assert_eq!(idf, 0.0);
+    }
+
+    #[test]
+    fn test_similar_nonexistent_doc() {
+        let docs = vec![
+            json!({"name": "alpha", "description": "first document about rust"}),
+            json!({"name": "beta", "description": "second document about python"}),
+        ];
+
+        let options = IndexOptions {
+            fields: vec!["name".to_string(), "description".to_string()],
+            id_field: Some("name".to_string()),
+            ..Default::default()
+        };
+
+        let index = Bm25Index::build(&docs, options);
+        let results = index.similar("nonexistent", 5);
+        assert!(results.is_empty());
+    }
 }

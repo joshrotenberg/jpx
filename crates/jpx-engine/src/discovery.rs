@@ -1071,4 +1071,155 @@ mod tests {
         assert!(!results.is_empty());
         assert_eq!(results[0].tool.name, "extract_numbers");
     }
+
+    #[test]
+    fn test_register_duplicate_tool_names() {
+        let mut registry = DiscoveryRegistry::new();
+
+        let spec_a: DiscoverySpec = serde_json::from_value(serde_json::json!({
+            "server": {"name": "server-a"},
+            "tools": [{"name": "do_thing", "summary": "Does a thing from server A"}]
+        }))
+        .unwrap();
+
+        let spec_b: DiscoverySpec = serde_json::from_value(serde_json::json!({
+            "server": {"name": "server-b"},
+            "tools": [{"name": "do_thing", "summary": "Does a thing from server B"}]
+        }))
+        .unwrap();
+
+        let result_a = registry.register(spec_a, false);
+        let result_b = registry.register(spec_b, false);
+
+        assert!(result_a.ok);
+        assert!(result_b.ok);
+        assert_eq!(result_a.tools_indexed, 1);
+        assert_eq!(result_b.tools_indexed, 1);
+
+        // Both should be indexed under their unique tool_id ("server:name")
+        assert!(registry.tools.contains_key("server-a:do_thing"));
+        assert!(registry.tools.contains_key("server-b:do_thing"));
+
+        // Query should return results from both
+        let results = registry.query("do_thing", 10);
+        assert_eq!(results.len(), 2);
+
+        let servers: Vec<_> = results.iter().map(|r| r.server.as_str()).collect();
+        assert!(servers.contains(&"server-a"));
+        assert!(servers.contains(&"server-b"));
+    }
+
+    #[test]
+    fn test_query_no_results() {
+        let mut registry = DiscoveryRegistry::new();
+        registry.register(sample_spec(), false);
+
+        let results = registry.query("xyznonexistent", 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_query_empty_registry() {
+        let registry = DiscoveryRegistry::new();
+
+        let results = registry.query("cluster", 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_index_stats_empty_registry() {
+        let registry = DiscoveryRegistry::new();
+
+        assert!(registry.index_stats().is_none());
+    }
+
+    #[test]
+    fn test_category_filtering_edge_case() {
+        let spec: DiscoverySpec = serde_json::from_value(serde_json::json!({
+            "server": {"name": "mixed-server"},
+            "tools": [
+                {
+                    "name": "categorized_tool",
+                    "category": "utils",
+                    "summary": "A tool with a category"
+                },
+                {
+                    "name": "uncategorized_tool",
+                    "summary": "A tool without a category"
+                }
+            ]
+        }))
+        .unwrap();
+
+        let mut registry = DiscoveryRegistry::new();
+        registry.register(spec, false);
+
+        let categories = registry.list_categories();
+
+        // Only "utils" should appear; uncategorized tool should not create an entry
+        assert_eq!(categories.len(), 1);
+        assert!(categories.contains_key("utils"));
+        assert_eq!(categories.get("utils").unwrap().tool_count, 1);
+    }
+
+    #[test]
+    fn test_unregister_nonexistent() {
+        let mut registry = DiscoveryRegistry::new();
+
+        assert!(!registry.unregister("never-registered"));
+    }
+
+    #[test]
+    fn test_multiple_servers() {
+        let mut registry = DiscoveryRegistry::new();
+
+        let spec_redis = sample_spec();
+
+        let spec_postgres: DiscoverySpec = serde_json::from_value(serde_json::json!({
+            "server": {
+                "name": "pgctl",
+                "version": "1.0.0",
+                "description": "PostgreSQL management"
+            },
+            "tools": [
+                {
+                    "name": "create_database",
+                    "category": "databases",
+                    "tags": ["write"],
+                    "summary": "Create a new PostgreSQL database",
+                    "description": "Creates a new PostgreSQL database with specified configuration"
+                },
+                {
+                    "name": "list_tables",
+                    "category": "tables",
+                    "tags": ["read"],
+                    "summary": "List all tables in a database",
+                    "description": "Lists all tables in a PostgreSQL database"
+                }
+            ]
+        }))
+        .unwrap();
+
+        registry.register(spec_redis, false);
+        registry.register(spec_postgres, false);
+
+        // list_servers should show both
+        let servers = registry.list_servers();
+        assert_eq!(servers.len(), 2);
+        let server_names: Vec<_> = servers.iter().map(|s| s.name.as_str()).collect();
+        assert!(server_names.contains(&"redisctl"));
+        assert!(server_names.contains(&"pgctl"));
+
+        // Query for "create" should find tools from both servers
+        let results = registry.query("create", 10);
+        assert!(results.len() >= 2);
+        let result_servers: Vec<_> = results.iter().map(|r| r.server.as_str()).collect();
+        assert!(result_servers.contains(&"redisctl"));
+        assert!(result_servers.contains(&"pgctl"));
+
+        // Query for "PostgreSQL" should only find pgctl tools
+        let results = registry.query("PostgreSQL", 10);
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|r| r.server == "pgctl"));
+    }
 }

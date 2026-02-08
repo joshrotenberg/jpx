@@ -633,4 +633,208 @@ active-users = { expression = "users[?active].name", description = "Get active u
             assert_eq!(result, home.join("some/path").to_string_lossy().as_ref());
         }
     }
+
+    #[test]
+    fn test_invalid_toml() {
+        let bad_toml = r#"
+[engine
+strict = true
+"#;
+        let result: Result<EngineConfig, _> = toml::from_str(bad_toml);
+        assert!(
+            result.is_err(),
+            "Parsing invalid TOML should return an error"
+        );
+    }
+
+    #[test]
+    fn test_from_file_missing() {
+        let path = Path::new("/tmp/nonexistent_jpx_config_test_file.toml");
+        let result = EngineConfig::from_file(path);
+        assert!(
+            result.is_err(),
+            "from_file on nonexistent path should return Err"
+        );
+    }
+
+    #[test]
+    fn test_builder_chaining() {
+        let builder = EngineBuilder::new()
+            .disable_category("geo")
+            .disable_category("phonetic")
+            .disable_category("semver")
+            .disable_function("env")
+            .disable_function("upper")
+            .disable_function("lower");
+
+        let engine = builder.build().unwrap();
+
+        // All three categories should be disabled -- geo functions should not resolve
+        assert!(engine.describe_function("geo_distance").is_none());
+
+        // All three individually disabled functions should be gone
+        assert!(engine.describe_function("env").is_none());
+        assert!(engine.describe_function("upper").is_none());
+        assert!(engine.describe_function("lower").is_none());
+
+        // Standard JMESPath functions still work
+        let result = engine
+            .evaluate("length(@)", &serde_json::json!([1, 2, 3]))
+            .unwrap();
+        assert_eq!(result, serde_json::json!(3));
+    }
+
+    #[test]
+    fn test_builder_enable_categories() {
+        let engine = EngineBuilder::new()
+            .enable_categories(vec!["string".to_string(), "math".to_string()])
+            .build()
+            .unwrap();
+
+        // String-category functions should be available
+        assert!(
+            engine.describe_function("upper").is_some(),
+            "upper should be available when string category is enabled"
+        );
+
+        // Geo-category functions should NOT be available
+        assert!(
+            engine.describe_function("geo_distance").is_none(),
+            "geo_distance should not be available when only string and math are enabled"
+        );
+    }
+
+    #[test]
+    fn test_builder_inline_query() {
+        let engine = EngineBuilder::new()
+            .inline_query("count", "length(@)", Some("Count items"))
+            .inline_query("names", "people[*].name", None)
+            .build()
+            .unwrap();
+
+        // First inline query should be stored and runnable
+        let result = engine
+            .run_query("count", &serde_json::json!([1, 2, 3]))
+            .unwrap();
+        assert_eq!(result, serde_json::json!(3));
+
+        // Second inline query should also work
+        let data = serde_json::json!({"people": [{"name": "alice"}, {"name": "bob"}]});
+        let result = engine.run_query("names", &data).unwrap();
+        assert_eq!(result, serde_json::json!(["alice", "bob"]));
+    }
+
+    #[test]
+    fn test_merge_deep_both_empty() {
+        let a = EngineConfig::default();
+        let b = EngineConfig::default();
+        let merged = a.merge(b);
+
+        assert!(!merged.engine.strict);
+        assert!(merged.functions.disabled_categories.is_empty());
+        assert!(merged.functions.disabled_functions.is_empty());
+        assert!(merged.functions.enabled_categories.is_none());
+        assert!(merged.queries.libraries.is_empty());
+        assert!(merged.queries.inline.is_empty());
+    }
+
+    #[test]
+    fn test_merge_inline_queries_override() {
+        let base = EngineConfig {
+            queries: QueriesSection {
+                inline: {
+                    let mut m = HashMap::new();
+                    m.insert(
+                        "count".to_string(),
+                        InlineQuery {
+                            expression: "length(@)".to_string(),
+                            description: Some("Original".to_string()),
+                        },
+                    );
+                    m
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let overlay = EngineConfig {
+            queries: QueriesSection {
+                inline: {
+                    let mut m = HashMap::new();
+                    m.insert(
+                        "count".to_string(),
+                        InlineQuery {
+                            expression: "length(keys(@))".to_string(),
+                            description: Some("Overridden".to_string()),
+                        },
+                    );
+                    m
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let merged = base.merge(overlay);
+
+        let count_query = merged.queries.inline.get("count").unwrap();
+        assert_eq!(
+            count_query.expression, "length(keys(@))",
+            "Later inline query should override earlier one with same name"
+        );
+        assert_eq!(
+            count_query.description.as_deref(),
+            Some("Overridden"),
+            "Description should also be from the later config"
+        );
+    }
+
+    #[test]
+    fn test_build_runtime_strict() {
+        let functions_config = FunctionsSection::default();
+        let (runtime, registry) = build_runtime_from_config(&functions_config, true);
+
+        // Registry should have extension functions registered
+        assert!(
+            registry.is_enabled("upper"),
+            "Registry should know about upper even in strict mode"
+        );
+
+        // But the runtime should NOT have extension functions applied.
+        // Compiling a standard expression should work (the parser is always available).
+        assert!(
+            runtime.compile("length(@)").is_ok(),
+            "Compiling a standard expression should succeed"
+        );
+
+        // Evaluating with an extension function should fail because it was never
+        // applied to the runtime.
+        let expr = runtime.compile("upper('hello')").unwrap();
+        let data = serde_json::json!("ignored");
+        let result = expr.search(&data);
+        assert!(
+            result.is_err(),
+            "upper should not be callable on the runtime in strict mode"
+        );
+    }
+
+    #[test]
+    fn test_build_runtime_disabled_category() {
+        let functions_config = FunctionsSection {
+            disabled_categories: vec!["Geo".to_string()],
+            ..Default::default()
+        };
+        let (_runtime, registry) = build_runtime_from_config(&functions_config, false);
+
+        // Geo functions should be disabled in the registry
+        assert!(
+            !registry.is_enabled("geo_distance"),
+            "geo_distance should be disabled when Geo category is disabled"
+        );
+
+        // Non-geo functions should still be enabled
+        assert!(
+            registry.is_enabled("upper"),
+            "upper should still be enabled when only Geo is disabled"
+        );
+    }
 }

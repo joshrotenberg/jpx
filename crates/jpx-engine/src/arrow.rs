@@ -476,4 +476,106 @@ mod tests {
         assert!(schema.field_with_name("str_field").is_ok());
         assert!(schema.field_with_name("bool_field").is_ok());
     }
+
+    #[test]
+    fn test_single_row_roundtrip() {
+        let input = json!([{"a": 1}]);
+
+        let batches = json_to_record_batches(&input).unwrap();
+        assert_eq!(batches.len(), 1);
+        assert_eq!(batches[0].num_rows(), 1);
+
+        let output = record_batches_to_json(&batches).unwrap();
+        let arr = output.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["a"], 1);
+    }
+
+    #[test]
+    fn test_all_null_values() {
+        let input = json!([
+            {"a": null},
+            {"a": null}
+        ]);
+
+        let batches = json_to_record_batches(&input).unwrap();
+        assert!(!batches.is_empty());
+
+        let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+        assert_eq!(total_rows, 2);
+
+        let output = record_batches_to_json(&batches).unwrap();
+        let arr = output.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+
+        // After roundtrip, all-null columns may be omitted or preserved as null
+        // depending on the Arrow JSON writer behavior. Verify the rows exist.
+        for row in arr {
+            let obj = row.as_object().unwrap();
+            if let Some(val) = obj.get("a") {
+                assert!(val.is_null());
+            }
+        }
+    }
+
+    #[test]
+    fn test_mixed_null_values() {
+        let input = json!([
+            {"a": 1},
+            {"a": null},
+            {"a": 3}
+        ]);
+
+        let batches = json_to_record_batches(&input).unwrap();
+        let output = record_batches_to_json(&batches).unwrap();
+        let arr = output.as_array().unwrap();
+
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0]["a"], 1);
+        // The null row should either be absent or explicitly null
+        assert!(arr[1].get("a").is_none() || arr[1]["a"].is_null());
+        assert_eq!(arr[2]["a"], 3);
+    }
+
+    #[test]
+    fn test_string_only_data() {
+        let input = json!([
+            {"first": "Alice", "last": "Smith"},
+            {"first": "Bob", "last": "Jones"},
+            {"first": "Carol", "last": "White"}
+        ]);
+
+        let batches = json_to_record_batches(&input).unwrap();
+        let output = record_batches_to_json(&batches).unwrap();
+        let arr = output.as_array().unwrap();
+
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0]["first"], "Alice");
+        assert_eq!(arr[0]["last"], "Smith");
+        assert_eq!(arr[1]["first"], "Bob");
+        assert_eq!(arr[1]["last"], "Jones");
+        assert_eq!(arr[2]["first"], "Carol");
+        assert_eq!(arr[2]["last"], "White");
+    }
+
+    #[test]
+    fn test_boolean_field_roundtrip() {
+        let input = json!([
+            {"name": "flag_a", "enabled": true},
+            {"name": "flag_b", "enabled": false},
+            {"name": "flag_c", "enabled": true}
+        ]);
+
+        let batches = json_to_record_batches(&input).unwrap();
+        let output = record_batches_to_json(&batches).unwrap();
+        let arr = output.as_array().unwrap();
+
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0]["enabled"], true);
+        assert_eq!(arr[1]["enabled"], false);
+        assert_eq!(arr[2]["enabled"], true);
+        assert_eq!(arr[0]["name"], "flag_a");
+        assert_eq!(arr[1]["name"], "flag_b");
+        assert_eq!(arr[2]["name"], "flag_c");
+    }
 }

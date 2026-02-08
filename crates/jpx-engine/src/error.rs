@@ -286,4 +286,112 @@ mod tests {
         let kind = classify_evaluation_error("Some unknown error");
         assert_eq!(kind, EvaluationErrorKind::Other);
     }
+
+    // Display formatting tests for EvaluationErrorKind
+
+    #[test]
+    fn test_display_undefined_function() {
+        let kind = EvaluationErrorKind::UndefinedFunction {
+            name: "foo".to_string(),
+        };
+        assert_eq!(kind.to_string(), "undefined function 'foo'");
+    }
+
+    #[test]
+    fn test_display_argument_count_with_numbers() {
+        let kind = EvaluationErrorKind::ArgumentCount {
+            expected: Some(2),
+            actual: Some(3),
+        };
+        assert_eq!(kind.to_string(), "expected 2 arguments, found 3");
+    }
+
+    #[test]
+    fn test_display_argument_count_without_numbers() {
+        let kind = EvaluationErrorKind::ArgumentCount {
+            expected: None,
+            actual: None,
+        };
+        assert_eq!(kind.to_string(), "wrong number of arguments");
+    }
+
+    #[test]
+    fn test_display_type_error() {
+        let kind = EvaluationErrorKind::TypeError {
+            detail: "some detail".to_string(),
+        };
+        assert_eq!(kind.to_string(), "type error: some detail");
+    }
+
+    #[test]
+    fn test_display_other() {
+        let kind = EvaluationErrorKind::Other;
+        assert_eq!(kind.to_string(), "evaluation error");
+    }
+
+    // EngineError Display tests
+
+    #[test]
+    fn test_engine_error_display_invalid_expression() {
+        let err = EngineError::InvalidExpression("unexpected token".to_string());
+        assert_eq!(err.to_string(), "Invalid expression: unexpected token");
+    }
+
+    #[test]
+    fn test_engine_error_display_invalid_json() {
+        let err = EngineError::InvalidJson("expected value at line 1".to_string());
+        assert_eq!(err.to_string(), "Invalid JSON: expected value at line 1");
+    }
+
+    #[test]
+    fn test_engine_error_display_evaluation_failed() {
+        let err = EngineError::EvaluationFailed {
+            message: "something went wrong".to_string(),
+            kind: EvaluationErrorKind::Other,
+        };
+        assert_eq!(err.to_string(), "Evaluation failed: something went wrong");
+    }
+
+    #[test]
+    fn test_engine_error_display_all_variants() {
+        let unknown = EngineError::UnknownFunction("mystery".to_string());
+        assert_eq!(unknown.to_string(), "Unknown function: mystery");
+
+        let not_found = EngineError::QueryNotFound("my_query".to_string());
+        assert_eq!(not_found.to_string(), "Query not found: my_query");
+
+        let reg_failed = EngineError::RegistrationFailed("duplicate name".to_string());
+        assert_eq!(
+            reg_failed.to_string(),
+            "Registration failed: duplicate name"
+        );
+
+        let config = EngineError::ConfigError("missing field".to_string());
+        assert_eq!(config.to_string(), "Config error: missing field");
+
+        let internal = EngineError::Internal("lock poisoned".to_string());
+        assert_eq!(internal.to_string(), "Internal error: lock poisoned");
+    }
+
+    // Constructor test
+
+    #[test]
+    fn test_evaluation_failed_constructor() {
+        let err = EngineError::evaluation_failed("Call to undefined function foo".to_string());
+        match err {
+            EngineError::EvaluationFailed {
+                ref message,
+                ref kind,
+            } => {
+                assert_eq!(message, "Call to undefined function foo");
+                assert_eq!(
+                    *kind,
+                    EvaluationErrorKind::UndefinedFunction {
+                        name: "foo".to_string()
+                    }
+                );
+            }
+            other => panic!("Expected EvaluationFailed, got {:?}", other),
+        }
+    }
 }

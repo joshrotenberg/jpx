@@ -274,4 +274,72 @@ mod tests {
         store.clear();
         assert!(store.is_empty());
     }
+
+    #[test]
+    fn test_get_nonexistent() {
+        let store = QueryStore::new();
+        assert!(store.get("never_defined").is_none());
+    }
+
+    #[test]
+    fn test_empty_name() {
+        let mut store = QueryStore::new();
+
+        store.define(StoredQuery {
+            name: "".to_string(),
+            expression: "length(@)".to_string(),
+            description: Some("Empty name query".to_string()),
+        });
+
+        assert_eq!(store.len(), 1);
+
+        let retrieved = store.get("").unwrap();
+        assert_eq!(retrieved.name, "");
+        assert_eq!(retrieved.expression, "length(@)");
+        assert_eq!(retrieved.description, Some("Empty name query".to_string()));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let mut store = QueryStore::new();
+        assert!(store.is_empty());
+
+        store.define(StoredQuery {
+            name: "q".to_string(),
+            expression: "@".to_string(),
+            description: None,
+        });
+        assert!(!store.is_empty());
+
+        store.clear();
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn test_list_ordering_stability() {
+        let mut store = QueryStore::new();
+
+        // Define in reverse alphabetical order
+        store.define(StoredQuery {
+            name: "c".to_string(),
+            expression: "`3`".to_string(),
+            description: None,
+        });
+        store.define(StoredQuery {
+            name: "b".to_string(),
+            expression: "`2`".to_string(),
+            description: None,
+        });
+        store.define(StoredQuery {
+            name: "a".to_string(),
+            expression: "`1`".to_string(),
+            description: None,
+        });
+
+        let list = store.list();
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0].name, "a");
+        assert_eq!(list[1].name, "b");
+        assert_eq!(list[2].name, "c");
+    }
 }
