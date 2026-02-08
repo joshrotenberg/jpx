@@ -1520,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "jpx-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aho-corasick",
  "base64",
@@ -1564,7 +1564,7 @@ dependencies = [
 
 [[package]]
 name = "jpx-engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arrow",
  "dirs",
