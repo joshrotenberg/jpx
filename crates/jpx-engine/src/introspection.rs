@@ -1005,7 +1005,10 @@ mod tests {
             2
         );
         // nested brackets
-        assert_eq!(super::count_params("array[object[string, number]] -> array"), 1);
+        assert_eq!(
+            super::count_params("array[object[string, number]] -> array"),
+            1
+        );
     }
 
     #[test]
