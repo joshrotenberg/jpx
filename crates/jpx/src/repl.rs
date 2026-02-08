@@ -1394,7 +1394,20 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
                                 }
                             }
                             Err(e) => {
-                                println!("{}Runtime error: {}{}", colors::ERROR, e, colors::RESET);
+                                let err_msg = e.to_string();
+                                println!(
+                                    "{}Runtime error: {}{}",
+                                    colors::ERROR,
+                                    err_msg,
+                                    colors::RESET
+                                );
+                                if let Some(suggestion) =
+                                    crate::discovery::suggest_for_unknown_function(
+                                        &registry, &err_msg, 3,
+                                    )
+                                {
+                                    println!("{}", suggestion);
+                                }
                             }
                         },
                         Err(e) => {

@@ -1547,6 +1547,25 @@ mod cli_similar {
     }
 
     #[test]
+    fn test_unknown_function_suggests_similar() {
+        // When evaluating an expression with an unknown function name,
+        // the CLI should suggest similar functions
+        let output = run_with_args(&["uper(@)"], r#""hello""#);
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("Did you mean?"),
+            "Should show suggestions, got: {}",
+            stderr
+        );
+        assert!(
+            stderr.contains("upper"),
+            "Should suggest 'upper', got: {}",
+            stderr
+        );
+    }
+
+    #[test]
     fn test_similar_unknown_function() {
         let output = jpx_cmd()
             .arg("--similar")

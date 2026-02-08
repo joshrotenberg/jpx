@@ -247,7 +247,13 @@ fn run() -> Result<()> {
                         err_msg
                     ));
                 }
-                return Err(anyhow::anyhow!("Failed to evaluate expression: {}", e));
+                let suggestion = discovery::suggest_for_unknown_function(&registry, &err_msg, 3)
+                    .unwrap_or_default();
+                return Err(anyhow::anyhow!(
+                    "Failed to evaluate expression: {}{}",
+                    e,
+                    suggestion
+                ));
             }
         };
         let step_elapsed = step_start.elapsed();
