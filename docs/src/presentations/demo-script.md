@@ -131,6 +131,63 @@ jpx -Q examples/earthquakes-madrid.jpx --check
 
 ---
 
+## Demo 3: MCP — let the AI drive (standalone 2-3 min segment)
+
+This is the "wow" moment. Open Claude Code with the jpx MCP server
+configured, paste one prompt, and let the audience watch the AI
+explore earthquake data using MCP tool calls in real time.
+
+### Setup
+
+Make sure `/tmp/quakes_week.json` exists from pre-flight.
+Open Claude Code in a terminal with large font.
+
+### The prompt
+
+Paste this into Claude Code:
+
+```
+I have USGS earthquake data (M4.5+ past week, GeoJSON format) at
+/tmp/quakes_week.json. Using the jpx MCP tools:
+
+1. Explore the data structure and give me a quick summary
+2. Find the 5 earthquakes nearest to Madrid (40.42°N, 3.70°W)
+   using geo functions — show as a table with distance in km
+3. Which regions had the most activity? Show the top 10.
+4. Save the "nearest to Madrid" query so I can reuse it later
+```
+
+### What the audience should see
+
+The AI will make a series of MCP tool calls — talk over them:
+
+1. **`stats`** or **`evaluate_file`** — "It's exploring the data shape first"
+2. **`search`** — "It's discovering geo functions — it didn't know the name,
+   it searched for it"
+3. **`evaluate_file`** with `geo_distance_km` + `let` expression —
+   "There's the query — geo distance from our coordinates, sorted"
+4. **`evaluate_file`** with `group_by` + `items` — "Aggregation by region,
+   one expression"
+5. **`define_query`** — "And now it saved that query for reuse"
+
+### Talk track
+
+> "This is jpx as an MCP server — 29 tools that let any AI assistant
+> query JSON, discover functions, and build reusable query libraries.
+> I gave it one prompt and it explored the data, found the right
+> functions, built the queries, and saved them. No code. No scripts."
+
+### Tips
+
+- If response is slow, narrate what's happening: "It's thinking about
+  which functions to use..."
+- The tool calls stream in real time in Claude Code — that's the demo
+- If it errors on a query (it happens!), say: "And it self-corrects —
+  it'll check the function signature and fix it"
+- Consider pre-recording this as a backup video in case of WiFi/latency issues
+
+---
+
 ## Fallback (no network)
 
 All commands use cached `/tmp/quakes_week.json` from pre-flight.
