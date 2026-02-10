@@ -100,27 +100,105 @@ jpx -Q examples/earthquakes-madrid.jpx --list-queries
 jpx -Q examples/earthquakes-madrid.jpx:nearest -f /tmp/quakes_week.json -t
 ```
 
-> "We're in Madrid — how close were the nearest quakes this week?"
-> Uses `let $lat, $lon` to bind our coordinates, `geo_distance_km` for great-circle distance.
+The query:
 
-### 2.6 — Aggregate by region
+```jmespath
+let $lat = `40.4168`, $lon = `-3.7038` in
+features[*].{
+  place: properties.place,
+  mag: properties.mag,
+  km: round(geo_distance_km($lat, $lon,
+    geometry.coordinates[1], geometry.coordinates[0])),
+  when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)
+} | sort_by(@, &km) | [:5]
+```
+
+> "We're in Madrid — how close were the nearest quakes this week?"
+> `let` binds our coordinates, `geo_distance_km` computes great-circle
+> distance for every event, `format_date` + `divide` converts epoch millis.
+
+### 2.6 — Most-felt earthquakes
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx:felt -f /tmp/quakes_week.json -t
+```
+
+The query:
+
+```jmespath
+features[?properties.felt != null]
+  | sort_by(@, &properties.felt)
+  | reverse(@)
+  | [:5]
+  | [*].{
+    place: properties.place,
+    mag: properties.mag,
+    felt_reports: properties.felt,
+    significance: properties.sig
+  }
+```
+
+> USGS "Did you feel it?" reports. Filter nulls, sort, reshape.
+
+### 2.7 — Aggregate by region
 
 ```bash
 jpx -Q examples/earthquakes-madrid.jpx:by-region -f /tmp/quakes_week.json -t
 ```
 
+The query:
+
+```jmespath
+features[*].{
+  region: last(split(properties.place, `", "`)),
+  mag: properties.mag
+} | group_by(@, 'region')
+  | items(@)
+  | [*].{region: [0], count: length([1]), max_mag: max([1][*].mag)}
+  | sort_by(@, &count)
+  | reverse(@)
+  | [:10]
+```
+
 > Extracts country from place strings with `split` → `last`, groups by it,
 > counts per region, sorts. One expression, no code.
 
-### 2.7 — Full report: one query, complete picture
+### 2.8 — Full report: one query, complete picture
 
 ```bash
 jpx -Q examples/earthquakes-madrid.jpx:full-report -f /tmp/quakes_week.json
 ```
 
+The query:
+
+```jmespath
+let $lat = `40.4168`, $lon = `-3.7038` in {
+  summary: {
+    total: length(features),
+    magnitude: {
+      avg: round(avg(features[*].properties.mag), `2`),
+      max: max(features[*].properties.mag),
+      median: median(features[*].properties.mag)
+    },
+    depth: {
+      avg_km: round(avg(features[*].geometry.coordinates[2]), `1`),
+      max_km: round(max(features[*].geometry.coordinates[2]), `1`)
+    }
+  },
+  nearest_to_madrid: features[*].{
+    place: properties.place,
+    km: round(geo_distance_km($lat, $lon,
+      geometry.coordinates[1], geometry.coordinates[0]))
+  } | sort_by(@, &km) | [:3],
+  strongest: sort_by(features, &properties.mag)
+    | reverse(@) | [:3]
+    | [*].{place: properties.place, mag: properties.mag}
+}
+```
+
 > Stats, nearest-to-Madrid, and strongest — all combined into one structured object.
 
-### 2.8 — The query file is just text
+### 2.9 — The query file is just text
 
 ```bash
 jpx -Q examples/earthquakes-madrid.jpx --check
