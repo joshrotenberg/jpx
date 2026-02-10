@@ -177,6 +177,23 @@ The AI will make a series of MCP tool calls — talk over them:
 > I gave it one prompt and it explored the data, found the right
 > functions, built the queries, and saved them. No code. No scripts."
 
+### The token argument (for the slide or Q&A)
+
+Real numbers from the earthquake data we just queried:
+
+| | Tokens | Notes |
+|---|---|---|
+| **Without jpx** — full JSON in context | 21,469 | 60 KB file, 85 events |
+| **With jpx** — expression + result only | 355 | 92 (query) + 263 (result) |
+| **Savings** | **98.3%** | **60x fewer tokens** |
+
+The result size is constant — "top 5 nearest" returns 5 rows whether
+the input has 85 events or 40,000. Bigger data = bigger savings.
+
+And the query engine is deterministic. The LLM doesn't read the JSON —
+it writes an expression and the engine evaluates it. No hallucinated values,
+no miscounted arrays, same result every time.
+
 ### Tips
 
 - If response is slow, narrate what's happening: "It's thinking about
