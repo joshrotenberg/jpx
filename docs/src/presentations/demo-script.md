@@ -1,118 +1,153 @@
 # jpx Lightning Talk — Demo Script
 
-Commands staged for live demo. Run these between slides 3 and 4.
+Open this page in a browser alongside your terminal.
+Each section is one step — run the command(s), talk through the output, move on.
 
-## Pre-flight
+---
+
+## Pre-flight (do this before the talk)
 
 ```bash
-# Cache earthquake data (in case conference WiFi is flaky)
-curl -s "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson" > /tmp/quakes.json
+# Cache earthquake data so you don't depend on WiFi
+curl -s "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson" \
+  > /tmp/quakes_week.json
 
 # Verify jpx is working
 jpx --version
 
-# Terminal font: 20pt+ so the back row can read it
+# Terminal: 20pt+ font, dark background, maximize window
 ```
 
 ---
 
-## 1. Quick taste (20s)
+## Demo 1: Slides + quick hits (between slides 3 and 4)
+
+### 1.1 — One-liner to set the tone
 
 ```bash
-# Filter — reads like English: "users where active, get names"
-echo '[{"name":"Alice","active":true},{"name":"Bob","active":false},{"name":"Charlie","active":true}]' \
+echo '[{"name":"Alice","active":true},{"name":"Bob","active":false}]' \
   | jpx '[?active].upper(name)'
 ```
 
-Expected: `["ALICE","CHARLIE"]`
+> `["ALICE"]` — filter + transform, reads like English.
 
----
-
-## 2. Real API — USGS earthquakes (40s)
+### 1.2 — Geo distance: Madrid to San Francisco
 
 ```bash
-# Recent significant earthquakes worldwide
-curl -s "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson" \
-  | jpx 'features[:5].{place: properties.place, mag: properties.mag}'
-```
-
-```bash
-# Full statistics — using a query file
-jpx -Q examples/earthquakes.jpx:mag-stats -f /tmp/quakes.json
-```
-
-```bash
-# Table output — sorted by magnitude
-jpx -Q examples/earthquakes.jpx:sort-by-mag -f /tmp/quakes.json -t
-```
-
----
-
-## 3. Superpowers (40s)
-
-```bash
-# Geo: How far are we from home? Madrid → San Francisco
 echo '{}' | jpx 'round(geo_distance_km(`40.4168`, `-3.7038`, `37.7749`, `-122.4194`), `0`)'
 ```
 
-Expected: `9318` (km)
+> `9318` km. Built-in geo functions — no libraries, no imports.
+
+### 1.3 — Function discovery
 
 ```bash
-# Hashing
-echo '"conference-wifi-password"' | jpx 'sha256(@)'
-```
-
-```bash
-# Fuzzy matching — find names similar to "Josh"
-echo '{"names":["Josh","Joseph","Joshua","Jessica","James"]}' \
-  | jpx 'names[*].{name: @, score: round(jaro_winkler(@, `"Josh"`), `2`)} | [?score > `0.8`]'
-```
-
-```bash
-# Let expressions — named intermediate values
-echo '{"scores":[85,92,67,78,95,43,88]}' \
-  | jpx 'let $s = scores in {count: length($s), avg: round(avg($s), `1`), median: median($s), stddev: round(stddev($s), `2`)}'
-```
-
----
-
-## 4. Function discovery (15s)
-
-```bash
-# BM25 search across 400+ functions
 jpx --search "distance"
-```
-
-```bash
-# Detailed docs for any function
 jpx --describe geo_distance_km
 ```
 
+> 400+ functions, all searchable and documented from the CLI.
+
 ---
 
-## 5. If time: REPL
+## Demo 2: Earthquake deep dive (standalone 2-3 min segment)
+
+Real USGS data, building queries from simple to complex,
+ending with a reusable query library.
+
+### 2.1 — Orient: what's in the data?
+
+```bash
+jpx 'length(features)' -f /tmp/quakes_week.json
+```
+
+```bash
+jpx '{total: length(features), max: max(features[*].properties.mag), avg: round(avg(features[*].properties.mag), `2`)}' \
+  -f /tmp/quakes_week.json
+```
+
+> ~85 M4.5+ earthquakes this past week. Max around 6.1.
+
+### 2.2 — Reshape and sort
+
+```bash
+jpx 'features[*].{place: properties.place, mag: properties.mag} | sort_by(@, &mag) | reverse(@) | [:5]' \
+  -f /tmp/quakes_week.json -t
+```
+
+> Top 5 strongest quakes, as a table. Multi-select hash, pipe to sort, slice.
+
+### 2.3 — Add timestamps (epoch → human-readable)
+
+```bash
+jpx 'features[*].{place: properties.place, mag: properties.mag, when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)} | sort_by(@, &mag) | reverse(@) | [:5]' \
+  -f /tmp/quakes_week.json -t
+```
+
+> Same query, now with formatted dates. `divide` converts millis → seconds, `format_date` does the rest.
+
+### 2.4 — The pivot: "I saved these as a query library"
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx --list-queries
+```
+
+> 8 named queries in a plain text file. Let me show you the good ones.
+
+### 2.5 — Nearest to Madrid (geo + let expressions)
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx:nearest -f /tmp/quakes_week.json -t
+```
+
+> "We're in Madrid — how close were the nearest quakes this week?"
+> Uses `let $lat, $lon` to bind our coordinates, `geo_distance_km` for great-circle distance.
+
+### 2.6 — Aggregate by region
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx:by-region -f /tmp/quakes_week.json -t
+```
+
+> Extracts country from place strings with `split` → `last`, groups by it,
+> counts per region, sorts. One expression, no code.
+
+### 2.7 — Full report: one query, complete picture
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx:full-report -f /tmp/quakes_week.json
+```
+
+> Stats, nearest-to-Madrid, and strongest — all combined into one structured object.
+
+### 2.8 — The query file is just text
+
+```bash
+jpx -Q examples/earthquakes-madrid.jpx --check
+```
+
+> Every query validated. Plain text, version-controlled, shareable.
+> No scripts, no code — just expressions.
+
+---
+
+## Fallback (no network)
+
+All commands use cached `/tmp/quakes_week.json` from pre-flight.
+If the pre-flight curl failed, copy the file from another machine or use sample data.
+
+---
+
+## REPL (if there's time to fill)
 
 ```bash
 jpx --repl
 ```
 
 Then type:
+
 ```
 upper('hello madrid')
 now()
 format_date(now(), `"%A, %B %d %Y"`)
-```
-
----
-
-## Fallback commands (no network needed)
-
-If WiFi dies, skip section 2 and use these instead:
-
-```bash
-# Use cached earthquake data
-jpx 'features[:5].{place: properties.place, mag: properties.mag}' -f /tmp/quakes.json
-
-# Stats from cached data
-jpx -Q examples/earthquakes.jpx:mag-stats -f /tmp/quakes.json
 ```
