@@ -44,6 +44,7 @@ jobs:
           output-file-path: bench-output.txt
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: benchmarks/jpx-core
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: "150%"
           fail-threshold: "200%"
