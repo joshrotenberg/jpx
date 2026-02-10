@@ -158,9 +158,9 @@
   </table>
   <br>
   <p class="fragment small">
-    <span class="green">MCP</span>: Claude can evaluate queries,
-    search functions, diff JSON, and build query libraries
-    &mdash; all through tool calls.
+    <span class="green">MCP server</span>: 29 tools &mdash; AI agents can
+    query JSON, discover functions, and build query libraries
+    without the data ever entering the context window.
   </p>
   <aside class="notes">
     Everything is Rust, from the parser to the MCP server.
@@ -172,7 +172,41 @@
   </aside>
 </section>
 
-<!-- Slide 5: Get started -->
+<!-- Slide 5: Why MCP? -->
+<section>
+  <h2>Why give this to an <span class="accent">agent</span>?</h2>
+  <div style="font-size: 0.75em; text-align: left; max-width: 85%; margin: 0 auto;">
+    <p><strong>Without jpx</strong><span class="dim">: agent reads full JSON into context</span></p>
+    <p style="text-align: center; font-size: 1.3em;">
+      <span class="dim">60 KB &rarr;</span>
+      <span style="color: #cf6679;">21,469 tokens</span>
+    </p>
+    <p class="fragment"><strong>With jpx MCP</strong><span class="dim">: file stays on disk, agent sends expression, gets result</span></p>
+    <p class="fragment" style="text-align: center; font-size: 1.3em;">
+      <span class="dim">92 + 263 =</span>
+      <span class="green">355 tokens</span>
+      <span class="dim">&nbsp;&mdash;&nbsp;</span>
+      <span class="accent">60x reduction</span>
+    </p>
+  </div>
+  <p class="fragment small" style="margin-top: 1.2em;">
+    Result size is <span class="accent">constant</span> regardless of input size.<br>
+    <span class="dim">And the query engine is deterministic &mdash;
+    no hallucinated values, no miscounted arrays.</span>
+  </p>
+  <aside class="notes">
+    This is real data — 85 earthquakes from USGS, 60 KB of GeoJSON.
+    Without jpx the agent has to read the entire file into its context
+    window. That's 21,000 tokens just to look at the data.
+    With jpx as an MCP sidecar, the file never enters the context.
+    The agent sends a 92-token expression, gets back 355 tokens.
+    60x fewer tokens. And it scales — 10,000 events? Still 355 tokens back.
+    Plus it's deterministic. The query engine processes the data, not the LLM.
+    No hallucinated values, no miscounted arrays, same result every time.
+  </aside>
+</section>
+
+<!-- Slide 6: Get started -->
 <section>
   <h2>Get started</h2>
   <pre><code class="language-bash"># Install

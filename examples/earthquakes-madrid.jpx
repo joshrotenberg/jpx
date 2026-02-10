@@ -1,0 +1,97 @@
+-- Earthquake queries for Madrid lightning talk demo
+-- Data: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson
+
+-- :name stats
+-- :desc Quick summary statistics
+{
+  total: length(features),
+  avg_mag: round(avg(features[*].properties.mag), `2`),
+  max_mag: max(features[*].properties.mag),
+  min_mag: min(features[*].properties.mag),
+  felt_count: length(features[?properties.felt != null])
+}
+
+-- :name top5
+-- :desc Top 5 earthquakes by magnitude with formatted dates
+features[*].{
+  place: properties.place,
+  mag: properties.mag,
+  when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)
+} | sort_by(@, &mag) | reverse(@) | [:5]
+
+-- :name nearest
+-- :desc 5 nearest earthquakes to Madrid with distance
+let $lat = `40.4168`, $lon = `-3.7038` in
+features[*].{
+  place: properties.place,
+  mag: properties.mag,
+  km: round(geo_distance_km($lat, $lon,
+    geometry.coordinates[1], geometry.coordinates[0])),
+  when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)
+} | sort_by(@, &km) | [:5]
+
+-- :name by-region
+-- :desc Top 10 most active regions
+features[*].{
+  region: last(split(properties.place, `", "`)),
+  mag: properties.mag
+} | group_by(@, 'region')
+  | items(@)
+  | [*].{region: [0], count: length([1]), max_mag: max([1][*].mag)}
+  | sort_by(@, &count)
+  | reverse(@)
+  | [:10]
+
+-- :name felt
+-- :desc Top 5 most-felt earthquakes
+features[?properties.felt != null]
+  | sort_by(@, &properties.felt)
+  | reverse(@)
+  | [:5]
+  | [*].{
+    place: properties.place,
+    mag: properties.mag,
+    felt_reports: properties.felt,
+    significance: properties.sig
+  }
+
+-- :name mag-buckets
+-- :desc Magnitude distribution buckets
+{
+  "4.5-4.9": length(features[?properties.mag >= `4.5` && properties.mag < `5.0`]),
+  "5.0-5.9": length(features[?properties.mag >= `5.0` && properties.mag < `6.0`]),
+  "6.0+": length(features[?properties.mag >= `6.0`])
+}
+
+-- :name deep
+-- :desc Deepest earthquakes with depth classification
+features[*].{
+  place: properties.place,
+  mag: properties.mag,
+  depth_km: round(geometry.coordinates[2], `1`)
+} | sort_by(@, &depth_km) | reverse(@) | [:5]
+
+-- :name full-report
+-- :desc Comprehensive report combining stats, top events, and geography
+let $lat = `40.4168`, $lon = `-3.7038` in {
+  summary: {
+    total: length(features),
+    magnitude: {
+      avg: round(avg(features[*].properties.mag), `2`),
+      max: max(features[*].properties.mag),
+      median: median(features[*].properties.mag)
+    },
+    depth: {
+      avg_km: round(avg(features[*].geometry.coordinates[2]), `1`),
+      max_km: round(max(features[*].geometry.coordinates[2]), `1`)
+    }
+  },
+  nearest_to_madrid: features[*].{
+    place: properties.place,
+    km: round(geo_distance_km($lat, $lon,
+      geometry.coordinates[1], geometry.coordinates[0]))
+  } | sort_by(@, &km) | [:3],
+  strongest: sort_by(features, &properties.mag)
+    | reverse(@) | [:3]
+    | [*].{place: properties.place, mag: properties.mag}
+}
