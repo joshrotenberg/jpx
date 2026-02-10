@@ -283,6 +283,95 @@ no miscounted arrays, same result every time.
 
 ---
 
+## Demo 4: "What if the data doesn't fit?" — Parquet at scale
+
+This is the closer. Everything before this used 85 events (60 KB).
+Now show what happens with half a million rows.
+
+Requires jpx built with `--features parquet` (`cargo install jpx --features parquet,let-expr`).
+
+### Pre-flight
+
+Generate the dataset beforehand (takes ~10s):
+
+```bash
+# Generate 500K synthetic earthquake events (95 MB JSON)
+python3 -c "
+import json, random, time
+regions = [('Russia',55,100),('Japan',36,140),('Indonesia',-5,120),
+  ('Chile',-33,-71),('Mexico',19,-99),('Philippines',12,122),
+  ('Turkey',39,35),('Italy',42,13),('Greece',38,23),('Iran',33,52),
+  ('India',25,80),('USA',37,-120),('Peru',-12,-77),('New Zealand',-42,173)]
+events = []
+base_time = int(time.time()*1000)
+for i in range(500_000):
+    r,lat,lon = random.choice(regions)
+    events.append({'id':f'ev{i:07d}','mag':round(random.uniform(1,8),2),
+      'place':f'{random.randint(10,300)} km from {r}','region':r,
+      'lat':round(lat+random.uniform(-5,5),4),'lon':round(lon+random.uniform(-5,5),4),
+      'depth_km':round(random.uniform(1,600),1),'time':base_time-random.randint(0,365*24*3600*1000),
+      'felt':random.randint(0,500) if random.random()<0.1 else None,
+      'sig':int(round(random.uniform(1,8),2)*80+random.uniform(-20,20)),
+      'tsunami':1 if random.uniform(1,8)>7 and random.random()<0.3 else 0})
+json.dump(events,open('/tmp/quakes_500k.json','w'))
+print(f'{len(events)} events written')
+"
+
+# Convert to Parquet (Snappy compression)
+jpx '@' -f /tmp/quakes_500k.json --parquet -o /tmp/quakes_500k.parquet
+```
+
+### 4.1 — The setup: show the file sizes
+
+```bash
+ls -lh /tmp/quakes_500k.json /tmp/quakes_500k.parquet
+```
+
+> 95 MB JSON → 16 MB Parquet. 6x compression, same data.
+
+### 4.2 — Count: half a million rows
+
+```bash
+time jpx 'length(@)' -f /tmp/quakes_500k.parquet
+```
+
+> 500,000 — reads parquet natively, under 2 seconds.
+
+### 4.3 — Aggregate stats across all 500K events
+
+```bash
+time jpx '{total: length(@), avg_mag: round(avg([*].mag), `2`), max_mag: max([*].mag), tsunami_count: length([?tsunami == `1`])}' \
+  -f /tmp/quakes_500k.parquet
+```
+
+> Full statistical summary in ~2 seconds.
+
+### 4.4 — Geo distance on every row: nearest to Madrid
+
+```bash
+time jpx 'let $lat = `40.4168`, $lon = `-3.7038` in [*].{place: place, mag: mag, km: round(geo_distance_km($lat, $lon, lat, lon))} | sort_by(@, &km) | [:5]' \
+  -f /tmp/quakes_500k.parquet -t
+```
+
+> geo_distance_km computed 500,000 times, sorted, top 5 returned — ~2 seconds.
+
+### 4.5 — The punchline: token math
+
+> "That JSON file is 95 megabytes. That's roughly **33 million tokens**.
+> No context window on earth can hold that.
+> With jpx, the agent sends a 61-token expression and gets back 88 tokens.
+> **The data never enters the context window. Period.**"
+
+| | Tokens |
+|---|---|
+| 95 MB JSON in context | ~33,000,000 (impossible) |
+| jpx expression + result | 149 |
+
+> "And every result is deterministic. The query engine processed
+> half a million rows — not the LLM. Same query, same answer, every time."
+
+---
+
 ## Fallback (no network)
 
 All commands use cached `/tmp/quakes_week.json` from pre-flight.
