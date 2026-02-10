@@ -18,6 +18,25 @@
     .reveal .two-col > div { flex: 1; }
     .accent { color: #bb86fc; }
     .green { color: #03dac6; }
+    .reveal .chip-grid {
+      display: flex; flex-wrap: wrap; gap: 0.4em; justify-content: center;
+      margin: 0.6em 0;
+    }
+    .reveal .chip {
+      background: rgba(187, 134, 252, 0.12);
+      border: 1px solid rgba(187, 134, 252, 0.3);
+      border-radius: 4px;
+      padding: 0.15em 0.5em;
+      font-size: 0.55em;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .reveal .oneliners {
+      text-align: left; font-size: 0.6em; margin-top: 0.6em;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .reveal .oneliners .expr { color: #bb86fc; }
+    .reveal .oneliners .result { color: #03dac6; }
+    .reveal table td { vertical-align: top; border-bottom: 1px solid #333; }
   </style>
 </head>
 <body>
@@ -27,88 +46,113 @@
 <!-- Slide 1: Title -->
 <section>
   <h1><span class="accent">jpx</span></h1>
-  <h3>A JMESPath CLI with 400+ functions</h3>
-  <p class="dim">Josh Rotenberg &middot; 5 min lightning talk</p>
+  <h3>JMESPath + 400 functions.<br>
+  <span class="dim">A jq alternative you can actually remember.</span></h3>
+  <p class="dim">Josh Rotenberg</p>
   <aside class="notes">
-    Quick show of hands: who uses jq? Who finds jq syntax hard to remember?
-    jpx is a JMESPath-based alternative with 400+ built-in functions.
-    JMESPath is an RFC-spec query language for JSON -- used in AWS CLI, Ansible, etc.
+    Quick show of hands: who uses jq? Who has to Google the syntax every single time?
+    jpx is a JMESPath-based alternative. JMESPath is an RFC-spec query language for JSON —
+    it's already in the AWS CLI, Ansible, Boto3. Same idea as jq, but the syntax reads like English.
+    And jpx adds 400+ functions on top.
   </aside>
 </section>
 
-<!-- Slide 2: The problem -->
+<!-- Slide 2: jq vs jpx -->
 <section>
-  <h2>JSON is everywhere.<br><span class="dim">Querying it shouldn't be painful.</span></h2>
+  <h2>JSON querying<br><span class="dim">shouldn't feel like this</span></h2>
   <div class="two-col">
     <div>
       <h3 class="dim">jq</h3>
-      <pre><code class="language-bash">jq '[.[] | select(.status == "active")]
-    | group_by(.region)
-    | map({key: .[0].region,
-           value: length})
-    | from_entries'</code></pre>
+      <pre><code class="language-bash"># Active users, sorted by name
+[.users[] | select(.active)]
+  | sort_by(.name)
+  | [.[].name]</code></pre>
     </div>
     <div>
       <h3 class="accent">jpx</h3>
-      <pre><code class="language-bash">jpx '[?status==`active`]
-     | group_by(@, &region)
-     | map(&length(@), @)'</code></pre>
+      <pre><code class="language-bash"># Active users, sorted by name
+users[?active]
+  | sort_by(@, &name)[*].name</code></pre>
     </div>
   </div>
+  <p class="fragment small" style="margin-top: 1em;">
+    jq has ~50 builtins.
+    <span class="dim">No date formatting. No hashing. No geo. No regex replace.</span><br>
+    jpx has <span class="accent">400+ functions</span> across <span class="accent">32 categories</span>, built in.
+  </p>
   <aside class="notes">
-    JMESPath reads like English: "where status equals active, group by region, map length."
-    jq requires learning a custom functional language. JMESPath is spec-based and predictable.
-    Both are powerful -- jpx is just easier to pick up and remember.
+    JMESPath's filter syntax — "users where active" — vs jq's select() pipeline.
+    jq is powerful, but it's a custom functional language you have to learn from scratch.
+    JMESPath is spec-based and reads like what you want.
+    And the function gap is real: jq has no date formatting, no hashing, no geo functions.
+    jpx has all of that out of the box.
   </aside>
 </section>
 
-<!-- Slide 3: Live examples -->
+<!-- Slide 3: The function arsenal -->
 <section>
-  <h2>What can you do?</h2>
-  <pre><code class="language-bash"># Filter and transform
-echo '[{"name":"Alice","score":95},{"name":"Bob","score":42}]' \
-  | jpx '[?score > `90`].name'
-# ["Alice"]
-
-# 400+ functions across 31 categories
-echo '"hello world"' | jpx 'upper(@)'
-# "HELLO WORLD"
-
-# Pipeline chaining
-curl -s https://api.example.com/data.json \
-  | jpx 'items[?price > `100`] | sort_by(@, &price) | [:5]'
-
-# Redis JSON? Same idea.
-redis-cli JSON.GET mykey $ | jpx '[0].users[?active].email'</code></pre>
+  <h2><span class="accent">32</span> categories. <span class="accent">400+</span> functions.</h2>
+  <div class="chip-grid">
+    <span class="chip">string</span>
+    <span class="chip">array</span>
+    <span class="chip">object</span>
+    <span class="chip">math</span>
+    <span class="chip">datetime</span>
+    <span class="chip">hash</span>
+    <span class="chip">encoding</span>
+    <span class="chip">regex</span>
+    <span class="chip">geo</span>
+    <span class="chip">fuzzy</span>
+    <span class="chip">network</span>
+    <span class="chip">semver</span>
+    <span class="chip">validation</span>
+    <span class="chip">expression</span>
+    <span class="chip">text</span>
+    <span class="chip">phonetic</span>
+    <span class="chip">url</span>
+    <span class="chip">color</span>
+    <span class="chip">duration</span>
+    <span class="chip">ids</span>
+  </div>
+  <div class="oneliners">
+    <p><span class="expr">sha256</span>(<span class="dim">'my-secret'</span>) <span class="result">&rarr; "b94d27b9..."</span></p>
+    <p><span class="expr">geo_distance_km</span>(<span class="dim">40.42, -3.70, 37.77, -122.42</span>) <span class="result">&rarr; 9318</span>&nbsp; <span class="dim small">Madrid &rarr; SF</span></p>
+    <p><span class="expr">jaro_winkler</span>(<span class="dim">'Josh', 'Joshua'</span>) <span class="result">&rarr; 0.93</span></p>
+    <p><span class="expr">format_date</span>(<span class="expr">now</span>(), <span class="dim">'%B %d, %Y'</span>) <span class="result">&rarr; "February 10, 2026"</span></p>
+  </div>
   <aside class="notes">
-    The syntax is declarative -- you describe WHAT you want, not HOW to get it.
-    Pipe chaining works like Unix pipes but inside the expression.
-    Works great with Redis JSON -- just pipe the output.
-    31 function categories: string, math, date, geo, regex, NLP, encoding, validation...
+    These aren't plugins. They're all built in. Every function is documented and discoverable
+    from the CLI with --search and --describe.
+    That geo function? Madrid to San Francisco, 9318 km — computed right here.
+    Let me show you for real...
+    [FLIP TO TERMINAL FOR DEMO]
   </aside>
 </section>
 
-<!-- Slide 4: The ecosystem -->
+<!-- Slide 4: Ecosystem -->
 <section>
   <h2>The <span class="accent">jpx</span> ecosystem</h2>
   <table style="font-size: 0.7em;">
-    <tr><td class="accent">jpx-core</td><td>Self-contained JMESPath implementation</td></tr>
-    <tr><td class="accent">jpx-engine</td><td>Query engine with introspection and discovery</td></tr>
-    <tr><td class="accent">jpx</td><td>CLI with REPL, streaming, multiple output formats</td></tr>
-    <tr><td class="accent">jpx-mcp</td><td>MCP server -- plug into Claude, Cursor, etc.</td></tr>
-    <tr><td class="accent">jpx (PyPI)</td><td>Python bindings via PyO3</td></tr>
+    <tr><td class="accent" style="white-space:nowrap;">jpx</td><td>CLI with REPL, streaming, table/CSV/JSON output</td></tr>
+    <tr><td class="accent" style="white-space:nowrap;">jpx-mcp</td><td>MCP server &mdash; 29 tools for AI assistants</td></tr>
+    <tr><td class="accent" style="white-space:nowrap;">jpx-core</td><td>From-scratch JMESPath engine in Rust</td></tr>
+    <tr><td class="accent" style="white-space:nowrap;">jpx-engine</td><td>Introspection, BM25 search, query store</td></tr>
+    <tr><td class="accent" style="white-space:nowrap;">jpx <span class="dim small">(PyPI)</span></td><td>Python bindings via PyO3</td></tr>
   </table>
   <br>
-  <p class="small">
-    <span class="green">MCP server</span>: AI assistants can search 400+ functions,
-    evaluate queries, diff JSON, and manage query libraries -- all through tool calls.
+  <p class="fragment small">
+    <span class="green">MCP server</span>: give Claude (or any MCP client) the ability to
+    query JSON, search 400+ functions, diff documents, and build query libraries &mdash;
+    all through tool calls.
   </p>
   <aside class="notes">
-    jpx-core is a from-scratch JMESPath implementation -- no upstream dependency.
-    jpx-engine wraps it with introspection, BM25 search, query store.
-    The MCP server exposes 29 tools to AI assistants -- function discovery, evaluation, JSON utilities.
-    Python bindings let you use the same engine from Python scripts.
-    Everything is open source, MIT/Apache-2.0 dual licensed.
+    Everything is Rust, from the parser to the MCP server.
+    jpx-core is a ground-up JMESPath implementation — not a wrapper around an existing library.
+    The MCP server exposes 29 tools. Claude can evaluate queries, search functions,
+    explain expressions, diff JSON, manage named queries.
+    It also has a BM25 discovery index for searching tools across multiple MCP servers.
+    Python bindings let you use the same engine from scripts.
+    MIT/Apache-2.0 dual licensed.
   </aside>
 </section>
 
@@ -116,28 +160,29 @@ redis-cli JSON.GET mykey $ | jpx '[0].users[?active].email'</code></pre>
 <section>
   <h2>Get started</h2>
   <pre><code class="language-bash"># Install
-brew install joshrotenberg/tap/jpx
+brew install joshrotenberg/brew/jpx
+# or: cargo install jpx
 
-# Explore functions
+# Discover functions
 jpx --search "hash"
-jpx --describe md5
+jpx --describe sha256
 
 # Interactive REPL
 jpx --repl
 
-# Query files for reusable expressions
-jpx -Q queries.jpx:my-query data.json</code></pre>
+# Query files — reusable expression libraries
+jpx -Q examples/earthquakes.jpx:mag-stats -f quakes.json</code></pre>
   <br>
   <p>
     <span class="accent">github.com/joshrotenberg/jpx</span><br>
     <span class="dim small">Docs: joshrotenberg.github.io/jpx</span>
   </p>
   <aside class="notes">
-    Homebrew on Mac, shell installer or cargo install on Linux.
-    The --search flag does BM25 full-text search across all 400+ functions.
-    REPL has tab completion and history.
-    Query files (.jpx) let you build reusable query libraries.
-    Check it out, file issues, PRs welcome.
+    Homebrew on Mac, cargo install, Docker, or a shell installer for Linux.
+    --search does BM25 full-text search across all 400+ functions.
+    The REPL has tab completion and history — great for exploring.
+    Query files (.jpx) let you build reusable expression libraries with named queries.
+    Check it out, star the repo, file issues. PRs welcome.
   </aside>
 </section>
 
