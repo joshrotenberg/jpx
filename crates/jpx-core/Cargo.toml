@@ -28,6 +28,7 @@ base64 = { version = "0.22", optional = true }
 urlencoding = { version = "2.1", optional = true }
 regex = { version = "1.5", optional = true }
 url = { version = "2.5", optional = true }
+form_urlencoded = { version = "1", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 hex = { version = "0.4", optional = true }
 rand = { version = "0.8", optional = true }
@@ -72,7 +73,7 @@ extensions = [
     "dep:heck",
     "dep:md-5", "dep:sha1", "dep:sha2", "dep:hmac", "dep:crc32fast",
     "dep:base64", "dep:hex",
-    "dep:urlencoding", "dep:url",
+    "dep:urlencoding", "dep:url", "dep:form_urlencoded",
     "dep:regex",
     "dep:uuid",
     "dep:rand",

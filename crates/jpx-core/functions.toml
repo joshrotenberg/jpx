@@ -4998,6 +4998,42 @@ features = ["core"]
 # =============================================================================
 
 [[functions]]
+name = "query_string_build"
+category = "url"
+description = "Build a URL query string from an object"
+signature = "object -> string"
+examples = [
+    { code = "query_string_build({foo: 'bar', baz: 'qux'}) -> \"foo=bar&baz=qux\"", description = "Basic query string" },
+    { code = "query_string_build({q: 'hello world'}) -> \"q=hello+world\"", description = "With special characters" },
+    { code = "query_string_build({}) -> \"\"", description = "Empty object" },
+]
+features = ["core"]
+
+[[functions]]
+name = "query_string_parse"
+category = "url"
+description = "Parse a URL query string into an object"
+signature = "string -> object"
+examples = [
+    { code = "query_string_parse('foo=bar&baz=qux') -> {foo: 'bar', baz: 'qux'}", description = "Basic parsing" },
+    { code = "query_string_parse('greeting=hello%20world') -> {greeting: 'hello world'}", description = "Encoded values" },
+    { code = "query_string_parse('') -> {}", description = "Empty string" },
+]
+features = ["core"]
+
+[[functions]]
+name = "url_build"
+category = "url"
+description = "Build a URL from component parts"
+signature = "object -> string"
+examples = [
+    { code = "url_build({scheme: 'https', host: 'example.com'}) -> \"https://example.com/\"", description = "Minimal URL" },
+    { code = "url_build({scheme: 'https', host: 'example.com', port: 8080, path: '/api'}) -> full URL", description = "With port and path" },
+    { code = "url_build(url_parse('https://example.com/path')) -> roundtrip", description = "Roundtrip with url_parse" },
+]
+features = ["core"]
+
+[[functions]]
 name = "url_decode"
 category = "url"
 description = "URL decode a string"

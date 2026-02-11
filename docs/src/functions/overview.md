@@ -55,7 +55,7 @@ jpx --describe upper
 | [String](./string.md) | Functions for string manipulation: case conversion, splittin... | 36 |
 | [Text](./text.md) | Text analysis and processing functions. | 11 |
 | [Type](./type.md) | Type conversion and checking functions. | 13 |
-| [URL](./url.md) | Functions for parsing and manipulating URLs and their compon... | 3 |
+| [URL](./url.md) | Functions for parsing and manipulating URLs and their compon... | 6 |
 | [Utility](./utility.md) | General utility functions that don't fit other categories. | 11 |
 | [UUID](./uuid.md) | Functions for generating and working with UUIDs. | 1 |
 | [Validation](./validation.md) | Functions for validating data: email, URL, UUID, and format ... | 13 |
