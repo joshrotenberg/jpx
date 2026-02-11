@@ -24,7 +24,20 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(PathDirnameFn::new()),
     );
     register_if_enabled(runtime, "path_ext", enabled, Box::new(PathExtFn::new()));
+    register_if_enabled(
+        runtime,
+        "path_is_absolute",
+        enabled,
+        Box::new(PathIsAbsoluteFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "path_is_relative",
+        enabled,
+        Box::new(PathIsRelativeFn::new()),
+    );
     register_if_enabled(runtime, "path_join", enabled, Box::new(PathJoinFn::new()));
+    register_if_enabled(runtime, "path_stem", enabled, Box::new(PathStemFn::new()));
 }
 
 // =============================================================================
@@ -83,6 +96,34 @@ impl Function for PathExtFn {
 }
 
 // =============================================================================
+// path_is_absolute(string) -> boolean
+// =============================================================================
+
+defn!(PathIsAbsoluteFn, vec![arg!(string)], None);
+
+impl Function for PathIsAbsoluteFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let path = args[0].as_str().unwrap();
+        Ok(Value::Bool(std::path::Path::new(path).is_absolute()))
+    }
+}
+
+// =============================================================================
+// path_is_relative(string) -> boolean
+// =============================================================================
+
+defn!(PathIsRelativeFn, vec![arg!(string)], None);
+
+impl Function for PathIsRelativeFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let path = args[0].as_str().unwrap();
+        Ok(Value::Bool(std::path::Path::new(path).is_relative()))
+    }
+}
+
+// =============================================================================
 // path_join(array) -> string
 // =============================================================================
 
@@ -100,6 +141,26 @@ impl Function for PathJoinFn {
         }
         let result = path.to_str().unwrap_or("").to_string();
         Ok(Value::String(result))
+    }
+}
+
+// =============================================================================
+// path_stem(string) -> string | null
+// =============================================================================
+
+defn!(PathStemFn, vec![arg!(string)], None);
+
+impl Function for PathStemFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let path = args[0].as_str().unwrap();
+        let stem = std::path::Path::new(path)
+            .file_stem()
+            .and_then(|s| s.to_str());
+        match stem {
+            Some(s) => Ok(Value::String(s.to_string())),
+            None => Ok(Value::Null),
+        }
     }
 }
 
@@ -140,5 +201,39 @@ mod tests {
         let data = json!("/path/to/file.txt");
         let result = expr.search(&data).unwrap();
         assert_eq!(result.as_str().unwrap(), ".txt");
+    }
+
+    #[test]
+    fn test_path_is_absolute() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_is_absolute(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("/foo/bar")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("foo/bar")).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("file.txt")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_path_is_relative() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_is_relative(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("foo/bar")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("file.txt")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("/foo/bar")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_path_stem() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_stem(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("file.txt")).unwrap(), json!("file"));
+        assert_eq!(
+            expr.search(&json!("/foo/bar.tar.gz")).unwrap(),
+            json!("bar.tar")
+        );
+        assert_eq!(expr.search(&json!("noext")).unwrap(), json!("noext"));
+        assert_eq!(expr.search(&json!("/foo/bar/")).unwrap(), json!("bar"));
     }
 }

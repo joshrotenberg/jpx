@@ -46,7 +46,7 @@ jpx --describe upper
 | [Multi-Match](./multimatch.md) | Functions for matching multiple patterns or expressions in a... | 10 |
 | [Network](./network.md) | Network-related functions: IP addresses, CIDR notation, and ... | 7 |
 | [Object](./object.md) | Functions for working with JSON objects: merging, filtering ... | 48 |
-| [Path](./path.md) | File path manipulation functions. | 4 |
+| [Path](./path.md) | File path manipulation functions. | 7 |
 | [Phonetic](./phonetic.md) | Phonetic encoding functions for sound-based string matching. | 9 |
 | [Random](./rand.md) | Functions for generating random values: numbers, strings, an... | 3 |
 | [Regular Expression](./regex.md) | Regular expression functions: matching, replacing, splitting... | 5 |
