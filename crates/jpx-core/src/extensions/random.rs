@@ -12,8 +12,15 @@ use crate::{Context, Runtime, defn};
 /// Register random functions filtered by the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "random", enabled, Box::new(RandomFn::new()));
-    register_if_enabled(runtime, "shuffle", enabled, Box::new(ShuffleFn::new()));
+    register_if_enabled(
+        runtime,
+        "random_choice",
+        enabled,
+        Box::new(RandomChoiceFn::new()),
+    );
+    register_if_enabled(runtime, "random_int", enabled, Box::new(RandomIntFn::new()));
     register_if_enabled(runtime, "sample", enabled, Box::new(SampleFn::new()));
+    register_if_enabled(runtime, "shuffle", enabled, Box::new(ShuffleFn::new()));
     register_if_enabled(runtime, "uuid", enabled, Box::new(UuidFn::new()));
 }
 
@@ -62,6 +69,91 @@ impl Function for RandomFn {
         };
 
         Ok(number_value(value))
+    }
+}
+
+// =============================================================================
+// random_choice(array) -> any (random element from array)
+// =============================================================================
+
+pub struct RandomChoiceFn;
+
+impl Default for RandomChoiceFn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RandomChoiceFn {
+    pub fn new() -> RandomChoiceFn {
+        RandomChoiceFn
+    }
+}
+
+impl Function for RandomChoiceFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use rand::seq::SliceRandom;
+
+        if args.len() != 1 {
+            return Err(custom_error(ctx, "random_choice() takes 1 argument"));
+        }
+
+        let arr = args[0]
+            .as_array()
+            .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
+
+        if arr.is_empty() {
+            return Ok(Value::Null);
+        }
+
+        let chosen = arr
+            .choose(&mut rand::thread_rng())
+            .cloned()
+            .unwrap_or(Value::Null);
+
+        Ok(chosen)
+    }
+}
+
+// =============================================================================
+// random_int(min, max) -> number (random integer in [min, max])
+// =============================================================================
+
+pub struct RandomIntFn;
+
+impl Default for RandomIntFn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RandomIntFn {
+    pub fn new() -> RandomIntFn {
+        RandomIntFn
+    }
+}
+
+impl Function for RandomIntFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use rand::Rng;
+
+        if args.len() != 2 {
+            return Err(custom_error(ctx, "random_int() takes 2 arguments"));
+        }
+
+        let min = args[0]
+            .as_f64()
+            .ok_or_else(|| custom_error(ctx, "Expected number for min"))? as i64;
+        let max = args[1]
+            .as_f64()
+            .ok_or_else(|| custom_error(ctx, "Expected number for max"))? as i64;
+
+        if min > max {
+            return Err(custom_error(ctx, "min must be less than or equal to max"));
+        }
+
+        let value = rand::thread_rng().gen_range(min..=max);
+        Ok(Value::Number(serde_json::Number::from(value)))
     }
 }
 
@@ -193,7 +285,7 @@ impl Function for UuidFn {
 #[cfg(test)]
 mod tests {
     use crate::Runtime;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     fn setup_runtime() -> Runtime {
         Runtime::builder()
@@ -209,6 +301,60 @@ mod tests {
         let result = expr.search(&json!(null)).unwrap();
         let value = result.as_f64().unwrap();
         assert!((0.0..1.0).contains(&value));
+    }
+
+    #[test]
+    fn test_random_choice() {
+        let runtime = setup_runtime();
+        let data = json!(["a", "b", "c"]);
+        let expr = runtime.compile("random_choice(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_string());
+        let s = result.as_str().unwrap();
+        assert!(["a", "b", "c"].contains(&s));
+    }
+
+    #[test]
+    fn test_random_choice_single_element() {
+        let runtime = setup_runtime();
+        let data = json!([42]);
+        let expr = runtime.compile("random_choice(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn test_random_choice_empty() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("random_choice(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, Value::Null);
+    }
+
+    #[test]
+    fn test_random_int() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(`1`, `10`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        let value = result.as_i64().unwrap();
+        assert!((1..=10).contains(&value));
+    }
+
+    #[test]
+    fn test_random_int_min_equals_max() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(`5`, `5`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn test_random_int_min_greater_than_max() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(`10`, `1`)").unwrap();
+        let result = expr.search(&json!(null));
+        assert!(result.is_err());
     }
 
     #[test]

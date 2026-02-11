@@ -7,6 +7,8 @@ Functions for generating random values: numbers, strings, and selections.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | [`random`](#random) | `-> number` | Generate random number between 0 and 1 |
+| [`random_choice`](#random_choice) | `array -> any` | Pick a random element from an array |
+| [`random_int`](#random_int) | `number, number -> number` | Generate a random integer in an inclusive range |
 | [`sample`](#sample) | `array, number -> array` | Random sample from array |
 | [`shuffle`](#shuffle) | `array -> array` | Randomly shuffle array |
 
@@ -31,6 +33,52 @@ floor(multiply(random(), `100`)) -> 42
 
 ```bash
 echo '{}' | jpx 'random()'
+```
+
+### random_choice
+
+Pick a random element from an array
+
+**Signature:** `array -> any`
+
+**Examples:**
+
+```text
+# Pick a random element
+random_choice(['a', 'b', 'c']) -> 'b'
+# Empty array returns null
+random_choice([]) -> null
+# Single element
+random_choice([42]) -> 42
+```
+
+**CLI Usage:**
+
+```bash
+echo '["red", "green", "blue"]' | jpx 'random_choice(@)'
+```
+
+### random_int
+
+Generate a random integer in an inclusive range [min, max]
+
+**Signature:** `number, number -> number`
+
+**Examples:**
+
+```text
+# Random integer 1-10
+random_int(`1`, `10`) -> 7
+# Coin flip (0 or 1)
+random_int(`0`, `1`) -> 0
+# Fixed value when min == max
+random_int(`5`, `5`) -> 5
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'random_int(`1`, `100`)'
 ```
 
 ### sample

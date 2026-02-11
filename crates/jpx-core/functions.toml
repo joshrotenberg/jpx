@@ -3655,6 +3655,28 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "random_choice"
+category = "rand"
+description = "Pick a random element from an array"
+signature = "array -> any"
+examples = [
+    { code = "random_choice(['a', 'b', 'c']) -> 'b'", description = "Random element" },
+    { code = "random_choice([]) -> null", description = "Empty array returns null" },
+]
+features = ["core"]
+
+[[functions]]
+name = "random_int"
+category = "rand"
+description = "Generate a random integer in an inclusive range [min, max]"
+signature = "number, number -> number"
+examples = [
+    { code = "random_int(`1`, `10`) -> 7", description = "Random integer 1-10" },
+    { code = "random_int(`0`, `1`) -> 0", description = "Coin flip" },
+]
+features = ["core"]
+
+[[functions]]
 name = "sample"
 category = "rand"
 description = "Random sample from array"
