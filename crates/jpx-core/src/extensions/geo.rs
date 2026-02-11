@@ -142,7 +142,10 @@ impl Function for GeoBoundingBoxFn {
         let points = args[0].as_array().unwrap();
 
         if points.is_empty() {
-            return Err(custom_error(ctx, "geo_bounding_box requires a non-empty array of [lat, lon] points"));
+            return Err(custom_error(
+                ctx,
+                "geo_bounding_box requires a non-empty array of [lat, lon] points",
+            ));
         }
 
         let mut min_lat = f64::MAX;
@@ -152,22 +155,44 @@ impl Function for GeoBoundingBoxFn {
 
         for (i, point) in points.iter().enumerate() {
             let arr = point.as_array().ok_or_else(|| {
-                custom_error(ctx, &format!("geo_bounding_box: element {i} is not an array"))
+                custom_error(
+                    ctx,
+                    &format!("geo_bounding_box: element {i} is not an array"),
+                )
             })?;
             if arr.len() < 2 {
-                return Err(custom_error(ctx, &format!("geo_bounding_box: element {i} must have at least 2 elements [lat, lon]")));
+                return Err(custom_error(
+                    ctx,
+                    &format!(
+                        "geo_bounding_box: element {i} must have at least 2 elements [lat, lon]"
+                    ),
+                ));
             }
             let lat = arr[0].as_f64().ok_or_else(|| {
-                custom_error(ctx, &format!("geo_bounding_box: element {i} lat is not a number"))
+                custom_error(
+                    ctx,
+                    &format!("geo_bounding_box: element {i} lat is not a number"),
+                )
             })?;
             let lon = arr[1].as_f64().ok_or_else(|| {
-                custom_error(ctx, &format!("geo_bounding_box: element {i} lon is not a number"))
+                custom_error(
+                    ctx,
+                    &format!("geo_bounding_box: element {i} lon is not a number"),
+                )
             })?;
 
-            if lat < min_lat { min_lat = lat; }
-            if lat > max_lat { max_lat = lat; }
-            if lon < min_lon { min_lon = lon; }
-            if lon > max_lon { max_lon = lon; }
+            if lat < min_lat {
+                min_lat = lat;
+            }
+            if lat > max_lat {
+                max_lat = lat;
+            }
+            if lon < min_lon {
+                min_lon = lon;
+            }
+            if lon > max_lon {
+                max_lon = lon;
+            }
         }
 
         Ok(json!({
@@ -185,7 +210,14 @@ impl Function for GeoBoundingBoxFn {
 
 defn!(
     GeoInBboxFn,
-    vec![arg!(number), arg!(number), arg!(number), arg!(number), arg!(number), arg!(number)],
+    vec![
+        arg!(number),
+        arg!(number),
+        arg!(number),
+        arg!(number),
+        arg!(number),
+        arg!(number)
+    ],
     None
 );
 
@@ -210,7 +242,13 @@ impl Function for GeoInBboxFn {
 
 defn!(
     GeoInRadiusFn,
-    vec![arg!(number), arg!(number), arg!(number), arg!(number), arg!(number)],
+    vec![
+        arg!(number),
+        arg!(number),
+        arg!(number),
+        arg!(number),
+        arg!(number)
+    ],
     None
 );
 
@@ -243,7 +281,10 @@ impl Function for GeoMidpointFn {
         let points = args[0].as_array().unwrap();
 
         if points.is_empty() {
-            return Err(custom_error(ctx, "geo_midpoint requires a non-empty array of [lat, lon] points"));
+            return Err(custom_error(
+                ctx,
+                "geo_midpoint requires a non-empty array of [lat, lon] points",
+            ));
         }
 
         // Cartesian averaging on unit sphere (accurate for large distances)
@@ -256,13 +297,22 @@ impl Function for GeoMidpointFn {
                 custom_error(ctx, &format!("geo_midpoint: element {i} is not an array"))
             })?;
             if arr.len() < 2 {
-                return Err(custom_error(ctx, &format!("geo_midpoint: element {i} must have at least 2 elements [lat, lon]")));
+                return Err(custom_error(
+                    ctx,
+                    &format!("geo_midpoint: element {i} must have at least 2 elements [lat, lon]"),
+                ));
             }
             let lat = arr[0].as_f64().ok_or_else(|| {
-                custom_error(ctx, &format!("geo_midpoint: element {i} lat is not a number"))
+                custom_error(
+                    ctx,
+                    &format!("geo_midpoint: element {i} lat is not a number"),
+                )
             })?;
             let lon = arr[1].as_f64().ok_or_else(|| {
-                custom_error(ctx, &format!("geo_midpoint: element {i} lon is not a number"))
+                custom_error(
+                    ctx,
+                    &format!("geo_midpoint: element {i} lon is not a number"),
+                )
             })?;
 
             let lat_rad = lat.to_radians();
@@ -506,7 +556,11 @@ mod tests {
     #[test]
     fn test_geo_bounding_box() {
         let runtime = setup_runtime();
-        let data = json!([[40.7128, -74.0060], [34.0522, -118.2437], [37.7749, -122.4194]]);
+        let data = json!([
+            [40.7128, -74.0060],
+            [34.0522, -118.2437],
+            [37.7749, -122.4194]
+        ]);
         let expr = runtime.compile("geo_bounding_box(@)").unwrap();
         let result = expr.search(&data).unwrap();
         let obj = result.as_object().unwrap();
@@ -614,9 +668,7 @@ mod tests {
     fn test_geohash_decode() {
         let runtime = setup_runtime();
         let data = json!(null);
-        let expr = runtime
-            .compile("geohash_decode('dr5ru7')")
-            .unwrap();
+        let expr = runtime.compile("geohash_decode('dr5ru7')").unwrap();
         let result = expr.search(&data).unwrap();
         let obj = result.as_object().unwrap();
         let lat = obj["lat"].as_f64().unwrap();
@@ -643,7 +695,13 @@ mod tests {
         let obj = result.as_object().unwrap();
         let lat = obj["lat"].as_f64().unwrap();
         let lon = obj["lon"].as_f64().unwrap();
-        assert!((lat - 48.8566).abs() < 0.01, "lat roundtrip: expected ~48.8566, got {lat}");
-        assert!((lon - 2.3522).abs() < 0.01, "lon roundtrip: expected ~2.3522, got {lon}");
+        assert!(
+            (lat - 48.8566).abs() < 0.01,
+            "lat roundtrip: expected ~48.8566, got {lat}"
+        );
+        assert!(
+            (lon - 2.3522).abs() < 0.01,
+            "lon roundtrip: expected ~2.3522, got {lon}"
+        );
     }
 }
