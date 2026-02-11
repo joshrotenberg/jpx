@@ -1290,12 +1290,12 @@ features = ["core"]
 name = "count_by"
 category = "expression"
 description = "Count occurrences grouped by expression result"
-signature = "string, array -> object"
+signature = "expref, array -> object"
 examples = [
-    { code = "count_by('type', [{type: 'a'}, {type: 'b'}, {type: 'a'}]) -> {a: 2, b: 1}", description = "Count by field" },
-    { code = "count_by('status', orders) -> {pending: 5, shipped: 3}", description = "Count orders by status" },
-    { code = "count_by('@ > `50`', [30, 60, 70, 40]) -> {true: 2, false: 2}", description = "Count by condition" },
-    { code = "count_by('category', []) -> {}", description = "Empty array" },
+    { code = "count_by(&type, [{type: 'a'}, {type: 'b'}, {type: 'a'}]) -> {a: 2, b: 1}", description = "Count by field" },
+    { code = "count_by(&status, orders) -> {pending: 5, shipped: 3}", description = "Count orders by status" },
+    { code = "count_by(&@ > `50`, [30, 60, 70, 40]) -> {true: 2, false: 2}", description = "Count by condition" },
+    { code = "count_by(&category, []) -> {}", description = "Empty array" },
 ]
 features = ["core"]
 
@@ -1316,12 +1316,12 @@ features = ["core"]
 name = "drop_while"
 category = "expression"
 description = "Drop elements from array while expression is truthy"
-signature = "string, array -> array"
+signature = "expref, array -> array"
 examples = [
-    { code = "drop_while('@ < `4`', [1, 2, 3, 5, 1]) -> [5, 1]", description = "Drop while < 4" },
-    { code = "drop_while('@ < `0`', [1, 2, 3]) -> [1, 2, 3]", description = "None dropped" },
-    { code = "drop_while('@ < `10`', [1, 2, 3]) -> []", description = "All dropped" },
-    { code = "drop_while('length(@) < `3`', ['a', 'ab', 'abc', 'x']) -> ['abc', 'x']", description = "Drop short strings" },
+    { code = "drop_while(&@ < `4`, [1, 2, 3, 5, 1]) -> [5, 1]", description = "Drop while < 4" },
+    { code = "drop_while(&@ < `0`, [1, 2, 3]) -> [1, 2, 3]", description = "None dropped" },
+    { code = "drop_while(&@ < `10`, [1, 2, 3]) -> []", description = "All dropped" },
+    { code = "drop_while(&length(@) < `3`, ['a', 'ab', 'abc', 'x']) -> ['abc', 'x']", description = "Drop short strings" },
 ]
 features = ["core", "fp"]
 
@@ -1329,12 +1329,12 @@ features = ["core", "fp"]
 name = "every"
 category = "expression"
 description = "Check if all elements match (alias for all_expr)"
-signature = "string, array -> boolean"
+signature = "expref, array -> boolean"
 examples = [
-    { code = "every('@ > `0`', [1, 2, 3]) -> true", description = "All positive" },
-    { code = "every('@ > `2`', [1, 2, 3]) -> false", description = "Not all > 2" },
-    { code = "every('length(@) > `0`', ['a', 'b']) -> true", description = "All non-empty" },
-    { code = "every('@ > `0`', []) -> true", description = "Empty is vacuously true" },
+    { code = "every(&@ > `0`, [1, 2, 3]) -> true", description = "All positive" },
+    { code = "every(&@ > `2`, [1, 2, 3]) -> false", description = "Not all > 2" },
+    { code = "every(&length(@) > `0`, ['a', 'b']) -> true", description = "All non-empty" },
+    { code = "every(&@ > `0`, []) -> true", description = "Empty is vacuously true" },
 ]
 features = ["core", "fp"]
 
@@ -1396,11 +1396,11 @@ features = ["core"]
 name = "mapcat"
 category = "expression"
 description = "Apply expression to each element and concatenate all results (Clojure-style alias for flat_map_expr)"
-signature = "string, array -> array"
+signature = "expref, array -> array"
 examples = [
-    { code = "mapcat('tags', [{tags: ['a', 'b']}, {tags: ['c']}]) -> ['a', 'b', 'c']", description = "Flatten tags from objects" },
-    { code = "mapcat('@', [[1, 2], [3, 4]]) -> [1, 2, 3, 4]", description = "Flatten nested arrays" },
-    { code = "mapcat('children', tree_nodes) -> all children flattened", description = "Flatten tree children" },
+    { code = "mapcat(&tags, [{tags: ['a', 'b']}, {tags: ['c']}]) -> ['a', 'b', 'c']", description = "Flatten tags from objects" },
+    { code = "mapcat(&@, [[1, 2], [3, 4]]) -> [1, 2, 3, 4]", description = "Flatten nested arrays" },
+    { code = "mapcat(&children, tree_nodes) -> all children flattened", description = "Flatten tree children" },
     { code = "mapcat('tags', []) -> []", description = "Empty array" },
 ]
 features = ["core", "fp"]
@@ -1435,12 +1435,12 @@ features = ["core"]
 name = "map_keys"
 category = "expression"
 description = "Transform object keys using expression"
-signature = "string, object -> object"
+signature = "expref, object -> object"
 examples = [
-    { code = "map_keys('upper(@)', {a: 1}) -> {A: 1}", description = "Uppercase keys" },
-    { code = "map_keys('lower(@)', {A: 1, B: 2}) -> {a: 1, b: 2}", description = "Lowercase keys" },
-    { code = "map_keys('concat(@, `\"_suffix\"`)', {x: 1}) -> {x_suffix: 1}", description = "Add suffix" },
-    { code = "map_keys('upper(@)', {}) -> {}", description = "Empty object" },
+    { code = "map_keys(&upper(@), {a: 1}) -> {A: 1}", description = "Uppercase keys" },
+    { code = "map_keys(&lower(@), {A: 1, B: 2}) -> {a: 1, b: 2}", description = "Lowercase keys" },
+    { code = "map_keys(&concat(@, `\"_suffix\"`), {x: 1}) -> {x_suffix: 1}", description = "Add suffix" },
+    { code = "map_keys(&upper(@), {}) -> {}", description = "Empty object" },
 ]
 features = ["core", "fp"]
 
@@ -1448,12 +1448,12 @@ features = ["core", "fp"]
 name = "map_values"
 category = "expression"
 description = "Transform object values using expression"
-signature = "string, object -> object"
+signature = "expref, object -> object"
 examples = [
-    { code = "map_values('@ * `2`', {a: 1, b: 2}) -> {a: 2, b: 4}", description = "Double values" },
-    { code = "map_values('upper(@)', {a: 'x', b: 'y'}) -> {a: 'X', b: 'Y'}", description = "Uppercase strings" },
-    { code = "map_values('@ + `10`', {x: 5}) -> {x: 15}", description = "Add to values" },
-    { code = "map_values('@ * `2`', {}) -> {}", description = "Empty object" },
+    { code = "map_values(&@ * `2`, {a: 1, b: 2}) -> {a: 2, b: 4}", description = "Double values" },
+    { code = "map_values(&upper(@), {a: 'x', b: 'y'}) -> {a: 'X', b: 'Y'}", description = "Uppercase strings" },
+    { code = "map_values(&@ + `10`, {x: 5}) -> {x: 15}", description = "Add to values" },
+    { code = "map_values(&@ * `2`, {}) -> {}", description = "Empty object" },
 ]
 features = ["core", "fp"]
 
@@ -1526,12 +1526,12 @@ features = ["core"]
 name = "reduce_expr"
 category = "expression"
 description = "Reduce array to single value using accumulator expression"
-signature = "string, array, any -> any"
+signature = "expref, array, any -> any"
 examples = [
-    { code = "reduce_expr('add(accumulator, current)', [1, 2, 3], `0`) -> 6", description = "Sum numbers" },
-    { code = "reduce_expr('multiply(accumulator, current)', [2, 3, 4], `1`) -> 24", description = "Product" },
-    { code = "reduce_expr('max(accumulator, current)', [3, 1, 4], `0`) -> 4", description = "Find max" },
-    { code = "reduce_expr('concat(accumulator, current)', ['a', 'b'], '') -> 'ab'", description = "Concat strings" },
+    { code = "reduce_expr(&add(accumulator, current), [1, 2, 3], `0`) -> 6", description = "Sum numbers" },
+    { code = "reduce_expr(&multiply(accumulator, current), [2, 3, 4], `1`) -> 24", description = "Product" },
+    { code = "reduce_expr(&max(accumulator, current), [3, 1, 4], `0`) -> 4", description = "Find max" },
+    { code = "reduce_expr(&concat(accumulator, current), ['a', 'b'], '') -> 'ab'", description = "Concat strings" },
 ]
 aliases = ["fold"]
 features = ["core", "fp"]
@@ -1540,7 +1540,7 @@ features = ["core", "fp"]
 name = "fold"
 category = "expression"
 description = "Alias for reduce_expr - reduce array to single value using accumulator expression"
-signature = "string, array, any -> any"
+signature = "expref, array, any -> any"
 examples = [
     { code = "fold(&add(accumulator, current), [1, 2, 3], `0`) -> 6", description = "Sum numbers" },
 ]
@@ -1550,12 +1550,12 @@ features = ["core", "fp"]
 name = "reject"
 category = "expression"
 description = "Keep elements where expression is falsy (inverse of filter_expr)"
-signature = "string, array -> array"
+signature = "expref, array -> array"
 examples = [
-    { code = "reject('@ > `2`', [1, 2, 3, 4]) -> [1, 2]", description = "Reject > 2" },
-    { code = "reject('@ < `0`', [1, -1, 2, -2]) -> [1, 2]", description = "Reject negatives" },
-    { code = "reject('active', users) -> inactive users", description = "Reject active users" },
-    { code = "reject('@ > `0`', []) -> []", description = "Empty array" },
+    { code = "reject(&@ > `2`, [1, 2, 3, 4]) -> [1, 2]", description = "Reject > 2" },
+    { code = "reject(&@ < `0`, [1, -1, 2, -2]) -> [1, 2]", description = "Reject negatives" },
+    { code = "reject(&active, users) -> inactive users", description = "Reject active users" },
+    { code = "reject(&@ > `0`, []) -> []", description = "Empty array" },
 ]
 features = ["core", "fp"]
 
@@ -1563,12 +1563,12 @@ features = ["core", "fp"]
 name = "scan_expr"
 category = "expression"
 description = "Like reduce but returns array of intermediate accumulator values"
-signature = "string, array, any -> array"
+signature = "expref, array, any -> array"
 examples = [
-    { code = "scan_expr('add(accumulator, current)', [1, 2, 3], `0`) -> [1, 3, 6]", description = "Running sum" },
-    { code = "scan_expr('multiply(accumulator, current)', [2, 3, 4], `1`) -> [2, 6, 24]", description = "Running product" },
-    { code = "scan_expr('max(accumulator, current)', [3, 1, 4], `0`) -> [3, 3, 4]", description = "Running max" },
-    { code = "scan_expr('add(accumulator, current)', [], `0`) -> []", description = "Empty array" },
+    { code = "scan_expr(&add(accumulator, current), [1, 2, 3], `0`) -> [1, 3, 6]", description = "Running sum" },
+    { code = "scan_expr(&multiply(accumulator, current), [2, 3, 4], `1`) -> [2, 6, 24]", description = "Running product" },
+    { code = "scan_expr(&max(accumulator, current), [3, 1, 4], `0`) -> [3, 3, 4]", description = "Running max" },
+    { code = "scan_expr(&add(accumulator, current), [], `0`) -> []", description = "Empty array" },
 ]
 aliases = ["reductions"]
 features = ["core", "fp"]
@@ -1577,12 +1577,12 @@ features = ["core", "fp"]
 name = "reductions"
 category = "expression"
 description = "Return array of intermediate values from reduction (Clojure-style alias for scan_expr)"
-signature = "string, array, any -> array"
+signature = "expref, array, any -> array"
 examples = [
-    { code = "reductions('sum([accumulator, current])', [1, 2, 3, 4], `0`) -> [1, 3, 6, 10]", description = "Running sum" },
-    { code = "reductions('max([accumulator, current])', [3, 1, 4, 1, 5], `0`) -> [3, 3, 4, 4, 5]", description = "Running max" },
-    { code = "reductions('sum([accumulator, current])', [], `0`) -> []", description = "Empty array" },
-    { code = "reductions('merge(accumulator, current)', objects, `{}`) -> accumulated merges", description = "Cumulative merge" },
+    { code = "reductions(&sum([accumulator, current]), [1, 2, 3, 4], `0`) -> [1, 3, 6, 10]", description = "Running sum" },
+    { code = "reductions(&max([accumulator, current]), [3, 1, 4, 1, 5], `0`) -> [3, 3, 4, 4, 5]", description = "Running max" },
+    { code = "reductions(&sum([accumulator, current]), [], `0`) -> []", description = "Empty array" },
+    { code = "reductions(&merge(accumulator, current), objects, `{}`) -> accumulated merges", description = "Cumulative merge" },
 ]
 features = ["core", "fp"]
 
@@ -1590,12 +1590,12 @@ features = ["core", "fp"]
 name = "none"
 category = "expression"
 description = "Return true if no elements satisfy the expression (opposite of any_expr/some)"
-signature = "string, array -> boolean"
+signature = "expref, array -> boolean"
 examples = [
-    { code = "none('@ > `5`', [1, 2, 3]) -> true", description = "No elements > 5" },
-    { code = "none('@ > `5`', [1, 2, 10]) -> false", description = "10 is > 5" },
-    { code = "none('active', [{active: false}, {active: false}]) -> true", description = "No active elements" },
-    { code = "none('@ > `0`', []) -> true", description = "Empty array is vacuously true" },
+    { code = "none(&@ > `5`, [1, 2, 3]) -> true", description = "No elements > 5" },
+    { code = "none(&@ > `5`, [1, 2, 10]) -> false", description = "10 is > 5" },
+    { code = "none(&active, [{active: false}, {active: false}]) -> true", description = "No active elements" },
+    { code = "none(&@ > `0`, []) -> true", description = "Empty array is vacuously true" },
 ]
 features = ["core", "fp"]
 
@@ -1603,12 +1603,12 @@ features = ["core", "fp"]
 name = "some"
 category = "expression"
 description = "Check if any element matches (alias for any_expr)"
-signature = "string, array -> boolean"
+signature = "expref, array -> boolean"
 examples = [
-    { code = "some('@ > `2`', [1, 2, 3]) -> true", description = "Some > 2" },
-    { code = "some('@ > `5`', [1, 2, 3]) -> false", description = "None > 5" },
-    { code = "some('active', users) -> true/false", description = "Any active user" },
-    { code = "some('@ > `0`', []) -> false", description = "Empty is false" },
+    { code = "some(&@ > `2`, [1, 2, 3]) -> true", description = "Some > 2" },
+    { code = "some(&@ > `5`, [1, 2, 3]) -> false", description = "None > 5" },
+    { code = "some(&active, users) -> true/false", description = "Any active user" },
+    { code = "some(&@ > `0`, []) -> false", description = "Empty is false" },
 ]
 features = ["core", "fp"]
 
@@ -1629,12 +1629,12 @@ features = ["core"]
 name = "take_while"
 category = "expression"
 description = "Take elements from array while expression is truthy"
-signature = "string, array -> array"
+signature = "expref, array -> array"
 examples = [
-    { code = "take_while('@ < `4`', [1, 2, 3, 5, 1]) -> [1, 2, 3]", description = "Take while < 4" },
-    { code = "take_while('@ > `0`', [3, 2, 1, 0, 5]) -> [3, 2, 1]", description = "Take while positive" },
-    { code = "take_while('length(@) < `3`', ['a', 'ab', 'abc']) -> ['a', 'ab']", description = "Take short strings" },
-    { code = "take_while('@ < `0`', [1, 2, 3]) -> []", description = "None taken" },
+    { code = "take_while(&@ < `4`, [1, 2, 3, 5, 1]) -> [1, 2, 3]", description = "Take while < 4" },
+    { code = "take_while(&@ > `0`, [3, 2, 1, 0, 5]) -> [3, 2, 1]", description = "Take while positive" },
+    { code = "take_while(&length(@) < `3`, ['a', 'ab', 'abc']) -> ['a', 'ab']", description = "Take short strings" },
+    { code = "take_while(&@ < `0`, [1, 2, 3]) -> []", description = "None taken" },
 ]
 features = ["core", "fp"]
 
@@ -1655,12 +1655,12 @@ features = ["core"]
 name = "zip_with"
 category = "expression"
 description = "Zip two arrays with a custom combiner expression"
-signature = "string, array, array -> array"
+signature = "expref, array, array -> array"
 examples = [
-    { code = "zip_with('add([0], [1])', [1, 2], [10, 20]) -> [11, 22]", description = "Add pairs" },
-    { code = "zip_with('multiply([0], [1])', [2, 3], [4, 5]) -> [8, 15]", description = "Multiply pairs" },
-    { code = "zip_with('concat([0], [1])', ['a', 'b'], ['1', '2']) -> ['a1', 'b2']", description = "Concat pairs" },
-    { code = "zip_with('add([0], [1])', [], []) -> []", description = "Empty arrays" },
+    { code = "zip_with(&add([0], [1]), [1, 2], [10, 20]) -> [11, 22]", description = "Add pairs" },
+    { code = "zip_with(&multiply([0], [1]), [2, 3], [4, 5]) -> [8, 15]", description = "Multiply pairs" },
+    { code = "zip_with(&concat([0], [1]), ['a', 'b'], ['1', '2']) -> ['a1', 'b2']", description = "Concat pairs" },
+    { code = "zip_with(&add([0], [1]), [], []) -> []", description = "Empty arrays" },
 ]
 features = ["core", "fp"]
 
@@ -1668,12 +1668,12 @@ features = ["core", "fp"]
 name = "walk"
 category = "expression"
 description = "Recursively apply expression to all components of a value (bottom-up)"
-signature = "string, any -> any"
+signature = "expref, any -> any"
 examples = [
-    { code = "walk('@', data) -> data unchanged", description = "Identity transform" },
-    { code = "walk('type(@)', {a: 1}) -> 'object'", description = "Get type of result" },
-    { code = "walk('length(@)', [[], []]) -> 2", description = "Lengths of nested arrays" },
-    { code = "walk('keys(@)', {a: {b: 1}}) -> ['a']", description = "Keys at each level" },
+    { code = "walk(&@, data) -> data unchanged", description = "Identity transform" },
+    { code = "walk(&type(@), {a: 1}) -> 'object'", description = "Get type of result" },
+    { code = "walk(&length(@), [[], []]) -> 2", description = "Lengths of nested arrays" },
+    { code = "walk(&keys(@), {a: {b: 1}}) -> ['a']", description = "Keys at each level" },
 ]
 features = ["core", "fp"]
 
