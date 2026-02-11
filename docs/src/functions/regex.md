@@ -6,11 +6,36 @@ Regular expression functions: matching, replacing, splitting, and pattern extrac
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
+| [`regex_count`](#regex-count) | `string, string -> number` | Count regex matches |
 | [`regex_extract`](#regex-extract) | `string, string -> array` | Extract regex matches |
 | [`regex_match`](#regex-match) | `string, string -> boolean` | Test if string matches regex |
 | [`regex_replace`](#regex-replace) | `string, string, string -> string` | Replace regex matches |
+| [`regex_split`](#regex-split) | `string, string -> array` | Split string by regex pattern |
 
 ## Functions
+
+### regex_count
+
+Count the number of regex matches
+
+**Signature:** `string, string -> number`
+
+**Examples:**
+
+```text
+# Count numbers
+regex_count('a1b2c3', '\\\\d+') -> 3
+# Count vowels
+regex_count('hello world', '[aeiou]') -> 3
+# No matches
+regex_count('abc', '\\d+') -> 0
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'regex_count(`"a1b2c3"`, `"\\\\d+"`)'
+```
 
 ### regex_extract
 
@@ -79,5 +104,28 @@ regex_replace('abc', 'x', 'y') -> \"abc\"
 
 ```bash
 echo '{}' | jpx 'regex_replace(`"a1b2"`, `"\\\\d+"`, `"X"`)'
+```
+
+### regex_split
+
+Split a string by a regex pattern
+
+**Signature:** `string, string -> array`
+
+**Examples:**
+
+```text
+# Split by comma
+regex_split('a,b,c', ',') -> ["a", "b", "c"]
+# Split by whitespace
+regex_split('hello   world', '\\\\s+') -> ["hello", "world"]
+# No match returns single element
+regex_split('abc', ',') -> ["abc"]
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'regex_split(`"a,b,c"`, `","`)'
 ```
 

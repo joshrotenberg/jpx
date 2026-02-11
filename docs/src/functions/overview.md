@@ -49,7 +49,7 @@ jpx --describe upper
 | [Path](./path.md) | File path manipulation functions. | 4 |
 | [Phonetic](./phonetic.md) | Phonetic encoding functions for sound-based string matching. | 9 |
 | [Random](./rand.md) | Functions for generating random values: numbers, strings, an... | 3 |
-| [Regular Expression](./regex.md) | Regular expression functions: matching, replacing, splitting... | 3 |
+| [Regular Expression](./regex.md) | Regular expression functions: matching, replacing, splitting... | 5 |
 | [Semantic Versioning](./semver.md) | Semantic versioning functions: parsing, comparing, and manip... | 7 |
 | [Standard JMESPath](./standard.md) | These are the standard JMESPath functions as defined in the ... | 26 |
 | [String](./string.md) | Functions for string manipulation: case conversion, splittin... | 36 |
