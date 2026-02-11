@@ -28,6 +28,18 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(Base64DecodeFn::new()),
     );
+    register_if_enabled(
+        runtime,
+        "base64url_decode",
+        enabled,
+        Box::new(Base64UrlDecodeFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "base64url_encode",
+        enabled,
+        Box::new(Base64UrlEncodeFn::new()),
+    );
     register_if_enabled(runtime, "hex_encode", enabled, Box::new(HexEncodeFn::new()));
     register_if_enabled(runtime, "hex_decode", enabled, Box::new(HexDecodeFn::new()));
     register_if_enabled(runtime, "jwt_decode", enabled, Box::new(JwtDecodeFn::new()));
@@ -104,6 +116,63 @@ impl Function for Base64DecodeFn {
             Err(_) => Err(crate::JmespathError::from_ctx(
                 ctx,
                 crate::ErrorReason::Parse("Invalid base64 input".to_owned()),
+            )),
+        }
+    }
+}
+
+// =============================================================================
+// base64url_encode(string) -> string
+// =============================================================================
+
+defn!(Base64UrlEncodeFn, vec![arg!(string)], None);
+
+impl Function for Base64UrlEncodeFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let input = args[0].as_str().ok_or_else(|| {
+            crate::JmespathError::from_ctx(
+                ctx,
+                crate::ErrorReason::Parse("Expected string argument".to_owned()),
+            )
+        })?;
+
+        let encoded = BASE64_URL_SAFE.encode(input.as_bytes());
+        Ok(Value::String(encoded))
+    }
+}
+
+// =============================================================================
+// base64url_decode(string) -> string
+// =============================================================================
+
+defn!(Base64UrlDecodeFn, vec![arg!(string)], None);
+
+impl Function for Base64UrlDecodeFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let input = args[0].as_str().ok_or_else(|| {
+            crate::JmespathError::from_ctx(
+                ctx,
+                crate::ErrorReason::Parse("Expected string argument".to_owned()),
+            )
+        })?;
+
+        match BASE64_URL_SAFE.decode(input.as_bytes()) {
+            Ok(decoded) => {
+                let s = String::from_utf8(decoded).map_err(|_| {
+                    crate::JmespathError::from_ctx(
+                        ctx,
+                        crate::ErrorReason::Parse("Decoded bytes are not valid UTF-8".to_owned()),
+                    )
+                })?;
+                Ok(Value::String(s))
+            }
+            Err(_) => Err(crate::JmespathError::from_ctx(
+                ctx,
+                crate::ErrorReason::Parse("Invalid base64url input".to_owned()),
             )),
         }
     }
@@ -578,5 +647,104 @@ mod tests {
         let data = json!("don't say 'hello'");
         let result = expr.search(&data).unwrap();
         assert_eq!(result, json!("'don'\\''t say '\\''hello'\\'''"));
+    }
+
+    // =========================================================================
+    // base64url function tests
+    // =========================================================================
+
+    #[test]
+    fn test_base64url_encode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_encode(@)").unwrap();
+        let data = json!("hello");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("aGVsbG8"));
+    }
+
+    #[test]
+    fn test_base64url_decode() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_decode(@)").unwrap();
+        let data = json!("aGVsbG8");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!("hello"));
+    }
+
+    #[test]
+    fn test_base64url_roundtrip() {
+        let runtime = setup_runtime();
+        let encode = runtime.compile("base64url_encode(@)").unwrap();
+        let decode = runtime.compile("base64url_decode(@)").unwrap();
+        let original = "hello world! 🌍";
+        let data = json!(original);
+        let encoded = encode.search(&data).unwrap();
+        let roundtrip = decode.search(&encoded).unwrap();
+        assert_eq!(roundtrip, json!(original));
+    }
+
+    #[test]
+    fn test_base64url_no_padding() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_encode(@)").unwrap();
+        // "test" in standard base64 is "dGVzdA==" — url-safe should have no padding
+        let data = json!("test");
+        let result = expr.search(&data).unwrap();
+        let s = result.as_str().unwrap();
+        assert!(
+            !s.contains('='),
+            "base64url output should not contain padding"
+        );
+        assert_eq!(s, "dGVzdA");
+    }
+
+    #[test]
+    fn test_base64url_uses_url_safe_chars() {
+        let runtime = setup_runtime();
+        let encode_url = runtime.compile("base64url_encode(@)").unwrap();
+        let encode_std = runtime.compile("base64_encode(@)").unwrap();
+        // Input that produces +/ in standard base64: bytes 0xFB, 0xFF, 0xBF
+        // "????" encodes differently in standard vs url-safe
+        // Use a known input: "\xfb\xef\xbe" → standard: "u+++" url-safe: "u--+"
+        // Actually, let's use a string whose standard base64 contains + or /
+        let data = json!("subjects?_d");
+        let std_result = encode_std.search(&data).unwrap();
+        let url_result = encode_url.search(&data).unwrap();
+        let std_s = std_result.as_str().unwrap();
+        let url_s = url_result.as_str().unwrap();
+        // URL-safe should never contain + or /
+        assert!(!url_s.contains('+'), "base64url should not contain '+'");
+        assert!(!url_s.contains('/'), "base64url should not contain '/'");
+        // If standard contains + or /, url-safe should have - or _ instead
+        if std_s.contains('+') || std_s.contains('/') {
+            assert_ne!(std_s.trim_end_matches('='), url_s);
+        }
+    }
+
+    #[test]
+    fn test_base64url_decode_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_decode(@)").unwrap();
+        let data = json!("!!!invalid!!!");
+        let result = expr.search(&data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_base64url_encode_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_encode(@)").unwrap();
+        let data = json!("");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(""));
+    }
+
+    #[test]
+    fn test_base64url_decode_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("base64url_decode(@)").unwrap();
+        let data = json!("");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(""));
     }
 }
