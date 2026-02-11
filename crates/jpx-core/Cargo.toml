@@ -38,6 +38,7 @@ dateparser = { version = "0.2", optional = true }
 strsim = { version = "0.11", optional = true }
 rphonetic = { version = "3.0", optional = true }
 geoutils = { version = "0.5", optional = true }
+geohash = { version = "0.13", optional = true }
 semver_crate = { package = "semver", version = "1.0", optional = true }
 ipnetwork = { version = "0.21", optional = true }
 nanoid = { version = "0.4", optional = true }
@@ -78,7 +79,7 @@ extensions = [
     "dep:chrono", "dep:chrono-tz", "dep:chrono-english", "dep:dateparser",
     "dep:strsim",
     "dep:rphonetic",
-    "dep:geoutils",
+    "dep:geoutils", "dep:geohash",
     "dep:semver_crate",
     "dep:ipnetwork",
     "dep:nanoid", "dep:ulid",

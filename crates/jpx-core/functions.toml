@@ -1795,6 +1795,16 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "geo_bounding_box"
+category = "geo"
+description = "Bounding box from an array of [lat, lon] points"
+signature = "array -> object"
+examples = [
+    { code = "geo_bounding_box(`[[40.7, -74.0], [34.0, -118.2]]`) -> {\"max_lat\": 40.7, \"max_lon\": -74.0, \"min_lat\": 34.0, \"min_lon\": -118.2}", description = "NYC and LA bounding box" },
+]
+features = ["core"]
+
+[[functions]]
 name = "geo_distance"
 category = "geo"
 description = "Haversine distance in meters"
@@ -1827,6 +1837,59 @@ examples = [
     { code = "geo_distance_miles(`40.7128`, `-74.0060`, `51.5074`, `-0.1278`) -> 3461.0", description = "NYC to London" },
     { code = "geo_distance_miles(`34.0522`, `-118.2437`, `37.7749`, `-122.4194`) -> 347.4", description = "LA to SF" },
     { code = "geo_distance_miles(`48.8566`, `2.3522`, `51.5074`, `-0.1278`) -> 213.4", description = "Paris to London" },
+]
+features = ["core"]
+
+[[functions]]
+name = "geo_in_bbox"
+category = "geo"
+description = "Check if a point is inside a bounding box"
+signature = "number, number, number, number, number, number -> boolean"
+examples = [
+    { code = "geo_in_bbox(`40.0`, `-75.0`, `39.0`, `41.0`, `-76.0`, `-74.0`) -> true", description = "Point inside box" },
+    { code = "geo_in_bbox(`42.0`, `-75.0`, `39.0`, `41.0`, `-76.0`, `-74.0`) -> false", description = "Point outside box" },
+]
+features = ["core"]
+
+[[functions]]
+name = "geo_in_radius"
+category = "geo"
+description = "Check if a point is within a radius (km) of a center point"
+signature = "number, number, number, number, number -> boolean"
+examples = [
+    { code = "geo_in_radius(`40.758`, `-73.985`, `40.748`, `-73.986`, `2`) -> true", description = "Times Square within 2km of Empire State" },
+    { code = "geo_in_radius(`34.052`, `-118.244`, `40.713`, `-74.006`, `100`) -> false", description = "LA not within 100km of NYC" },
+]
+features = ["core"]
+
+[[functions]]
+name = "geo_midpoint"
+category = "geo"
+description = "Geographic midpoint of an array of [lat, lon] points"
+signature = "array -> array"
+examples = [
+    { code = "geo_midpoint(`[[0, 0], [0, 90]]`) -> [0.0, 45.0]", description = "Midpoint on equator" },
+]
+features = ["core"]
+
+[[functions]]
+name = "geohash_decode"
+category = "geo"
+description = "Decode a geohash string to {lat, lon}"
+signature = "string -> object"
+examples = [
+    { code = "geohash_decode('dr5ru7') -> {\"lat\": 40.71, \"lon\": -73.99}", description = "Decode NYC geohash" },
+]
+features = ["core"]
+
+[[functions]]
+name = "geohash_encode"
+category = "geo"
+description = "Encode lat/lon as a geohash string with optional precision (default 12)"
+signature = "number, number[, number] -> string"
+examples = [
+    { code = "geohash_encode(`40.7128`, `-74.0060`) -> \"dr5ru6j1yz56\"", description = "Encode NYC coordinates" },
+    { code = "geohash_encode(`40.7128`, `-74.0060`, `5`) -> \"dr5ru\"", description = "Encode with precision 5" },
 ]
 features = ["core"]
 

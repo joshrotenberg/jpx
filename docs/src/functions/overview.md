@@ -37,7 +37,7 @@ jpx --describe upper
 | [Expression](./expression.md) | Higher-order functions that work with JMESPath expressions a... | 33 |
 | [Format](./format.md) | Data formatting functions for numbers, currencies, and other... | 6 |
 | [Fuzzy](./fuzzy.md) | Fuzzy matching and string similarity functions. | 9 |
-| [Geolocation](./geo.md) | Geolocation functions: distance calculation, coordinate pars... | 4 |
+| [Geolocation](./geo.md) | Geolocation functions: distance calculation, coordinate pars... | 10 |
 | [Hash](./hash.md) | Cryptographic hash functions: MD5, SHA family, and other has... | 9 |
 | [ID Generation](./ids.md) | Functions for generating various types of unique identifiers... | 3 |
 | [JSON Patch](./jsonpatch.md) | JSON Patch (RFC 6902) functions: applying patches, generatin... | 3 |
