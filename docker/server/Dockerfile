@@ -30,4 +30,3 @@ USER jpx
 WORKDIR /home/jpx
 
 ENTRYPOINT ["jpx-mcp"]
-CMD ["--help"]
