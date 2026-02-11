@@ -8,6 +8,8 @@ Encoding and decoding functions: Base64, hex, URL encoding, and more.
 |----------|-----------|-------------|
 | [`base64_decode`](#base64-decode) | `string -> string` | Decode base64 string |
 | [`base64_encode`](#base64-encode) | `string -> string` | Encode string to base64 |
+| [`base64url_decode`](#base64url-decode) | `string -> string` | Decode base64url (RFC 4648 §5) string |
+| [`base64url_encode`](#base64url-encode) | `string -> string` | Encode string to base64url (RFC 4648 §5, no padding) |
 | [`hex_decode`](#hex-decode) | `string -> string` | Decode hex string |
 | [`hex_encode`](#hex-encode) | `string -> string` | Encode string to hex |
 | [`html_escape`](#html-escape) | `string -> string` | Escape HTML special characters |
@@ -61,6 +63,52 @@ base64_encode('') -> \"\"
 
 ```bash
 echo '{}' | jpx 'base64_encode(`"hello"`)'
+```
+
+### base64url_decode
+
+Decode base64url (RFC 4648 §5) string
+
+**Signature:** `string -> string`
+
+**Examples:**
+
+```text
+# Decode hello
+base64url_decode('aGVsbG8') -> "hello"
+# Decode test
+base64url_decode('dGVzdA') -> "test"
+# Empty string
+base64url_decode('') -> ""
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'base64url_decode(`"aGVsbG8"`)'
+```
+
+### base64url_encode
+
+Encode string to base64url (RFC 4648 §5, no padding)
+
+**Signature:** `string -> string`
+
+**Examples:**
+
+```text
+# Encode hello
+base64url_encode('hello') -> "aGVsbG8"
+# Encode test
+base64url_encode('test') -> "dGVzdA"
+# Empty string
+base64url_encode('') -> ""
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'base64url_encode(`"hello"`)'
 ```
 
 ### hex_decode

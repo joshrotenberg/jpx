@@ -1146,6 +1146,30 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "base64url_decode"
+category = "encoding"
+description = "Decode base64url (RFC 4648 §5) string"
+signature = "string -> string"
+examples = [
+    { code = '''base64url_decode('aGVsbG8') -> \"hello\"''', description = "Decode hello" },
+    { code = '''base64url_decode('dGVzdA') -> \"test\"''', description = "Decode test" },
+    { code = '''base64url_decode('') -> \"\"''', description = "Empty string" },
+]
+features = ["core"]
+
+[[functions]]
+name = "base64url_encode"
+category = "encoding"
+description = "Encode string to base64url (RFC 4648 §5, no padding)"
+signature = "string -> string"
+examples = [
+    { code = '''base64url_encode('hello') -> \"aGVsbG8\"''', description = "Encode hello" },
+    { code = '''base64url_encode('test') -> \"dGVzdA\"''', description = "Encode test" },
+    { code = '''base64url_encode('') -> \"\"''', description = "Empty string" },
+]
+features = ["core"]
+
+[[functions]]
 name = "hex_decode"
 category = "encoding"
 description = "Decode hex string"
