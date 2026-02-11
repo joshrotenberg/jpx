@@ -32,7 +32,7 @@ jpx --describe upper
 | [Color](./color.md) | Color manipulation and conversion functions. | 8 |
 | [Computing](./computing.md) | Computing-related utility functions. | 9 |
 | [Date/Time](./datetime.md) | Functions for working with dates and times: parsing, formatt... | 26 |
-| [Duration](./duration.md) | Functions for working with time durations. | 5 |
+| [Duration](./duration.md) | Functions for working with time durations. | 8 |
 | [Encoding](./encoding.md) | Encoding and decoding functions: Base64, hex, URL encoding, ... | 8 |
 | [Expression](./expression.md) | Higher-order functions that work with JMESPath expressions a... | 33 |
 | [Format](./format.md) | Data formatting functions for numbers, currencies, and other... | 6 |

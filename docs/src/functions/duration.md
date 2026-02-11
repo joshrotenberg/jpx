@@ -6,13 +6,62 @@ Functions for working with time durations.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
+| [`duration_add`](#duration-add) | `string, string -> string` | Add two duration strings |
+| [`duration_days`](#duration-days) | `number -> number` | Get days component from seconds |
 | [`duration_hours`](#duration-hours) | `number -> number` | Convert seconds to hours |
 | [`duration_minutes`](#duration-minutes) | `number -> number` | Convert seconds to minutes |
 | [`duration_seconds`](#duration-seconds) | `number -> number` | Get seconds component |
+| [`duration_subtract`](#duration-subtract) | `string, string -> string` | Subtract second duration string from first |
 | [`format_duration`](#format-duration) | `number -> string` | Format seconds as duration string |
 | [`parse_duration`](#parse-duration) | `string -> number` | Parse duration string to seconds |
 
 ## Functions
+
+### duration_add
+
+Add two duration strings
+
+**Signature:** `string, string -> string`
+
+**Examples:**
+
+```text
+# Add 1 hour and 30 minutes
+duration_add('1h', '30m') -> "1h30m"
+# Add 1 day and 12 hours
+duration_add('1d', '12h') -> "1d12h"
+# Identity with zero
+duration_add('1h', '0s') -> "1h"
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'duration_add(`"1h"`, `"30m"`)'
+```
+
+### duration_days
+
+Get days component from seconds
+
+**Signature:** `number -> number`
+
+**Examples:**
+
+```text
+# 1 day
+duration_days(`86400`) -> 1
+# 1 day 1 hour 1 min 1 sec
+duration_days(`90061`) -> 1
+# 8 days wraps to 1 (8 mod 7)
+duration_days(`691200`) -> 1
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'duration_days(`86400`)'
+```
 
 ### duration_hours
 
@@ -81,6 +130,29 @@ duration_seconds(`3661`) -> 1
 
 ```bash
 echo '{}' | jpx 'duration_seconds(`65`)'
+```
+
+### duration_subtract
+
+Subtract second duration string from first
+
+**Signature:** `string, string -> string`
+
+**Examples:**
+
+```text
+# Subtract 30 minutes from 2 hours
+duration_subtract('2h', '30m') -> "1h30m"
+# Equal durations
+duration_subtract('1h', '1h') -> "0s"
+# Underflow clamps to zero
+duration_subtract('30m', '2h') -> "0s"
+```
+
+**CLI Usage:**
+
+```bash
+echo '{}' | jpx 'duration_subtract(`"2h"`, `"30m"`)'
 ```
 
 ### format_duration

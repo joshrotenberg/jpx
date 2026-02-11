@@ -94,6 +94,69 @@ impl Function for DurationSecondsFn {
     }
 }
 
+defn!(DurationDaysFn, vec![arg!(number)], None);
+
+impl Function for DurationDaysFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let num = args[0]
+            .as_f64()
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Expected number"))?;
+
+        let total_secs = num as u64;
+        let days = (total_secs / 86400) % 7;
+
+        Ok(Value::Number(Number::from(days)))
+    }
+}
+
+defn!(DurationAddFn, vec![arg!(string), arg!(string)], None);
+
+impl Function for DurationAddFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let a = args[0]
+            .as_str()
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
+        let b = args[1]
+            .as_str()
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
+
+        let secs_a = parse_duration_str(a)
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Invalid duration string"))?;
+        let secs_b = parse_duration_str(b)
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Invalid duration string"))?;
+
+        Ok(Value::String(format_duration_secs(secs_a + secs_b)))
+    }
+}
+
+defn!(DurationSubtractFn, vec![arg!(string), arg!(string)], None);
+
+impl Function for DurationSubtractFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let a = args[0]
+            .as_str()
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
+        let b = args[1]
+            .as_str()
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
+
+        let secs_a = parse_duration_str(a)
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Invalid duration string"))?;
+        let secs_b = parse_duration_str(b)
+            .ok_or_else(|| crate::functions::custom_error(ctx, "Invalid duration string"))?;
+
+        Ok(Value::String(format_duration_secs(
+            secs_a.saturating_sub(secs_b),
+        )))
+    }
+}
+
 /// Parse a duration string into total seconds.
 fn parse_duration_str(s: &str) -> Option<u64> {
     let s = s.trim().to_lowercase();
@@ -201,6 +264,18 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     );
     register_if_enabled(
         runtime,
+        "duration_add",
+        enabled,
+        Box::new(DurationAddFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "duration_days",
+        enabled,
+        Box::new(DurationDaysFn::new()),
+    );
+    register_if_enabled(
+        runtime,
         "duration_hours",
         enabled,
         Box::new(DurationHoursFn::new()),
@@ -216,6 +291,12 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         "duration_seconds",
         enabled,
         Box::new(DurationSecondsFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "duration_subtract",
+        enabled,
+        Box::new(DurationSubtractFn::new()),
     );
 }
 
@@ -316,5 +397,60 @@ mod tests {
         let expr = runtime.compile("duration_seconds(`90061`)").unwrap();
         let result = expr.search(&json!(null)).unwrap();
         assert_eq!(result.as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_duration_days_via_runtime() {
+        let runtime = setup_runtime();
+        // 86400 seconds = 1d -> days component is 1
+        let expr = runtime.compile("duration_days(`86400`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+
+        // 90061 seconds = 1d 1h 1m 1s -> days component is 1
+        let expr = runtime.compile("duration_days(`90061`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+
+        // 691200 seconds = 8 days = 1w1d -> days component is 8%7 = 1
+        let expr = runtime.compile("duration_days(`691200`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_duration_add_via_runtime() {
+        let runtime = setup_runtime();
+
+        let expr = runtime.compile("duration_add('1h', '30m')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1h30m");
+
+        let expr = runtime.compile("duration_add('1d', '12h')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1d12h");
+
+        let expr = runtime.compile("duration_add('1h', '0s')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1h");
+    }
+
+    #[test]
+    fn test_duration_subtract_via_runtime() {
+        let runtime = setup_runtime();
+
+        let expr = runtime.compile("duration_subtract('2h', '30m')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1h30m");
+
+        // Equal durations -> "0s"
+        let expr = runtime.compile("duration_subtract('1h', '1h')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "0s");
+
+        // Underflow clamps to "0s"
+        let expr = runtime.compile("duration_subtract('30m', '2h')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "0s");
     }
 }

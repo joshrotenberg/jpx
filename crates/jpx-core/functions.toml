@@ -1022,6 +1022,30 @@ features = ["core"]
 # =============================================================================
 
 [[functions]]
+name = "duration_add"
+category = "duration"
+description = "Add two duration strings"
+signature = "string, string -> string"
+examples = [
+    { code = '''duration_add('1h', '30m') -> \"1h30m\"''', description = "Add 1 hour and 30 minutes" },
+    { code = '''duration_add('1d', '12h') -> \"1d12h\"''', description = "Add 1 day and 12 hours" },
+    { code = '''duration_add('1h', '0s') -> \"1h\"''', description = "Identity with zero" },
+]
+features = ["core"]
+
+[[functions]]
+name = "duration_days"
+category = "duration"
+description = "Get days component from seconds"
+signature = "number -> number"
+examples = [
+    { code = "duration_days(`86400`) -> 1", description = "1 day" },
+    { code = "duration_days(`90061`) -> 1", description = "1 day 1 hour 1 min 1 sec" },
+    { code = "duration_days(`691200`) -> 1", description = "8 days wraps to 1 (8 mod 7)" },
+]
+features = ["core"]
+
+[[functions]]
 name = "duration_hours"
 category = "duration"
 description = "Convert seconds to hours"
@@ -1054,6 +1078,18 @@ examples = [
     { code = "duration_seconds(`65`) -> 5", description = "65 seconds mod 60" },
     { code = "duration_seconds(`120`) -> 0", description = "Exact minutes" },
     { code = "duration_seconds(`3661`) -> 1", description = "1 hour 1 min 1 sec" },
+]
+features = ["core"]
+
+[[functions]]
+name = "duration_subtract"
+category = "duration"
+description = "Subtract second duration string from first"
+signature = "string, string -> string"
+examples = [
+    { code = '''duration_subtract('2h', '30m') -> \"1h30m\"''', description = "Subtract 30 minutes from 2 hours" },
+    { code = '''duration_subtract('1h', '1h') -> \"0s\"''', description = "Equal durations" },
+    { code = '''duration_subtract('30m', '2h') -> \"0s\"''', description = "Underflow clamps to zero" },
 ]
 features = ["core"]
 
