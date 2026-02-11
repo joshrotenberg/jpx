@@ -3522,6 +3522,30 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "path_is_absolute"
+category = "path"
+description = "Check if path is absolute"
+signature = "string -> boolean"
+examples = [
+    { code = '''path_is_absolute('/foo/bar') -> true''', description = "Absolute path" },
+    { code = '''path_is_absolute('foo/bar') -> false''', description = "Relative path" },
+    { code = '''path_is_absolute('file.txt') -> false''', description = "Filename only" },
+]
+features = ["core"]
+
+[[functions]]
+name = "path_is_relative"
+category = "path"
+description = "Check if path is relative"
+signature = "string -> boolean"
+examples = [
+    { code = '''path_is_relative('foo/bar') -> true''', description = "Relative path" },
+    { code = '''path_is_relative('file.txt') -> true''', description = "Filename only" },
+    { code = '''path_is_relative('/foo/bar') -> false''', description = "Absolute path" },
+]
+features = ["core"]
+
+[[functions]]
 name = "path_join"
 category = "path"
 description = "Join path segments"
@@ -3530,6 +3554,18 @@ examples = [
     { code = '''path_join('/foo', 'bar', 'baz') -> \"/foo/bar/baz\"''', description = "Multiple segments" },
     { code = '''path_join('/home', 'user', 'file.txt') -> \"/home/user/file.txt\"''', description = "Full path" },
     { code = '''path_join('a', 'b') -> \"a/b\"''', description = "Relative path" },
+]
+features = ["core"]
+
+[[functions]]
+name = "path_stem"
+category = "path"
+description = "Get filename without extension"
+signature = "string -> string"
+examples = [
+    { code = '''path_stem('file.txt') -> \"file\"''', description = "Simple file" },
+    { code = '''path_stem('/foo/bar.tar.gz') -> \"bar.tar\"''', description = "Double extension" },
+    { code = '''path_stem('noext') -> \"noext\"''', description = "No extension" },
 ]
 features = ["core"]
 
