@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.3.1...jpx-engine-v0.3.2) - 2026-02-11
+
+### Fixed
+
+- functions category filter case-sensitive mismatch ([#111](https://github.com/joshrotenberg/jpx/pull/111)) ([#121](https://github.com/joshrotenberg/jpx/pull/121))
+
 ## [0.3.1](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.3.0...jpx-engine-v0.3.1) - 2026-02-11
 
 ### Other
