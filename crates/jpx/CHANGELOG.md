@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.0...jpx-v0.4.1) - 2026-02-11
+
+### Other
+
+- Add AGENTS.md for AI coding agents ([#104](https://github.com/joshrotenberg/jpx/pull/104))
+
 ## [0.4.0](https://github.com/joshrotenberg/jpx/compare/jpx-v0.3.0...jpx-v0.4.0) - 2026-02-08
 
 ### Added
