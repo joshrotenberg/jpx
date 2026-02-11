@@ -139,6 +139,7 @@ nav:
     - Nobel Prize API: guides/nobel-prize.md
     - NASA Near Earth Objects: guides/nasa-neo.md
     - Project Management: guides/project-management.md
+    - Large Datasets & Parquet: guides/large-datasets.md
   - Presentations:
     - "jpx in 5 Minutes": presentations/jpx-in-5-minutes.html
   - Libraries: libraries.md
