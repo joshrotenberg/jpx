@@ -59,7 +59,66 @@
   </aside>
 </section>
 
-<!-- Slide 2: JMESPath in action -->
+<!-- Slide 2: JMESPath syntax reference card -->
+<section>
+  <h2>JMESPath syntax <span class="dim">— the whole language</span></h2>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 2em; font-size: 0.42em; font-family: 'JetBrains Mono', monospace; text-align: left; max-width: 95%; margin: 0 auto;">
+    <!-- Left column -->
+    <div>
+      <p style="margin:0.3em 0 0.1em"><strong class="accent" style="font-size:1.15em">Access</strong></p>
+      <p style="margin:0.1em 0">foo.bar.baz &nbsp;<span class="dim"># nested field</span></p>
+      <p style="margin:0.1em 0">[0] &nbsp;[-1] &nbsp;[3:5] &nbsp;<span class="dim"># index, last, slice</span></p>
+      <p style="margin:0.1em 0">[*].name &nbsp;<span class="dim"># list projection</span></p>
+      <p style="margin:0.1em 0">*.values &nbsp;<span class="dim"># object wildcard</span></p>
+      <p style="margin:0.1em 0">[][] &nbsp;<span class="dim"># flatten nested arrays</span></p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Multi-select</strong></p>
+      <p style="margin:0.1em 0">{n: name, a: age} &nbsp;<span class="dim"># hash</span></p>
+      <p style="margin:0.1em 0">[name, age] &nbsp;<span class="dim"># list</span></p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Pipe</strong></p>
+      <p style="margin:0.1em 0">[*].score | sort(@) | [-1]</p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Literals &amp; refs</strong></p>
+      <p style="margin:0.1em 0"><span class="green">`42`</span> &nbsp;<span class="green">`"str"`</span> &nbsp;<span class="green">`true`</span> &nbsp;<span class="green">`[1,2]`</span> &nbsp;<span class="dim"># JSON literals</span></p>
+      <p style="margin:0.1em 0"><span class="green">'raw string'</span> &nbsp;<span class="dim"># unquoted string</span></p>
+      <p style="margin:0.1em 0"><span class="green">&amp;field</span> &nbsp;<span class="dim"># expression reference</span></p>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <p style="margin:0.3em 0 0.1em"><strong class="accent" style="font-size:1.15em">Filter</strong></p>
+      <p style="margin:0.1em 0">[?age > <span class="green">`30`</span>]</p>
+      <p style="margin:0.1em 0">[?active &amp;&amp; score >= <span class="green">`90`</span>]</p>
+      <p style="margin:0.1em 0">[?!archived]</p>
+      <p style="margin:0.1em 0">[?contains(name, <span class="green">'test'</span>)]</p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Functions</strong></p>
+      <p style="margin:0.1em 0">length(@) &nbsp;sort(@) &nbsp;reverse(@)</p>
+      <p style="margin:0.1em 0">sort_by(@, <span class="green">&amp;age</span>) &nbsp;max_by(@, <span class="green">&amp;score</span>)</p>
+      <p style="margin:0.1em 0">join(<span class="green">', '</span>, @) &nbsp;contains(@, <span class="green">'x'</span>)</p>
+      <p style="margin:0.1em 0">keys(@) &nbsp;values(@) &nbsp;merge(a, b)</p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Let expressions</strong> <span class="dim">(JEP-18)</span></p>
+      <p style="margin:0.1em 0">let <span class="green">$lat</span> = <span class="green">`40.42`</span>,</p>
+      <p style="margin:0.1em 0">&nbsp;&nbsp;&nbsp;&nbsp;<span class="green">$lon</span> = <span class="green">`-3.70`</span> in</p>
+      <p style="margin:0.1em 0">[*].{dist: geo_distance_km(</p>
+      <p style="margin:0.1em 0">&nbsp;&nbsp;<span class="green">$lat</span>, <span class="green">$lon</span>, lat, lon)}</p>
+
+      <p style="margin:0.6em 0 0.1em"><strong class="accent" style="font-size:1.15em">Current node</strong></p>
+      <p style="margin:0.1em 0"><span class="green">@</span> &nbsp;<span class="dim"># the value being evaluated</span></p>
+    </div>
+  </div>
+  <aside class="notes">
+    This is the entire JMESPath language on one slide.
+    Dot access, indexing, slicing, wildcards, flatten, multi-select, filters,
+    pipe, literals, expression references, functions, let expressions.
+    That's it — there's no other syntax. Everything else is just functions.
+    If you know this slide, you know JMESPath.
+  </aside>
+</section>
+
+<!-- Slide 3: JMESPath in action (live example) -->
 <section>
   <h2>Query language for JSON<br>
   <span class="dim">that reads like what you want</span></h2>
