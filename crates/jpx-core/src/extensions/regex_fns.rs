@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::functions::Function;
 use crate::functions::custom_error;
+use crate::functions::number_value;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -31,6 +32,18 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         "regex_replace",
         enabled,
         Box::new(RegexReplaceFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "regex_count",
+        enabled,
+        Box::new(RegexCountFn::new()),
+    );
+    register_if_enabled(
+        runtime,
+        "regex_split",
+        enabled,
+        Box::new(RegexSplitFn::new()),
     );
 }
 
@@ -113,6 +126,54 @@ impl Function for RegexReplaceFn {
     }
 }
 
+// =============================================================================
+// regex_count(string, pattern) -> number
+// =============================================================================
+
+defn!(RegexCountFn, vec![arg!(string), arg!(string)], None);
+
+impl Function for RegexCountFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        // Safe to unwrap after signature validation
+        let input = args[0].as_str().unwrap();
+        let pattern = args[1].as_str().unwrap();
+
+        let re = Regex::new(pattern)
+            .map_err(|e| custom_error(ctx, &format!("Invalid regex pattern: {e}")))?;
+
+        let count = re.find_iter(input).count();
+        Ok(number_value(count as f64))
+    }
+}
+
+// =============================================================================
+// regex_split(string, pattern) -> array
+// =============================================================================
+
+defn!(RegexSplitFn, vec![arg!(string), arg!(string)], None);
+
+impl Function for RegexSplitFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        // Safe to unwrap after signature validation
+        let input = args[0].as_str().unwrap();
+        let pattern = args[1].as_str().unwrap();
+
+        let re = Regex::new(pattern)
+            .map_err(|e| custom_error(ctx, &format!("Invalid regex pattern: {e}")))?;
+
+        let parts: Vec<Value> = re
+            .split(input)
+            .map(|s| Value::String(s.to_string()))
+            .collect();
+
+        Ok(Value::Array(parts))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Runtime;
@@ -158,5 +219,65 @@ mod tests {
         let data = json!("abc123def456");
         let result = expr.search(&data).unwrap();
         assert_eq!(result.as_str().unwrap(), "abcXdefX");
+    }
+
+    #[test]
+    fn test_regex_count() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_count(@, '[0-9]+')").unwrap();
+
+        let data = json!("abc123def456ghi789");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(3.0));
+    }
+
+    #[test]
+    fn test_regex_count_no_matches() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_count(@, '[0-9]+')").unwrap();
+
+        let data = json!("abcdef");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(0.0));
+    }
+
+    #[test]
+    fn test_regex_count_overlapping_pattern() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_count(@, '[aeiou]')").unwrap();
+
+        let data = json!("hello world");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(3.0));
+    }
+
+    #[test]
+    fn test_regex_split() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_split(@, ',')").unwrap();
+
+        let data = json!("a,b,c");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(["a", "b", "c"]));
+    }
+
+    #[test]
+    fn test_regex_split_whitespace() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_split(@, '\\s+')").unwrap();
+
+        let data = json!("hello   world\tfoo");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(["hello", "world", "foo"]));
+    }
+
+    #[test]
+    fn test_regex_split_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_split(@, ',')").unwrap();
+
+        let data = json!("no delimiters here");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(["no delimiters here"]));
     }
 }

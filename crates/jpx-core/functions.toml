@@ -3622,6 +3622,18 @@ features = ["core"]
 # =============================================================================
 
 [[functions]]
+name = "regex_count"
+category = "regex"
+description = "Count the number of regex matches. Use backtick-JSON syntax: regex_count(text, `\"\\\\d+\"`)"
+signature = "string, string -> number"
+examples = [
+    { code = '''regex_count(`"a1b2c3"`, `"\\\\d+"`) -> 3''', description = "Count numbers" },
+    { code = '''regex_count(`"hello world"`, `"[aeiou]"`) -> 3''', description = "Count vowels" },
+    { code = '''regex_count(`"abc"`, `"\\\\d+"`) -> 0''', description = "No matches" },
+]
+features = ["core"]
+
+[[functions]]
 name = "regex_extract"
 category = "regex"
 description = "Extract regex matches. Use backtick-JSON syntax: regex_extract(text, `\"\\\\w+\"`)"
@@ -3654,6 +3666,18 @@ examples = [
     { code = '''regex_replace(`"a1b2"`, `"\\\\d+"`, `"X"`) -> \"aXbX\"''', description = "Replace digits" },
     { code = '''regex_replace(`"hello world"`, `"\\\\s+"`, `"-"`) -> \"hello-world\"''', description = "Replace spaces" },
     { code = '''regex_replace(`"abc"`, `"x"`, `"y"`) -> \"abc\"''', description = "No match unchanged" },
+]
+features = ["core"]
+
+[[functions]]
+name = "regex_split"
+category = "regex"
+description = "Split a string by a regex pattern. Use backtick-JSON syntax: regex_split(text, `\"\\\\s+\"`)"
+signature = "string, string -> array"
+examples = [
+    { code = '''regex_split(`"a,b,c"`, `","`) -> [\"a\", \"b\", \"c\"]''', description = "Split by comma" },
+    { code = '''regex_split(`"hello   world"`, `"\\\\s+"`) -> [\"hello\", \"world\"]''', description = "Split by whitespace" },
+    { code = '''regex_split(`"abc"`, `","`) -> [\"abc\"]''', description = "No match returns single element" },
 ]
 features = ["core"]
 
