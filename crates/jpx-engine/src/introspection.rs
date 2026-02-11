@@ -173,12 +173,15 @@ impl JpxEngine {
     /// assert!(string_funcs.iter().all(|f| f.category == "String"));
     /// ```
     pub fn functions(&self, category: Option<&str>) -> Vec<FunctionDetail> {
-        match category.and_then(parse_category) {
-            Some(cat) => self
-                .registry
-                .functions_in_category(cat)
-                .map(FunctionDetail::from)
-                .collect(),
+        match category {
+            Some(name) => match parse_category(name) {
+                Some(cat) => self
+                    .registry
+                    .functions_in_category(cat)
+                    .map(FunctionDetail::from)
+                    .collect(),
+                None => Vec::new(),
+            },
             None => self
                 .registry
                 .functions()
@@ -467,9 +470,10 @@ fn calculate_match_score(
 
 /// Parse category string to Category enum
 pub(crate) fn parse_category(name: &str) -> Option<Category> {
+    let input = name.to_lowercase();
     Category::all()
         .iter()
-        .find(|cat| format!("{:?}", cat).to_lowercase() == name.to_lowercase())
+        .find(|cat| cat.name() == input)
         .copied()
 }
 
@@ -720,14 +724,27 @@ mod tests {
     #[test]
     fn test_functions_invalid_category() {
         let engine = JpxEngine::new();
-        // When a category string does not match any known category, parse_category
-        // returns None, and functions() falls through to returning all functions.
         let invalid = engine.functions(Some("NonexistentCategory"));
+        assert!(
+            invalid.is_empty(),
+            "Invalid category should return empty list, got {} functions",
+            invalid.len()
+        );
+    }
+
+    #[test]
+    fn test_functions_multi_match_category() {
+        let engine = JpxEngine::new();
+        let results = engine.functions(Some("multi-match"));
+        assert!(
+            !results.is_empty(),
+            "multi-match category should return functions"
+        );
         let all = engine.functions(None);
-        assert_eq!(
-            invalid.len(),
-            all.len(),
-            "Invalid category should fall back to returning all functions"
+        assert!(
+            results.len() < all.len(),
+            "multi-match should return a subset, not all {} functions",
+            all.len()
         );
     }
 
