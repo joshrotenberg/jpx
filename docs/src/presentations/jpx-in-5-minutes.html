@@ -313,6 +313,39 @@
   </aside>
 </section>
 
+<!-- Slide 5c: Multi-server tool discovery -->
+<section>
+  <h2>Tool discovery <span class="dim">across servers</span></h2>
+  <div style="font-size: 0.55em; font-family: 'JetBrains Mono', monospace; text-align: left; max-width: 90%; margin: 0.3em auto; line-height: 1.6;">
+    <p><span class="dim"># Agent connects to 3 MCP servers &mdash; 100+ tools total</span></p>
+    <p><span class="dim"># Registers each server's tools with jpx at session start</span></p>
+    <p><span class="fn">register_tools</span>(<span class="dim">{ server: "redisctl", tools: [...65] }</span>)</p>
+    <p><span class="fn">register_tools</span>(<span class="dim">{ server: "github",   tools: [...20] }</span>)</p>
+    <p><span class="fn">register_tools</span>(<span class="dim">{ server: "deploy",   tools: [...18] }</span>)</p>
+    <p>&nbsp;</p>
+    <p><span class="dim"># Now search across all of them with natural language</span></p>
+    <p><span class="fn">query_tools</span>(<span class="result">"backup database"</span>)</p>
+    <p><span class="result">&rarr; redisctl:enterprise_database_backup</span> <span class="dim">score: 8.4</span></p>
+    <p><span class="result">&rarr; redisctl:enterprise_database_export</span> <span class="dim">score: 5.2</span></p>
+  </div>
+  <p class="fragment" style="font-size: 0.7em; margin-top: 0.8em;">
+    <span class="accent">BM25 search</span><span class="dim"> &mdash;
+    finds "backup" from "snapshot", "export", "persist".</span><br>
+    <span class="dim">The agent doesn't scan tool lists. It asks jpx.</span>
+  </p>
+  <aside class="notes">
+    This is the other big agent story. When you connect to multiple MCP servers,
+    your agent might have access to 100+ tools. Finding the right one means
+    scanning names and reading descriptions — that's slow and error-prone.
+    jpx provides a BM25 search index — the same algorithm behind search engines.
+    The agent registers each server's tools once at session start, then queries
+    across all of them with natural language. "Backup database" finds tools
+    named "snapshot" or "export" because BM25 weights rare terms and handles
+    synonyms in context. It also supports similar_tools — give it one tool,
+    get related ones back. Like a search engine for your agent's capabilities.
+  </aside>
+</section>
+
 <!-- Slide 6: Get started -->
 <section>
   <h2>Get started</h2>
