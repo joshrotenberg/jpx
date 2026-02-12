@@ -152,7 +152,7 @@ The query:
 features[*].{
   region: last(split(properties.place, `", "`)),
   mag: properties.mag
-} | group_by(@, 'region')
+} | group_by(@, &region)
   | items(@)
   | [*].{region: [0], count: length([1]), max_mag: max([1][*].mag)}
   | sort_by(@, &count)
@@ -259,14 +259,15 @@ The AI will make a series of MCP tool calls — talk over them:
 
 Real numbers from the earthquake data we just queried:
 
-| | Tokens | Notes |
-|---|---|---|
-| **Without jpx** — full JSON in context | 21,469 | 60 KB file, 85 events |
-| **With jpx** — expression + result only | 355 | 92 (query) + 263 (result) |
-| **Savings** | **98.3%** | **60x fewer tokens** |
+| Input | Without jpx | With jpx | Reduction |
+|---|---|---|---|
+| 85 earthquakes (60 KB) | 21K tokens | ~200 tokens | ~100x |
+| 200 earthquakes (143 KB) | 51K tokens | ~200 tokens | ~250x |
+| 100 Nobel laureates (367 KB) | 131K tokens | ~150 tokens | ~850x |
 
-The result size is constant — "top 5 nearest" returns 5 rows whether
-the input has 85 events or 40,000. Bigger data = bigger savings.
+The result size is constant — the output depends on the query, not the input.
+At $3/M input tokens, processing 1,000 of those 60 KB files costs $64
+without jpx. With jpx? About 60 cents.
 
 And the query engine is deterministic. The LLM doesn't read the JSON —
 it writes an expression and the engine evaluates it. No hallucinated values,
