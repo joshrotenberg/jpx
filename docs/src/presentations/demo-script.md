@@ -152,7 +152,7 @@ The query:
 features[*].{
   region: last(split(properties.place, `", "`)),
   mag: properties.mag
-} | group_by(@, &region)
+} | group_by(@, 'region')
   | items(@)
   | [*].{region: [0], count: length([1]), max_mag: max([1][*].mag)}
   | sort_by(@, &count)
