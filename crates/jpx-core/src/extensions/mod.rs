@@ -33,6 +33,7 @@ pub mod semver_fns;
 pub mod string;
 pub mod text;
 pub mod type_conv;
+pub mod units;
 pub mod url_fns;
 pub mod utility;
 pub mod validation;

@@ -47,6 +47,7 @@ pub enum Category {
     Format,
     Language,
     Discovery,
+    Units,
 }
 
 impl Category {
@@ -85,6 +86,7 @@ impl Category {
             Category::Format,
             Category::Language,
             Category::Discovery,
+            Category::Units,
         ]
     }
 
@@ -134,6 +136,7 @@ impl Category {
             Category::Format => "format",
             Category::Language => "language",
             Category::Discovery => "discovery",
+            Category::Units => "units",
         }
     }
 }
@@ -466,6 +469,9 @@ impl FunctionRegistry {
             Category::Discovery => {
                 crate::extensions::discovery::register_filtered(runtime, &enabled_in_category)
             }
+            Category::Units => {
+                crate::extensions::units::register_filtered(runtime, &enabled_in_category)
+            }
             Category::Standard => {} // Standard functions are registered via register_builtin_functions()
         }
 
@@ -709,7 +715,37 @@ pub fn get_synonyms() -> &'static [SynonymEntry] {
         },
         SynonymEntry {
             term: "convert",
-            targets: &["to_string", "to_number", "to_array", "type"],
+            targets: &[
+                "to_string",
+                "to_number",
+                "to_array",
+                "type",
+                "convert_temperature",
+                "convert_length",
+                "convert_mass",
+                "convert_volume",
+            ],
+        },
+        SynonymEntry {
+            term: "units",
+            targets: &[
+                "convert_temperature",
+                "convert_length",
+                "convert_mass",
+                "convert_volume",
+            ],
+        },
+        SynonymEntry {
+            term: "temperature",
+            targets: &["convert_temperature"],
+        },
+        SynonymEntry {
+            term: "weight",
+            targets: &["convert_mass"],
+        },
+        SynonymEntry {
+            term: "distance",
+            targets: &["convert_length"],
         },
         SynonymEntry {
             term: "cast",

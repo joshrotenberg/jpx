@@ -5708,3 +5708,55 @@ examples = [
     { code = "fuzzy_score('hello', 'goodbye') -> 0", description = "No match score" },
 ]
 features = ["discovery"]
+
+# =============================================================================
+# UNITS FUNCTIONS
+# =============================================================================
+
+[[functions]]
+name = "convert_temperature"
+category = "units"
+description = "Convert a temperature value between Celsius, Fahrenheit, and Kelvin"
+signature = "number, string, string -> number"
+examples = [
+    { code = "convert_temperature(`100`, 'C', 'F') -> 212", description = "Boiling point of water in Fahrenheit" },
+    { code = "convert_temperature(`32`, 'F', 'C') -> 0", description = "Freezing point in Celsius" },
+    { code = "convert_temperature(`0`, 'C', 'K') -> 273.15", description = "Celsius to Kelvin" },
+]
+features = ["core"]
+
+[[functions]]
+name = "convert_length"
+category = "units"
+description = "Convert a length value between meters, kilometers, miles, feet, inches, centimeters, millimeters, yards, and nautical miles"
+signature = "number, string, string -> number"
+examples = [
+    { code = "convert_length(`1`, 'km', 'mi') -> 0.621371", description = "Kilometers to miles" },
+    { code = "convert_length(`1`, 'ft', 'm') -> 0.3048", description = "Feet to meters" },
+    { code = "convert_length(`1`, 'in', 'cm') -> 2.54", description = "Inches to centimeters" },
+]
+features = ["core"]
+
+[[functions]]
+name = "convert_mass"
+category = "units"
+description = "Convert a mass value between kilograms, grams, milligrams, pounds, ounces, tonnes, and stones"
+signature = "number, string, string -> number"
+examples = [
+    { code = "convert_mass(`1`, 'kg', 'lbs') -> 2.20462", description = "Kilograms to pounds" },
+    { code = "convert_mass(`1`, 'lbs', 'kg') -> 0.453592", description = "Pounds to kilograms" },
+    { code = "convert_mass(`1`, 't', 'kg') -> 1000", description = "Tonnes to kilograms" },
+]
+features = ["core"]
+
+[[functions]]
+name = "convert_volume"
+category = "units"
+description = "Convert a volume value between liters, milliliters, gallons, quarts, pints, cups, fluid ounces, tablespoons, and teaspoons"
+signature = "number, string, string -> number"
+examples = [
+    { code = "convert_volume(`1`, 'gal', 'l') -> 3.78541", description = "Gallons to liters" },
+    { code = "convert_volume(`1`, 'l', 'ml') -> 1000", description = "Liters to milliliters" },
+    { code = "convert_volume(`1`, 'cup', 'ml') -> 236.588", description = "Cups to milliliters" },
+]
+features = ["core"]
