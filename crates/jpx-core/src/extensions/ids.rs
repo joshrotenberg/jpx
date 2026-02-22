@@ -176,4 +176,63 @@ mod tests {
         // All characters should be valid Base32
         assert!(id.chars().all(|c| c.is_ascii_alphanumeric()));
     }
+
+    #[test]
+    fn test_nanoid_charset() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("nanoid()").unwrap();
+        // Generate several and verify all chars are URL-safe (alphanumeric, _ or -)
+        for _ in 0..10 {
+            let result = expr.search(&data).unwrap();
+            let id = result.as_str().unwrap();
+            assert!(
+                id.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'),
+                "nanoid contains invalid character: {}",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_ulid_parseable() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        let expr = runtime.compile("ulid()").unwrap();
+        let result = expr.search(&data).unwrap();
+        let id = result.as_str().unwrap();
+        // Generated ULID should be parseable
+        assert!(
+            ulid::Ulid::from_string(id).is_ok(),
+            "Generated ULID should be parseable: {}",
+            id
+        );
+    }
+
+    #[test]
+    fn test_ulid_timestamp_roundtrip() {
+        let runtime = setup_runtime();
+        let data = json!(null);
+        // Generate a ULID and extract its timestamp, then verify it's recent
+        let ulid_expr = runtime.compile("ulid()").unwrap();
+        let ulid_val = ulid_expr.search(&data).unwrap();
+
+        let ts_expr = runtime.compile("ulid_timestamp(@)").unwrap();
+        let ts = ts_expr.search(&ulid_val).unwrap();
+        let ts_ms = ts.as_f64().unwrap() as u64;
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        // Timestamp should be within 1 second of now
+        assert!(
+            now_ms - ts_ms < 1000,
+            "ULID timestamp should be recent: {} vs {}",
+            ts_ms,
+            now_ms
+        );
+    }
 }

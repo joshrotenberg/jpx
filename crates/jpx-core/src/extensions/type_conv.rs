@@ -591,4 +591,171 @@ mod tests {
         assert!(arr[2].is_null());
         assert_eq!(arr[3].as_str().unwrap(), "hello");
     }
+
+    #[test]
+    fn test_to_string_all_types() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_string(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("hello")).unwrap(), json!("hello"));
+        assert_eq!(expr.search(&json!(42)).unwrap(), json!("42"));
+        assert_eq!(expr.search(&json!(true)).unwrap(), json!("true"));
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!("null"));
+        assert_eq!(expr.search(&json!([1, 2])).unwrap(), json!("[1,2]"));
+    }
+
+    #[test]
+    fn test_to_number_from_string() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_number(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("42")).unwrap().as_f64().unwrap(), 42.0);
+        assert_eq!(expr.search(&json!("3.14")).unwrap().as_f64().unwrap(), 3.14);
+    }
+
+    #[test]
+    fn test_to_number_invalid_returns_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_number(@)").unwrap();
+
+        assert!(expr.search(&json!("not a number")).unwrap().is_null());
+        assert!(expr.search(&json!(null)).unwrap().is_null());
+        assert!(expr.search(&json!([1, 2])).unwrap().is_null());
+    }
+
+    #[test]
+    fn test_to_number_passthrough() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_number(@)").unwrap();
+
+        // Number input passes through unchanged
+        let result = expr.search(&json!(42)).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn test_to_boolean_all_types() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_boolean(@)").unwrap();
+
+        // Truthy values
+        assert_eq!(expr.search(&json!(true)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!(1)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("hello")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!([1])).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!({"a": 1})).unwrap(), json!(true));
+
+        // Falsy values
+        assert_eq!(expr.search(&json!(false)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!(0)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("")).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!([])).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!({})).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_type_of_all_types() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("type_of(@)").unwrap();
+
+        assert_eq!(expr.search(&json!(true)).unwrap(), json!("boolean"));
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!("null"));
+        assert_eq!(expr.search(&json!([1])).unwrap(), json!("array"));
+        assert_eq!(expr.search(&json!({"a": 1})).unwrap(), json!("object"));
+    }
+
+    #[test]
+    fn test_is_boolean() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_boolean(@)").unwrap();
+
+        assert_eq!(expr.search(&json!(true)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!(false)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!(1)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("true")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_array() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_array(@)").unwrap();
+
+        assert_eq!(expr.search(&json!([])).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!([1, 2])).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!({})).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("[]")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_object() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_object(@)").unwrap();
+
+        assert_eq!(expr.search(&json!({})).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!({"a": 1})).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!([])).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_null() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_null(@)").unwrap();
+
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!(0)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("")).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!(false)).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_blank() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_blank(@)").unwrap();
+
+        assert_eq!(expr.search(&json!("")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("   ")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("\t\n")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("hello")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_json() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_json(@)").unwrap();
+
+        assert_eq!(expr.search(&json!(r#"{"a":1}"#)).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("[1,2,3]")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("42")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("{invalid}")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_is_empty_all_types() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("is_empty(@)").unwrap();
+
+        assert_eq!(expr.search(&json!([])).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!({})).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(true));
+        // Non-empty
+        assert_eq!(expr.search(&json!([1])).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!({"a": 1})).unwrap(), json!(false));
+        // Numbers and bools are never empty
+        assert_eq!(expr.search(&json!(0)).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!(false)).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_parse_numbers_nan_infinity() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("parse_numbers(@)").unwrap();
+
+        // "NaN" and "Infinity" parse as f64 but can't be represented in JSON,
+        // so they should remain as strings
+        let data = json!({"a": "NaN", "b": "Infinity"});
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result["a"].as_str().unwrap(), "NaN");
+        assert_eq!(result["b"].as_str().unwrap(), "Infinity");
+    }
 }

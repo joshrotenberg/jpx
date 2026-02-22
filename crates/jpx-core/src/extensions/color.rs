@@ -432,4 +432,137 @@ mod tests {
     }
 
     use super::parse_hex_color;
+
+    #[test]
+    fn test_hex_to_rgb_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("hex_to_rgb('zzzzzz')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_lighten() {
+        let runtime = setup_runtime();
+        // Lighten black by 50% should give #808080 (gray)
+        let expr = runtime.compile("lighten('#000000', `50`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#808080");
+
+        // Lighten by 0% should return the same color
+        let expr = runtime.compile("lighten('#ff5500', `0`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ff5500");
+
+        // Lighten by 100% should give white
+        let expr = runtime.compile("lighten('#ff5500', `100`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ffffff");
+    }
+
+    #[test]
+    fn test_lighten_invalid_hex() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("lighten('notahex', `50`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_darken() {
+        let runtime = setup_runtime();
+        // Darken white by 50% should give #808080
+        let expr = runtime.compile("darken('#ffffff', `50`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#808080");
+
+        // Darken by 0% should return the same color
+        let expr = runtime.compile("darken('#ff5500', `0`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ff5500");
+
+        // Darken by 100% should give black
+        let expr = runtime.compile("darken('#ff5500', `100`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#000000");
+    }
+
+    #[test]
+    fn test_color_mix_default_weight() {
+        let runtime = setup_runtime();
+        // Mix black and white with default 50% weight
+        let expr = runtime.compile("color_mix('#000000', '#ffffff')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#808080");
+    }
+
+    #[test]
+    fn test_color_mix_custom_weight() {
+        let runtime = setup_runtime();
+        // Weight 0.0 = all first color
+        let expr = runtime
+            .compile("color_mix('#ff0000', '#0000ff', `0`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ff0000");
+
+        // Weight 1.0 = all second color
+        let expr = runtime
+            .compile("color_mix('#ff0000', '#0000ff', `1`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#0000ff");
+    }
+
+    #[test]
+    fn test_color_mix_invalid_hex() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("color_mix('xyz', '#ffffff')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_color_invert() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("color_invert('#ff0000')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#00ffff");
+
+        // Inverting white gives black
+        let expr = runtime.compile("color_invert('#ffffff')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#000000");
+    }
+
+    #[test]
+    fn test_color_grayscale() {
+        let runtime = setup_runtime();
+        // Pure red: 0.299*255 + 0.587*0 + 0.114*0 = 76.245 -> 76 = #4c4c4c
+        let expr = runtime.compile("color_grayscale('#ff0000')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#4c4c4c");
+
+        // White stays white
+        let expr = runtime.compile("color_grayscale('#ffffff')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#ffffff");
+    }
+
+    #[test]
+    fn test_color_complement() {
+        let runtime = setup_runtime();
+        // Complement of red (#ff0000) should be cyan (#00ffff)
+        let expr = runtime.compile("color_complement('#ff0000')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "#00ffff");
+    }
+
+    #[test]
+    fn test_color_complement_invalid() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("color_complement('xyz')").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
 }

@@ -236,4 +236,68 @@ mod tests {
         assert_eq!(expr.search(&json!("noext")).unwrap(), json!("noext"));
         assert_eq!(expr.search(&json!("/foo/bar/")).unwrap(), json!("bar"));
     }
+
+    #[test]
+    fn test_path_basename_no_dir() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_basename(@)").unwrap();
+        assert_eq!(expr.search(&json!("file.txt")).unwrap(), json!("file.txt"));
+    }
+
+    #[test]
+    fn test_path_dirname_root() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_dirname(@)").unwrap();
+        // Root file has "/" as dirname
+        assert_eq!(expr.search(&json!("/file.txt")).unwrap(), json!("/"));
+    }
+
+    #[test]
+    fn test_path_ext_no_extension() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_ext(@)").unwrap();
+        assert_eq!(expr.search(&json!("noext")).unwrap(), json!(""));
+    }
+
+    #[test]
+    fn test_path_ext_double_extension() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_ext(@)").unwrap();
+        assert_eq!(expr.search(&json!("file.tar.gz")).unwrap(), json!(".gz"));
+    }
+
+    #[test]
+    fn test_path_join() {
+        let runtime = setup_runtime();
+        let data = json!(["/usr", "local", "bin"]);
+        let expr = runtime.compile("path_join(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "/usr/local/bin");
+    }
+
+    #[test]
+    fn test_path_join_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("path_join(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "");
+    }
+
+    #[test]
+    fn test_path_stem_no_extension() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_stem(@)").unwrap();
+        assert_eq!(expr.search(&json!("Makefile")).unwrap(), json!("Makefile"));
+    }
+
+    #[test]
+    fn test_path_stem_dotfile() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("path_stem(@)").unwrap();
+        assert_eq!(
+            expr.search(&json!("/home/user/.bashrc")).unwrap(),
+            json!(".bashrc")
+        );
+    }
 }
