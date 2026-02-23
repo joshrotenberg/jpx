@@ -483,6 +483,78 @@ mod file_output {
     }
 }
 
+mod sort_keys {
+    use super::*;
+
+    #[test]
+    fn sort_keys_alphabetical() {
+        jpx()
+            .arg("-S")
+            .arg("-c")
+            .arg("@")
+            .arg("--color")
+            .arg("never")
+            .write_stdin(r#"{"z":3,"a":1,"m":2}"#)
+            .assert()
+            .success()
+            .stdout("{\"a\":1,\"m\":2,\"z\":3}\n");
+    }
+
+    #[test]
+    fn sort_keys_nested() {
+        jpx()
+            .arg("--sort-keys")
+            .arg("-c")
+            .arg("@")
+            .arg("--color")
+            .arg("never")
+            .write_stdin(r#"{"b":{"z":1,"a":2},"a":3}"#)
+            .assert()
+            .success()
+            .stdout("{\"a\":3,\"b\":{\"a\":2,\"z\":1}}\n");
+    }
+
+    #[test]
+    fn sort_keys_preserves_array_order() {
+        jpx()
+            .arg("-S")
+            .arg("-c")
+            .arg("@")
+            .arg("--color")
+            .arg("never")
+            .write_stdin(r#"[3,1,2]"#)
+            .assert()
+            .success()
+            .stdout("[3,1,2]\n");
+    }
+
+    #[test]
+    fn sort_keys_with_compact() {
+        jpx()
+            .arg("-S")
+            .arg("-c")
+            .arg("@")
+            .arg("--color")
+            .arg("never")
+            .write_stdin(r#"{"c":3,"a":1,"b":2}"#)
+            .assert()
+            .success()
+            .stdout("{\"a\":1,\"b\":2,\"c\":3}\n");
+    }
+
+    #[test]
+    fn sort_keys_streaming() {
+        jpx()
+            .arg("--stream")
+            .arg("-S")
+            .arg("@")
+            .write_stdin("{\"z\":1,\"a\":2}\n{\"b\":3,\"a\":4}\n")
+            .assert()
+            .success()
+            .stdout("{\"a\":2,\"z\":1}\n{\"a\":4,\"b\":3}\n");
+    }
+}
+
 mod color_mode {
     use super::*;
 
