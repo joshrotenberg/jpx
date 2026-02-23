@@ -1774,6 +1774,28 @@ examples = [
 ]
 features = ["core", "fp"]
 
+[[functions]]
+name = "pivot"
+category = "expression"
+description = "Transform array of objects into object using key/value exprefs"
+signature = "array, expression, expression -> object"
+examples = [
+    { code = 'pivot([{"name":"a","v":1},{"name":"b","v":2}], &name, &v) -> {"a": 1, "b": 2}', description = "Pivot by name" },
+    { code = 'pivot([{"k":"x","v":10},{"k":"y","v":20}], &k, &v) -> {"x": 10, "y": 20}', description = "Key-value pairs to object" },
+]
+features = ["core", "fp"]
+
+[[functions]]
+name = "unpivot"
+category = "expression"
+description = "Transform object into array of {key, value} pairs (inverse of pivot)"
+signature = "object -> array"
+examples = [
+    { code = 'unpivot({"a": 1, "b": 2}) -> [{"key": "a", "value": 1}, {"key": "b", "value": 2}]', description = "Unpivot object" },
+    { code = 'unpivot({"x": "hello"}) -> [{"key": "x", "value": "hello"}]', description = "Single entry" },
+]
+features = ["core", "fp"]
+
 # =============================================================================
 # FUZZY FUNCTIONS
 # =============================================================================

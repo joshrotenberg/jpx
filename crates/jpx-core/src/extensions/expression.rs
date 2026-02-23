@@ -162,6 +162,10 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     // Window/ranking functions
     register_if_enabled(runtime, "rank", enabled, Box::new(RankFn::new()));
     register_if_enabled(runtime, "dense_rank", enabled, Box::new(DenseRankFn::new()));
+
+    // Data reshaping
+    register_if_enabled(runtime, "pivot", enabled, Box::new(PivotFn::new()));
+    register_if_enabled(runtime, "unpivot", enabled, Box::new(UnpivotFn::new()));
 }
 
 // =============================================================================
@@ -1377,6 +1381,39 @@ impl Function for RankFn {
 }
 
 // =============================================================================
+// pivot(array, key_expr, value_expr) -> object
+// =============================================================================
+
+defn!(PivotFn, vec![arg!(array), arg!(expref), arg!(expref)], None);
+
+impl Function for PivotFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let arr = args[0].as_array().unwrap();
+        let key_ast = get_expref_ast(&args[1], ctx)
+            .ok_or_else(|| custom_error(ctx, "Expected expref for key"))?
+            .clone();
+        let val_ast = get_expref_ast(&args[2], ctx)
+            .ok_or_else(|| custom_error(ctx, "Expected expref for value"))?
+            .clone();
+
+        let mut result = Map::new();
+        for item in arr {
+            let key = interpret(item, &key_ast, ctx)?;
+            let key_str = match &key {
+                Value::String(s) => s.clone(),
+                _ => serde_json::to_string(&key).unwrap_or_default(),
+            };
+            let val = interpret(item, &val_ast, ctx)?;
+            result.insert(key_str, val);
+        }
+
+        Ok(Value::Object(result))
+    }
+}
+
+// =============================================================================
 // dense_rank(expref, array) -> array
 // =============================================================================
 
@@ -1413,6 +1450,31 @@ impl Function for DenseRankFn {
                 .map(|r| Value::Number(Number::from(r)))
                 .collect(),
         ))
+    }
+}
+
+// =============================================================================
+// unpivot(object) -> array
+// =============================================================================
+
+defn!(UnpivotFn, vec![arg!(object)], None);
+
+impl Function for UnpivotFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+
+        let obj = args[0].as_object().unwrap();
+        let result: Vec<Value> = obj
+            .iter()
+            .map(|(k, v)| {
+                let mut map = Map::new();
+                map.insert("key".to_string(), Value::String(k.clone()));
+                map.insert("value".to_string(), v.clone());
+                Value::Object(map)
+            })
+            .collect();
+
+        Ok(Value::Array(result))
     }
 }
 
@@ -3194,5 +3256,107 @@ mod tests {
         let dense_result = dense_expr.search(&data).unwrap();
         // dense_rank: 1, 2, 2, 3 (no gap)
         assert_eq!(dense_result, json!([1, 2, 2, 3]));
+    }
+
+    // =========================================================================
+    // pivot tests
+    // =========================================================================
+
+    #[test]
+    fn test_pivot_basic() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "Alice", "score": 90},
+            {"name": "Bob", "score": 85}
+        ]);
+        let expr = runtime.compile("pivot(@, &name, &score)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!({"Alice": 90, "Bob": 85}));
+    }
+
+    #[test]
+    fn test_pivot_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("pivot(@, &name, &score)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!({}));
+    }
+
+    #[test]
+    fn test_pivot_numeric_keys() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"id": 1, "value": "one"},
+            {"id": 2, "value": "two"}
+        ]);
+        let expr = runtime.compile("pivot(@, &id, &value)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!({"1": "one", "2": "two"}));
+    }
+
+    #[test]
+    fn test_pivot_duplicate_keys_last_wins() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "a", "v": 1},
+            {"name": "a", "v": 2}
+        ]);
+        let expr = runtime.compile("pivot(@, &name, &v)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!({"a": 2}));
+    }
+
+    // =========================================================================
+    // unpivot tests
+    // =========================================================================
+
+    #[test]
+    fn test_unpivot_basic() {
+        let runtime = setup_runtime();
+        let data = json!({"Alice": 90, "Bob": 85});
+        let expr = runtime.compile("unpivot(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        // Check that both entries exist (order may vary in JSON objects)
+        let has_alice = arr
+            .iter()
+            .any(|v| v == &json!({"key": "Alice", "value": 90}));
+        let has_bob = arr.iter().any(|v| v == &json!({"key": "Bob", "value": 85}));
+        assert!(has_alice);
+        assert!(has_bob);
+    }
+
+    #[test]
+    fn test_unpivot_empty_object() {
+        let runtime = setup_runtime();
+        let data = json!({});
+        let expr = runtime.compile("unpivot(@)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([]));
+    }
+
+    #[test]
+    fn test_pivot_unpivot_roundtrip() {
+        let runtime = setup_runtime();
+        let data = json!([
+            {"name": "x", "val": 10},
+            {"name": "y", "val": 20}
+        ]);
+        // Pivot then check we get an object
+        let expr = runtime.compile("pivot(@, &name, &val)").unwrap();
+        let pivoted = expr.search(&data).unwrap();
+        assert_eq!(pivoted, json!({"x": 10, "y": 20}));
+
+        // Unpivot it back
+        let expr2 = runtime.compile("unpivot(@)").unwrap();
+        let unpivoted = expr2.search(&pivoted).unwrap();
+        let arr = unpivoted.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        let has_x = arr.iter().any(|v| v == &json!({"key": "x", "value": 10}));
+        let has_y = arr.iter().any(|v| v == &json!({"key": "y", "value": 20}));
+        assert!(has_x);
+        assert!(has_y);
     }
 }
