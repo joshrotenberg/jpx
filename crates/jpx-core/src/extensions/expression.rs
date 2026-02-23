@@ -158,6 +158,10 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     // Loop functions (jq parity)
     register_if_enabled(runtime, "while_expr", enabled, Box::new(WhileExprFn::new()));
     register_if_enabled(runtime, "until_expr", enabled, Box::new(UntilExprFn::new()));
+
+    // Window/ranking functions
+    register_if_enabled(runtime, "rank", enabled, Box::new(RankFn::new()));
+    register_if_enabled(runtime, "dense_rank", enabled, Box::new(DenseRankFn::new()));
 }
 
 // =============================================================================
@@ -1327,6 +1331,88 @@ impl Function for UntilExprFn {
         }
 
         Ok(current)
+    }
+}
+
+// =============================================================================
+// rank(expref, array) -> array
+// =============================================================================
+
+defn!(RankFn, vec![arg!(expref), arg!(array)], None);
+
+impl Function for RankFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let ast = get_expref_ast(&args[0], ctx)
+            .ok_or_else(|| custom_error(ctx, "Expected expref"))?
+            .clone();
+        let arr = args[1].as_array().unwrap();
+
+        // Extract sort keys
+        let mut keyed: Vec<(usize, Value)> = Vec::with_capacity(arr.len());
+        for (i, item) in arr.iter().enumerate() {
+            let key = interpret(item, &ast, ctx)?;
+            keyed.push((i, key));
+        }
+
+        // Sort by key descending (highest rank = 1)
+        keyed.sort_by(|a, b| compare_values(&b.1, &a.1));
+
+        let mut ranks = vec![0usize; arr.len()];
+        let mut current_rank = 1;
+        for i in 0..keyed.len() {
+            if i > 0 && compare_values(&keyed[i].1, &keyed[i - 1].1) != std::cmp::Ordering::Equal {
+                current_rank = i + 1;
+            }
+            ranks[keyed[i].0] = current_rank;
+        }
+
+        Ok(Value::Array(
+            ranks
+                .into_iter()
+                .map(|r| Value::Number(Number::from(r)))
+                .collect(),
+        ))
+    }
+}
+
+// =============================================================================
+// dense_rank(expref, array) -> array
+// =============================================================================
+
+defn!(DenseRankFn, vec![arg!(expref), arg!(array)], None);
+
+impl Function for DenseRankFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let ast = get_expref_ast(&args[0], ctx)
+            .ok_or_else(|| custom_error(ctx, "Expected expref"))?
+            .clone();
+        let arr = args[1].as_array().unwrap();
+
+        let mut keyed: Vec<(usize, Value)> = Vec::with_capacity(arr.len());
+        for (i, item) in arr.iter().enumerate() {
+            let key = interpret(item, &ast, ctx)?;
+            keyed.push((i, key));
+        }
+
+        keyed.sort_by(|a, b| compare_values(&b.1, &a.1));
+
+        let mut ranks = vec![0usize; arr.len()];
+        let mut current_rank = 1;
+        for i in 0..keyed.len() {
+            if i > 0 && compare_values(&keyed[i].1, &keyed[i - 1].1) != std::cmp::Ordering::Equal {
+                current_rank += 1;
+            }
+            ranks[keyed[i].0] = current_rank;
+        }
+
+        Ok(Value::Array(
+            ranks
+                .into_iter()
+                .map(|r| Value::Number(Number::from(r)))
+                .collect(),
+        ))
     }
 }
 
@@ -3000,5 +3086,113 @@ mod tests {
         let result = expr.search(&data).unwrap();
         // Condition is true immediately, return initial value
         assert_eq!(result.as_f64().unwrap(), 100.0);
+    }
+
+    #[test]
+    fn test_rank_with_ties() {
+        let runtime = setup_runtime();
+        let data = json!([{"score": 90}, {"score": 85}, {"score": 90}]);
+        let expr = runtime.compile("rank(&score, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // 90 ties at rank 1, 85 is rank 3 (gap)
+        assert_eq!(result, json!([1, 3, 1]));
+    }
+
+    #[test]
+    fn test_rank_no_ties() {
+        let runtime = setup_runtime();
+        let data = json!([{"score": 90}, {"score": 85}, {"score": 80}]);
+        let expr = runtime.compile("rank(&score, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_rank_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("rank(&@, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([]));
+    }
+
+    #[test]
+    fn test_rank_all_same() {
+        let runtime = setup_runtime();
+        let data = json!([{"v": 5}, {"v": 5}, {"v": 5}]);
+        let expr = runtime.compile("rank(&v, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 1, 1]));
+    }
+
+    #[test]
+    fn test_rank_numbers() {
+        let runtime = setup_runtime();
+        let data = json!([3, 1, 2, 1]);
+        let expr = runtime.compile("rank(&@, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 3, 2, 3]));
+    }
+
+    #[test]
+    fn test_dense_rank_with_ties() {
+        let runtime = setup_runtime();
+        let data = json!([{"score": 90}, {"score": 85}, {"score": 90}]);
+        let expr = runtime.compile("dense_rank(&score, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        // 90 ties at rank 1, 85 is rank 2 (no gap)
+        assert_eq!(result, json!([1, 2, 1]));
+    }
+
+    #[test]
+    fn test_dense_rank_no_ties() {
+        let runtime = setup_runtime();
+        let data = json!([{"score": 90}, {"score": 85}, {"score": 80}]);
+        let expr = runtime.compile("dense_rank(&score, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_dense_rank_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("dense_rank(&@, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([]));
+    }
+
+    #[test]
+    fn test_dense_rank_all_same() {
+        let runtime = setup_runtime();
+        let data = json!([{"v": 5}, {"v": 5}, {"v": 5}]);
+        let expr = runtime.compile("dense_rank(&v, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 1, 1]));
+    }
+
+    #[test]
+    fn test_dense_rank_numbers() {
+        let runtime = setup_runtime();
+        let data = json!([3, 1, 2, 1]);
+        let expr = runtime.compile("dense_rank(&@, @)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 3, 2, 3]));
+    }
+
+    #[test]
+    fn test_rank_vs_dense_rank() {
+        let runtime = setup_runtime();
+        let data = json!([{"s": 100}, {"s": 90}, {"s": 90}, {"s": 80}]);
+
+        let rank_expr = runtime.compile("rank(&s, @)").unwrap();
+        let rank_result = rank_expr.search(&data).unwrap();
+        // rank: 1, 2, 2, 4 (gap after tie)
+        assert_eq!(rank_result, json!([1, 2, 2, 4]));
+
+        let dense_expr = runtime.compile("dense_rank(&s, @)").unwrap();
+        let dense_result = dense_expr.search(&data).unwrap();
+        // dense_rank: 1, 2, 2, 3 (no gap)
+        assert_eq!(dense_result, json!([1, 2, 2, 3]));
     }
 }

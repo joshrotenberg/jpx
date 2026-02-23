@@ -194,6 +194,30 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "lag"
+category = "array"
+description = "Shift array by n positions forward, prepending nulls"
+signature = "array, number -> array"
+examples = [
+    { code = "lag([1, 2, 3], `1`) -> [null, 1, 2]", description = "Lag by 1" },
+    { code = "lag([1, 2, 3], `2`) -> [null, null, 1]", description = "Lag by 2" },
+    { code = "lag([1, 2, 3], `0`) -> [1, 2, 3]", description = "Lag by 0" },
+]
+features = ["core"]
+
+[[functions]]
+name = "lead"
+category = "array"
+description = "Shift array by n positions backward, appending nulls"
+signature = "array, number -> array"
+examples = [
+    { code = "lead([1, 2, 3], `1`) -> [2, 3, null]", description = "Lead by 1" },
+    { code = "lead([1, 2, 3], `2`) -> [3, null, null]", description = "Lead by 2" },
+    { code = "lead([1, 2, 3], `0`) -> [1, 2, 3]", description = "Lead by 0" },
+]
+features = ["core"]
+
+[[functions]]
 name = "pairwise"
 category = "array"
 description = "Return adjacent pairs from array"
@@ -1313,6 +1337,18 @@ examples = [
 features = ["core"]
 
 [[functions]]
+name = "dense_rank"
+category = "expression"
+description = "Assign ranks without gaps for ties (1, 2, 2, 3)"
+signature = "expref, array -> array"
+examples = [
+    { code = 'dense_rank(&score, [{"score":90},{"score":85},{"score":90}]) -> [1, 2, 1]', description = "Dense rank without gaps" },
+    { code = 'dense_rank(&@, [3, 1, 2, 1]) -> [1, 3, 2, 3]', description = "Dense rank numbers" },
+    { code = 'dense_rank(&@, []) -> []', description = "Empty array" },
+]
+features = ["core"]
+
+[[functions]]
 name = "drop_while"
 category = "expression"
 description = "Drop elements from array while expression is truthy"
@@ -1545,6 +1581,18 @@ examples = [
     { code = "fold(&add(accumulator, current), [1, 2, 3], `0`) -> 6", description = "Sum numbers" },
 ]
 features = ["core", "fp"]
+
+[[functions]]
+name = "rank"
+category = "expression"
+description = "Assign ranks with gaps for ties (1, 2, 2, 4)"
+signature = "expref, array -> array"
+examples = [
+    { code = 'rank(&score, [{"score":90},{"score":85},{"score":90}]) -> [1, 3, 1]', description = "Rank with gaps" },
+    { code = 'rank(&@, [3, 1, 2, 1]) -> [1, 3, 2, 3]', description = "Rank numbers" },
+    { code = 'rank(&@, []) -> []', description = "Empty array" },
+]
+features = ["core"]
 
 [[functions]]
 name = "reject"
