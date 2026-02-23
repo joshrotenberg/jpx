@@ -91,11 +91,7 @@ mod expression_input {
 
     #[test]
     fn missing_expression_defaults_to_identity() {
-        jpx()
-            .write_stdin("{}")
-            .assert()
-            .success()
-            .stdout("{}\n");
+        jpx().write_stdin("{}").assert().success().stdout("{}\n");
     }
 
     #[test]
