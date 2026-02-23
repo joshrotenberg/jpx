@@ -81,6 +81,9 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
         };
 
         writeln!(writer, "{}", output)?;
+        if args.unbuffered {
+            writer.flush()?;
+        }
     }
 
     if args.verbose {
