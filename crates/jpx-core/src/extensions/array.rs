@@ -118,6 +118,8 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(RepeatArrayFn::new()),
     );
     register_if_enabled(runtime, "cycle", enabled, Box::new(CycleFn::new()));
+    register_if_enabled(runtime, "lag", enabled, Box::new(LagFn::new()));
+    register_if_enabled(runtime, "lead", enabled, Box::new(LeadFn::new()));
 }
 
 // =============================================================================
@@ -1850,6 +1852,53 @@ impl Function for CycleFn {
     }
 }
 
+// =============================================================================
+// lag(array, n) -> array
+// =============================================================================
+
+defn!(LagFn, vec![arg!(array), arg!(number)], None);
+
+impl Function for LagFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let arr = args[0].as_array().unwrap();
+        let n = args[1].as_f64().unwrap() as usize;
+        let len = arr.len();
+        let mut result = Vec::with_capacity(len);
+        for _ in 0..n.min(len) {
+            result.push(Value::Null);
+        }
+        if n < len {
+            result.extend_from_slice(&arr[..len - n]);
+        }
+        Ok(Value::Array(result))
+    }
+}
+
+// =============================================================================
+// lead(array, n) -> array
+// =============================================================================
+
+defn!(LeadFn, vec![arg!(array), arg!(number)], None);
+
+impl Function for LeadFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let arr = args[0].as_array().unwrap();
+        let n = args[1].as_f64().unwrap() as usize;
+        let len = arr.len();
+        let mut result = Vec::with_capacity(len);
+        if n < len {
+            result.extend_from_slice(&arr[n..]);
+        }
+        let remaining = len.saturating_sub(result.len());
+        for _ in 0..remaining {
+            result.push(Value::Null);
+        }
+        Ok(Value::Array(result))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Runtime;
@@ -3261,5 +3310,95 @@ mod tests {
         assert_eq!(arr.len(), 2);
         assert_eq!(arr[0].as_f64().unwrap() as i64, 1);
         assert_eq!(arr[1].as_f64().unwrap() as i64, 2);
+    }
+
+    #[test]
+    fn test_lag_by_one() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lag(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([null, 1, 2]));
+    }
+
+    #[test]
+    fn test_lag_by_two() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lag(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([null, null, 1]));
+    }
+
+    #[test]
+    fn test_lag_by_zero() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lag(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_lag_exceeds_length() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lag(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([null, null, null]));
+    }
+
+    #[test]
+    fn test_lag_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("lag(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([]));
+    }
+
+    #[test]
+    fn test_lead_by_one() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lead(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([2, 3, null]));
+    }
+
+    #[test]
+    fn test_lead_by_two() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lead(@, `2`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([3, null, null]));
+    }
+
+    #[test]
+    fn test_lead_by_zero() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lead(@, `0`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_lead_exceeds_length() {
+        let runtime = setup_runtime();
+        let data = json!([1, 2, 3]);
+        let expr = runtime.compile("lead(@, `5`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([null, null, null]));
+    }
+
+    #[test]
+    fn test_lead_empty_array() {
+        let runtime = setup_runtime();
+        let data = json!([]);
+        let expr = runtime.compile("lead(@, `1`)").unwrap();
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!([]));
     }
 }
