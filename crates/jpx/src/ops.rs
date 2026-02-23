@@ -11,6 +11,7 @@ pub(crate) fn diff_files(
     target_path: &str,
     compact: bool,
     color_mode: &ColorMode,
+    sort_keys: bool,
 ) -> Result<()> {
     let source: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(source_path)
@@ -39,7 +40,7 @@ pub(crate) fn diff_files(
     );
 
     let patch_value = serde_json::to_value(&patch)?;
-    output_json(&patch_value, compact, color_mode)
+    output_json(&patch_value, compact, color_mode, sort_keys)
 }
 
 /// List queries in a .jpx query library file
@@ -190,6 +191,7 @@ pub(crate) fn apply_patch(
     patch_path: &str,
     compact: bool,
     color_mode: &ColorMode,
+    sort_keys: bool,
 ) -> Result<()> {
     // Read the document (from -f or stdin)
     let mut doc = read_json_from(doc_path.as_deref())?;
@@ -213,7 +215,7 @@ pub(crate) fn apply_patch(
         patch.0.len().to_string().yellow()
     );
 
-    output_json(&doc, compact, color_mode)
+    output_json(&doc, compact, color_mode, sort_keys)
 }
 
 /// Apply JSON Merge Patch (RFC 7396) to a document
@@ -222,6 +224,7 @@ pub(crate) fn apply_merge(
     merge_path: &str,
     compact: bool,
     color_mode: &ColorMode,
+    sort_keys: bool,
 ) -> Result<()> {
     // Read the document (from -f or stdin)
     let mut doc = read_json_from(doc_path.as_deref())?;
@@ -237,5 +240,5 @@ pub(crate) fn apply_merge(
 
     eprintln!("{} Applied merge patch", "✓".green());
 
-    output_json(&doc, compact, color_mode)
+    output_json(&doc, compact, color_mode, sort_keys)
 }

@@ -66,6 +66,12 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
             };
         }
 
+        let result = if args.sort_keys {
+            crate::output::sort_value_keys(&result)
+        } else {
+            result
+        };
+
         if result.is_null() {
             continue;
         }

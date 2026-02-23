@@ -306,6 +306,14 @@ pub(crate) struct Args {
     )]
     pub(crate) compact: bool,
 
+    /// Sort object keys in output
+    #[arg(
+        short = 'S',
+        long = "sort-keys",
+        help = "Sort object keys alphabetically in output"
+    )]
+    pub(crate) sort_keys: bool,
+
     /// Output as YAML
     #[arg(short = 'y', long, conflicts_with_all = ["toml_output", "csv_output", "tsv_output", "lines_output"])]
     pub(crate) yaml: bool,

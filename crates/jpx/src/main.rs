@@ -85,17 +85,35 @@ fn run() -> Result<()> {
 
     // Handle --diff: generate JSON Patch from two files
     if let Some(files) = &args.diff {
-        return ops::diff_files(&files[0], &files[1], args.compact, &args.color);
+        return ops::diff_files(
+            &files[0],
+            &files[1],
+            args.compact,
+            &args.color,
+            args.sort_keys,
+        );
     }
 
     // Handle --patch: apply JSON Patch to document
     if let Some(patch_file) = &args.patch {
-        return ops::apply_patch(&args.file, patch_file, args.compact, &args.color);
+        return ops::apply_patch(
+            &args.file,
+            patch_file,
+            args.compact,
+            &args.color,
+            args.sort_keys,
+        );
     }
 
     // Handle --merge: apply JSON Merge Patch to document
     if let Some(merge_file) = &args.merge {
-        return ops::apply_merge(&args.file, merge_file, args.compact, &args.color);
+        return ops::apply_merge(
+            &args.file,
+            merge_file,
+            args.compact,
+            &args.color,
+            args.sort_keys,
+        );
     }
 
     // Handle --stats: show data statistics
@@ -295,7 +313,11 @@ fn run() -> Result<()> {
     }
 
     // Result is already a serde_json::Value
-    let json_value = result;
+    let json_value = if args.sort_keys {
+        output::sort_value_keys(&result)
+    } else {
+        result
+    };
 
     // Handle alternative output formats
     if args.yaml {

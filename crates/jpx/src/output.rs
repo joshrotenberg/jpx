@@ -5,6 +5,24 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 
+/// Recursively sort all object keys alphabetically in a JSON value
+pub(crate) fn sort_value_keys(value: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+    match value {
+        Value::Object(map) => {
+            let sorted: serde_json::Map<String, Value> = map
+                .iter()
+                .map(|(k, v)| (k.clone(), sort_value_keys(v)))
+                .collect::<BTreeMap<_, _>>()
+                .into_iter()
+                .collect();
+            Value::Object(sorted)
+        }
+        Value::Array(arr) => Value::Array(arr.iter().map(sort_value_keys).collect()),
+        other => other.clone(),
+    }
+}
+
 /// Helper to write output to file or stdout
 pub(crate) fn write_output(content: &str, output_path: &Option<String>) -> Result<()> {
     if let Some(path) = output_path {
@@ -18,12 +36,19 @@ pub(crate) fn write_output(content: &str, output_path: &Option<String>) -> Resul
     Ok(())
 }
 
-/// Output JSON with optional coloring
+/// Output JSON with optional coloring and key sorting
 pub(crate) fn output_json(
     value: &serde_json::Value,
     compact: bool,
     color_mode: &ColorMode,
+    sort_keys: bool,
 ) -> Result<()> {
+    let value = if sort_keys {
+        std::borrow::Cow::Owned(sort_value_keys(value))
+    } else {
+        std::borrow::Cow::Borrowed(value)
+    };
+
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
@@ -31,13 +56,13 @@ pub(crate) fn output_json(
     };
 
     if compact {
-        println!("{}", serde_json::to_string(value)?);
+        println!("{}", serde_json::to_string(&*value)?);
     } else if use_color {
         use colored_json::{ColoredFormatter, PrettyFormatter};
         let formatter = ColoredFormatter::new(PrettyFormatter::new());
-        println!("{}", formatter.to_colored_json_auto(value)?);
+        println!("{}", formatter.to_colored_json_auto(&*value)?);
     } else {
-        println!("{}", serde_json::to_string_pretty(value)?);
+        println!("{}", serde_json::to_string_pretty(&*value)?);
     }
     Ok(())
 }
