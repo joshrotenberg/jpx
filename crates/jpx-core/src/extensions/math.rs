@@ -88,6 +88,9 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(OutliersZscoreFn::new()),
     );
+    register_if_enabled(runtime, "skew", enabled, Box::new(SkewFn::new()));
+    register_if_enabled(runtime, "kurtosis", enabled, Box::new(KurtosisFn::new()));
+    register_if_enabled(runtime, "mad", enabled, Box::new(MadFn::new()));
     // Time series functions
     register_if_enabled(runtime, "trend", enabled, Box::new(TrendFn::new()));
     register_if_enabled(
@@ -1472,6 +1475,90 @@ impl Function for CumulativeSumFn {
     }
 }
 
+// =============================================================================
+// skew(array) -> number (Fisher-Pearson coefficient of skewness)
+// =============================================================================
+
+defn!(SkewFn, vec![arg!(array)], None);
+
+impl Function for SkewFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let arr = args[0].as_array().unwrap();
+        let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
+        let n = numbers.len();
+        if n < 3 {
+            return Ok(Value::Null);
+        }
+        let mean = numbers.iter().sum::<f64>() / n as f64;
+        let m2: f64 = numbers.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+        let m3: f64 = numbers.iter().map(|x| (x - mean).powi(3)).sum::<f64>() / n as f64;
+        if m2 == 0.0 {
+            return Ok(number_value(0.0));
+        }
+        let skewness = m3 / m2.powf(1.5);
+        Ok(number_value(skewness))
+    }
+}
+
+// =============================================================================
+// kurtosis(array) -> number (excess kurtosis: normal distribution = 0)
+// =============================================================================
+
+defn!(KurtosisFn, vec![arg!(array)], None);
+
+impl Function for KurtosisFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let arr = args[0].as_array().unwrap();
+        let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
+        let n = numbers.len();
+        if n < 4 {
+            return Ok(Value::Null);
+        }
+        let mean = numbers.iter().sum::<f64>() / n as f64;
+        let m2: f64 = numbers.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+        let m4: f64 = numbers.iter().map(|x| (x - mean).powi(4)).sum::<f64>() / n as f64;
+        if m2 == 0.0 {
+            return Ok(number_value(0.0));
+        }
+        let kurt = (m4 / (m2 * m2)) - 3.0;
+        Ok(number_value(kurt))
+    }
+}
+
+// =============================================================================
+// mad(array) -> number (median absolute deviation)
+// =============================================================================
+
+defn!(MadFn, vec![arg!(array)], None);
+
+impl Function for MadFn {
+    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature.validate(args, ctx)?;
+        let arr = args[0].as_array().unwrap();
+        let mut numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
+        if numbers.is_empty() {
+            return Ok(Value::Null);
+        }
+        numbers.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let len = numbers.len();
+        let median = if len.is_multiple_of(2) {
+            (numbers[len / 2 - 1] + numbers[len / 2]) / 2.0
+        } else {
+            numbers[len / 2]
+        };
+        let mut abs_devs: Vec<f64> = numbers.iter().map(|x| (x - median).abs()).collect();
+        abs_devs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mad = if len.is_multiple_of(2) {
+            (abs_devs[len / 2 - 1] + abs_devs[len / 2]) / 2.0
+        } else {
+            abs_devs[len / 2]
+        };
+        Ok(number_value(mad))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Runtime;
@@ -1838,5 +1925,98 @@ mod tests {
         assert_eq!(arr[1].as_f64().unwrap(), 3.0);
         assert_eq!(arr[2].as_f64().unwrap(), 6.0);
         assert_eq!(arr[3].as_f64().unwrap(), 10.0);
+    }
+
+    #[test]
+    fn test_skew_symmetric() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("skew(`[1, 2, 3, 4, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!((result.as_f64().unwrap() - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_skew_right() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("skew(`[1, 1, 1, 10]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Right-skewed: positive skewness
+        assert!(result.as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_skew_too_few() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("skew(`[1, 2]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_skew_constant() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("skew(`[5, 5, 5, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_kurtosis_uniform_like() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("kurtosis(`[1, 2, 3, 4, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Uniform-like: negative excess kurtosis (platykurtic)
+        assert!(result.as_f64().unwrap() < 0.0);
+    }
+
+    #[test]
+    fn test_kurtosis_too_few() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("kurtosis(`[1, 2, 3]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_kurtosis_constant() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("kurtosis(`[5, 5, 5, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_mad_simple() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mad(`[1, 2, 3, 4, 5]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Median = 3, deviations = [2, 1, 0, 1, 2], sorted = [0, 1, 1, 2, 2], median = 1.0
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_mad_empty() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mad(`[]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_mad_single() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mad(`[42]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Single value: median = 42, deviation = 0, MAD = 0
+        assert_eq!(result.as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_mad_even_length() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("mad(`[1, 2, 3, 4]`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // Median = 2.5, deviations = [1.5, 0.5, 0.5, 1.5], sorted = [0.5, 0.5, 1.5, 1.5], median = 1.0
+        assert_eq!(result.as_f64().unwrap(), 1.0);
     }
 }
