@@ -280,4 +280,84 @@ mod tests {
         let result = expr.search(&data).unwrap();
         assert_eq!(result, json!(["no delimiters here"]));
     }
+
+    #[test]
+    fn test_regex_match_invalid_pattern() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_match(@, '[invalid')").unwrap();
+        let result = expr.search(&json!("test"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_regex_extract_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_extract(@, '[0-9]+')").unwrap();
+        let data = json!("no numbers here");
+        let result = expr.search(&data).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_regex_replace_capture_groups() {
+        let runtime = setup_runtime();
+        // Swap first and last name using capture groups
+        let expr = runtime
+            .compile(r#"regex_replace(@, '(\w+) (\w+)', '$2 $1')"#)
+            .unwrap();
+        let data = json!("John Doe");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "Doe John");
+    }
+
+    #[test]
+    fn test_regex_replace_no_match() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_replace(@, '[0-9]+', 'X')").unwrap();
+        let data = json!("no numbers");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result.as_str().unwrap(), "no numbers");
+    }
+
+    #[test]
+    fn test_regex_match_anchored() {
+        let runtime = setup_runtime();
+        // Full string match with anchors
+        let expr = runtime.compile(r"regex_match(@, '^\d{3}-\d{4}$')").unwrap();
+        assert_eq!(expr.search(&json!("123-4567")).unwrap(), json!(true));
+        assert_eq!(expr.search(&json!("abc-defg")).unwrap(), json!(false));
+        assert_eq!(expr.search(&json!("123-45678")).unwrap(), json!(false));
+    }
+
+    #[test]
+    fn test_regex_extract_email_pattern() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile(r"regex_extract(@, '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')")
+            .unwrap();
+        let data = json!("Contact us at info@example.com or support@test.org");
+        let result = expr.search(&data).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].as_str().unwrap(), "info@example.com");
+        assert_eq!(arr[1].as_str().unwrap(), "support@test.org");
+    }
+
+    #[test]
+    fn test_regex_split_complex_delimiter() {
+        let runtime = setup_runtime();
+        // Split on comma optionally followed by whitespace
+        let expr = runtime.compile(r"regex_split(@, ',\s*')").unwrap();
+        let data = json!("a, b,c,  d");
+        let result = expr.search(&data).unwrap();
+        assert_eq!(result, json!(["a", "b", "c", "d"]));
+    }
+
+    #[test]
+    fn test_regex_count_invalid_pattern() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("regex_count(@, '[bad')").unwrap();
+        let result = expr.search(&json!("test"));
+        assert!(result.is_err());
+    }
 }

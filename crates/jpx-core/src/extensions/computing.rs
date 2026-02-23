@@ -384,4 +384,99 @@ mod tests {
         let result = expr.search(&json!(null)).unwrap();
         assert_eq!(result, json!(4)); // 16 >> 2 = 4
     }
+
+    #[test]
+    fn test_bit_not() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("bit_not(`0`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(-1)); // !0 = -1 (all bits set)
+
+        let expr = runtime.compile("bit_not(`-1`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(0)); // !(-1) = 0
+    }
+
+    #[test]
+    fn test_bit_xor_self_is_zero() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("bit_xor(`255`, `255`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(0));
+    }
+
+    #[test]
+    fn test_bit_and_mask() {
+        let runtime = setup_runtime();
+        // Mask lower 4 bits: 0xFF & 0x0F = 0x0F = 15
+        let expr = runtime.compile("bit_and(`255`, `15`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(15));
+    }
+
+    #[test]
+    fn test_bit_shift_roundtrip() {
+        let runtime = setup_runtime();
+        // Shift left then right should restore original
+        let expr = runtime
+            .compile("bit_shift_right(bit_shift_left(`42`, `8`), `8`)")
+            .unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result, json!(42));
+    }
+
+    #[test]
+    fn test_parse_bytes_via_runtime() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("parse_bytes(@)").unwrap();
+
+        let result = expr.search(&json!("1 KB")).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1000.0);
+
+        let result = expr.search(&json!("1 KiB")).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1024.0);
+
+        // Invalid string returns null
+        let result = expr.search(&json!("not bytes")).unwrap();
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_format_bytes_large_values() {
+        let runtime = setup_runtime();
+
+        let expr = runtime.compile("format_bytes(`1000000000000`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 TB");
+
+        let expr = runtime.compile("format_bytes(`1000000000000000`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1 PB");
+    }
+
+    #[test]
+    fn test_format_bytes_zero() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("format_bytes(`0`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "0 B");
+    }
+
+    #[test]
+    fn test_parse_bytes_units() {
+        use super::parse_bytes_str;
+
+        // Full unit names
+        assert_eq!(parse_bytes_str("1 byte"), Some(1.0));
+        assert_eq!(parse_bytes_str("2 bytes"), Some(2.0));
+        assert_eq!(parse_bytes_str("1 kilobyte"), Some(1000.0));
+        assert_eq!(parse_bytes_str("1 megabyte"), Some(1_000_000.0));
+        assert_eq!(parse_bytes_str("1 gigabyte"), Some(1_000_000_000.0));
+        assert_eq!(parse_bytes_str("1 terabyte"), Some(1_000_000_000_000.0));
+        assert_eq!(parse_bytes_str("1 petabyte"), Some(1_000_000_000_000_000.0));
+
+        // Binary full names
+        assert_eq!(parse_bytes_str("1 kibibyte"), Some(1024.0));
+        assert_eq!(parse_bytes_str("1 mebibyte"), Some(1_048_576.0));
+    }
 }

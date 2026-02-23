@@ -449,4 +449,87 @@ mod tests {
         let result = expr.search(&data).unwrap();
         assert_eq!(result.as_str().unwrap(), "");
     }
+
+    #[test]
+    fn test_url_encode_special_chars() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_encode(@)").unwrap();
+
+        let result = expr.search(&json!("a&b=c")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "a%26b%3Dc");
+
+        let result = expr.search(&json!("foo/bar?baz")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "foo%2Fbar%3Fbaz");
+    }
+
+    #[test]
+    fn test_url_decode_passthrough() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_decode(@)").unwrap();
+
+        // Plain text without percent-encoding passes through
+        let result = expr.search(&json!("hello")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_url_encode_decode_roundtrip() {
+        let runtime = setup_runtime();
+        let data = json!("hello world & goodbye=yes");
+        let encode = runtime.compile("url_encode(@)").unwrap();
+        let encoded = encode.search(&data).unwrap();
+
+        let decode = runtime.compile("url_decode(@)").unwrap();
+        let decoded = decode.search(&encoded).unwrap();
+        assert_eq!(decoded.as_str().unwrap(), "hello world & goodbye=yes");
+    }
+
+    #[test]
+    fn test_url_parse_no_port() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_parse(@)").unwrap();
+        let data = json!("https://example.com/path");
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("host").unwrap().as_str().unwrap(), "example.com");
+        assert!(obj.get("port").unwrap().is_null());
+        assert_eq!(obj.get("path").unwrap().as_str().unwrap(), "/path");
+    }
+
+    #[test]
+    fn test_url_parse_query_and_fragment() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("url_parse(@)").unwrap();
+        let data = json!("https://example.com/path?key=val#section");
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("query").unwrap().as_str().unwrap(), "key=val");
+        assert_eq!(obj.get("fragment").unwrap().as_str().unwrap(), "section");
+    }
+
+    #[test]
+    fn test_query_string_parse_no_value() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("query_string_parse(@)").unwrap();
+        // Key with no value
+        let data = json!("flag&key=value");
+        let result = expr.search(&data).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.get("flag").unwrap().as_str().unwrap(), "");
+        assert_eq!(obj.get("key").unwrap().as_str().unwrap(), "value");
+    }
+
+    #[test]
+    fn test_query_string_roundtrip() {
+        let runtime = setup_runtime();
+        let original = json!({"name": "John Doe", "age": "30"});
+        let build = runtime.compile("query_string_build(@)").unwrap();
+        let qs = build.search(&original).unwrap();
+
+        let parse = runtime.compile("query_string_parse(@)").unwrap();
+        let parsed = parse.search(&qs).unwrap();
+        let obj = parsed.as_object().unwrap();
+        assert_eq!(obj.get("name").unwrap().as_str().unwrap(), "John Doe");
+        assert_eq!(obj.get("age").unwrap().as_str().unwrap(), "30");
+    }
 }
