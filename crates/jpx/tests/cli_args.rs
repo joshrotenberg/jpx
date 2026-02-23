@@ -90,13 +90,8 @@ mod expression_input {
     }
 
     #[test]
-    fn missing_expression_errors() {
-        jpx()
-            .write_stdin("{}")
-            .assert()
-            .failure()
-            .code(1)
-            .stderr(predicate::str::contains("Expression required"));
+    fn missing_expression_defaults_to_identity() {
+        jpx().write_stdin("{}").assert().success().stdout("{}\n");
     }
 
     #[test]

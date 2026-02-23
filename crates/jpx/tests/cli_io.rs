@@ -163,6 +163,47 @@ mod input_modes {
     fn invalid_json_stdin() {
         jpx().arg("@").write_stdin("not json").assert().failure();
     }
+
+    #[test]
+    fn stdin_no_expression_defaults_to_identity() {
+        jpx()
+            .arg("--color")
+            .arg("never")
+            .write_stdin(r#"{"a":1,"b":2}"#)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\"a\": 1").and(predicate::str::contains("\"b\": 2")));
+    }
+
+    #[test]
+    fn file_no_expression_defaults_to_identity() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, r#"{{"name":"test"}}"#).unwrap();
+
+        jpx()
+            .arg("-f")
+            .arg(tmp.path())
+            .arg("--color")
+            .arg("never")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\"name\": \"test\""));
+    }
+
+    #[test]
+    fn stream_no_expression_defaults_to_identity() {
+        jpx()
+            .arg("--stream")
+            .arg("--color")
+            .arg("never")
+            .write_stdin("{\"id\":1}\n{\"id\":2}")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("\"id\"")
+                    .and(predicate::str::contains("1").and(predicate::str::contains("2"))),
+            );
+    }
 }
 
 mod output_formats {

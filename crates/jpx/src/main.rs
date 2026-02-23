@@ -146,9 +146,7 @@ fn run() -> Result<()> {
     } else if !args.positional_expressions.is_empty() {
         std::mem::take(&mut args.positional_expressions)
     } else {
-        return Err(anyhow::anyhow!(
-            "Expression required. Use --help for usage."
-        ));
+        vec!["@".to_string()]
     };
 
     // Handle --explain: parse and show AST without evaluating
