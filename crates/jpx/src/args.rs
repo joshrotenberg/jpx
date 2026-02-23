@@ -385,6 +385,10 @@ pub(crate) struct Args {
           long_help = "Stream mode - process input line by line (for NDJSON/JSON Lines).\nEach line is parsed and evaluated independently with constant memory usage.")]
     pub(crate) stream: bool,
 
+    /// Flush output after each record in streaming mode
+    #[arg(long, help = "Flush output after each record in streaming mode")]
+    pub(crate) unbuffered: bool,
+
     /// Color output mode
     #[arg(long, value_enum, default_value = "auto")]
     pub(crate) color: ColorMode,

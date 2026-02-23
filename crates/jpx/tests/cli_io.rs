@@ -191,6 +191,18 @@ mod input_modes {
     }
 
     #[test]
+    fn stream_unbuffered_outputs_records() {
+        jpx()
+            .arg("--stream")
+            .arg("--unbuffered")
+            .arg("id")
+            .write_stdin("{\"id\":1}\n{\"id\":2}\n{\"id\":3}")
+            .assert()
+            .success()
+            .stdout("1\n2\n3\n");
+    }
+
+    #[test]
     fn stream_no_expression_defaults_to_identity() {
         jpx()
             .arg("--stream")
