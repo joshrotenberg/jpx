@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.1.3...jpx-core-v0.2.0) - 2026-02-23
+
+### Added
+
+- add pivot/unpivot functions for data reshaping ([#158](https://github.com/joshrotenberg/jpx/pull/158))
+- add rank, dense_rank, lag, lead window functions ([#159](https://github.com/joshrotenberg/jpx/pull/159))
+- add skew, kurtosis, mad statistics functions ([#160](https://github.com/joshrotenberg/jpx/pull/160))
+- add unit conversion functions (temperature, length, mass, volume) ([#139](https://github.com/joshrotenberg/jpx/pull/139))
+
+### Fixed
+
+- correct expref signatures and examples in functions.toml ([#133](https://github.com/joshrotenberg/jpx/pull/133))
+
+### Other
+
+- improve coverage for thin extension modules ([#156](https://github.com/joshrotenberg/jpx/pull/156))
+- add stress tests for large/extreme inputs ([#154](https://github.com/joshrotenberg/jpx/pull/154))
+
 ## [0.1.3](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.1.2...jpx-core-v0.1.3) - 2026-02-11
 
 ### Added
