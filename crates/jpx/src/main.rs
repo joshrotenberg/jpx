@@ -304,6 +304,16 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
+    // Join output mode: raw output without trailing newlines
+    if args.join_output {
+        if let Some(s) = result.as_str() {
+            print!("{}", s);
+        } else {
+            print!("{}", serde_json::to_string(&result)?);
+        }
+        return Ok(());
+    }
+
     #[allow(clippy::collapsible_if)]
     if args.raw {
         if let Some(s) = result.as_str() {
