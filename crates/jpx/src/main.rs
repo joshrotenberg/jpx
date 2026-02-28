@@ -340,7 +340,7 @@ fn run() -> Result<i32> {
         } else {
             print!("{}", serde_json::to_string(&result)?);
         }
-        return Ok(());
+        return Ok(exit_code);
     }
 
     #[allow(clippy::collapsible_if)]
