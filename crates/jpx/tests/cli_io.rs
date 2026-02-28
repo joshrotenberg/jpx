@@ -374,6 +374,251 @@ mod variable_bindings {
             .success()
             .stdout("\"hi a\"\n\"hi b\"\n");
     }
+
+    // --argjson with complex types
+
+    #[test]
+    fn argjson_array_binding() {
+        jpx()
+            .args(["--argjson", "ids", "[1,2,3]", "-c", "$ids"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("[1,2,3]\n");
+    }
+
+    #[test]
+    fn argjson_object_binding() {
+        jpx()
+            .args([
+                "--argjson",
+                "defaults",
+                r#"{"color":"red","size":10}"#,
+                "-c",
+                "$defaults.color",
+            ])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"red\"\n");
+    }
+
+    #[test]
+    fn argjson_boolean_binding() {
+        jpx()
+            .args(["--argjson", "flag", "true", "-c", "$flag"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("true\n");
+    }
+
+    #[test]
+    fn argjson_null_binding() {
+        // null results are suppressed by the CLI, so stdout is empty
+        jpx()
+            .args(["--argjson", "val", "null", "-c", "$val"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("");
+    }
+
+    #[test]
+    fn argjson_null_binding_in_expression() {
+        // null can still be used in expressions that produce non-null output
+        jpx()
+            .args(["--argjson", "val", "null", "-c", "type($val)"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"null\"\n");
+    }
+
+    #[test]
+    fn argjson_string_binding() {
+        // A JSON-quoted string passed via --argjson
+        jpx()
+            .args(["--argjson", "s", r#""hello""#, "-c", "$s"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"hello\"\n");
+    }
+
+    // --arg with special characters
+
+    #[test]
+    fn arg_with_spaces() {
+        jpx()
+            .args(["--arg", "msg", "hello world", "-c", "$msg"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"hello world\"\n");
+    }
+
+    #[test]
+    fn arg_with_quotes_and_backslashes() {
+        jpx()
+            .args(["--arg", "s", r#"say "hi" \ there"#, "-c", "$s"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"say \\\"hi\\\" \\\\ there\"\n");
+    }
+
+    #[test]
+    fn arg_empty_string() {
+        jpx()
+            .args(["--arg", "empty", "", "-c", "$empty"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"\"\n");
+    }
+
+    #[test]
+    fn arg_value_looks_like_json_stays_string() {
+        // Even if the value looks like JSON, --arg always treats it as a string
+        jpx()
+            .args(["--arg", "val", "42", "-c", "type($val)"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"string\"\n");
+    }
+
+    // Multiple same-type bindings
+
+    #[test]
+    fn multiple_arg_flags() {
+        jpx()
+            .args([
+                "--arg",
+                "first",
+                "a",
+                "--arg",
+                "second",
+                "b",
+                "-c",
+                "join('-', [$first, $second])",
+            ])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"a-b\"\n");
+    }
+
+    #[test]
+    fn multiple_argjson_flags() {
+        jpx()
+            .args([
+                "--argjson",
+                "x",
+                "1",
+                "--argjson",
+                "y",
+                "2",
+                "-c",
+                "length([$x, $y])",
+            ])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("2\n");
+    }
+
+    // Bindings with other modes
+
+    #[test]
+    fn argjson_in_streaming_mode() {
+        jpx()
+            .args(["--argjson", "min", "5", "--stream", "-c", "[?val > $min]"])
+            .write_stdin("{\"val\":3}\n{\"val\":7}\n{\"val\":10}")
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn arg_with_null_input() {
+        jpx()
+            .args(["--arg", "msg", "hello", "-n", "$msg"])
+            .assert()
+            .success()
+            .stdout("\"hello\"\n");
+    }
+
+    #[test]
+    fn argjson_with_null_input() {
+        jpx()
+            .args(["--argjson", "data", "[1,2,3]", "-n", "-c", "length($data)"])
+            .assert()
+            .success()
+            .stdout("3\n");
+    }
+
+    #[test]
+    fn arg_with_slurp_mode() {
+        jpx()
+            .args(["--arg", "sep", "-", "-s", "-c", "join($sep, [*].name)"])
+            .write_stdin("{\"name\":\"a\"}\n{\"name\":\"b\"}")
+            .assert()
+            .success()
+            .stdout("\"a-b\"\n");
+    }
+
+    #[test]
+    fn arg_with_raw_input_mode() {
+        jpx()
+            .args(["--arg", "prefix", ">>", "-R", "join('', [$prefix, @])"])
+            .write_stdin("hello\nworld")
+            .assert()
+            .success()
+            .stdout("\">>hello\"\n\">>world\"\n");
+    }
+
+    #[test]
+    fn arg_with_exit_status_truthy() {
+        jpx()
+            .args(["--argjson", "val", "true", "-x", "$val"])
+            .write_stdin("{}")
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn arg_with_exit_status_falsy() {
+        jpx()
+            .args(["--argjson", "val", "false", "-x", "$val"])
+            .write_stdin("{}")
+            .assert()
+            .failure()
+            .code(1);
+    }
+
+    #[test]
+    fn arg_with_chained_expressions() {
+        // Variables are available in each chained expression
+        jpx()
+            .args(["--arg", "sep", "-", "-e", "[*].name", "-e", "join($sep, @)"])
+            .write_stdin(r#"[{"name":"a"},{"name":"b"},{"name":"c"}]"#)
+            .assert()
+            .success()
+            .stdout("\"a-b-c\"\n");
+    }
+
+    // Error cases
+
+    #[test]
+    fn argjson_invalid_json_error_message() {
+        jpx()
+            .args(["--argjson", "x", "{bad", "@"])
+            .write_stdin("{}")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid JSON for --argjson x"));
+    }
 }
 
 mod output_formats {
