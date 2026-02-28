@@ -334,6 +334,36 @@ mod output_formats {
     }
 
     #[test]
+    fn join_output_no_newline() {
+        jpx()
+            .args(["-j", "name"])
+            .write_stdin(r#"{"name":"alice"}"#)
+            .assert()
+            .success()
+            .stdout("alice");
+    }
+
+    #[test]
+    fn join_output_non_string() {
+        jpx()
+            .args(["-j", "n"])
+            .write_stdin(r#"{"n":42}"#)
+            .assert()
+            .success()
+            .stdout("42");
+    }
+
+    #[test]
+    fn join_output_streaming() {
+        jpx()
+            .args(["-j", "--stream", "name"])
+            .write_stdin("{\"name\":\"a\"}\n{\"name\":\"b\"}")
+            .assert()
+            .success()
+            .stdout("ab");
+    }
+
+    #[test]
     fn yaml_output() {
         jpx()
             .arg("--yaml")

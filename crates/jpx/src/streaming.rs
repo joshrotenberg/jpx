@@ -80,7 +80,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
             continue;
         }
 
-        let output = if raw {
+        let output = if args.join_output || raw {
             if let Some(s) = result.as_str() {
                 s.to_string()
             } else {
@@ -90,7 +90,11 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
             serde_json::to_string(&result)?
         };
 
-        writeln!(writer, "{}", output)?;
+        if args.join_output {
+            write!(writer, "{}", output)?;
+        } else {
+            writeln!(writer, "{}", output)?;
+        }
         if args.unbuffered {
             writer.flush()?;
         }

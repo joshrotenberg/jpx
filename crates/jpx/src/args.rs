@@ -297,6 +297,15 @@ pub(crate) struct Args {
     )]
     pub(crate) raw: bool,
 
+    /// Like --raw but without trailing newlines
+    #[arg(
+        short = 'j',
+        long = "join-output",
+        help = "Raw output without trailing newlines",
+        long_help = "Join output mode - like --raw but without a trailing newline after each output.\nUseful for building shell variables, URL-safe strings, or output for xargs -0."
+    )]
+    pub(crate) join_output: bool,
+
     /// Compact JSON output
     #[arg(
         short,
