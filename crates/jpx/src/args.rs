@@ -315,6 +315,25 @@ pub(crate) struct Args {
     )]
     pub(crate) compact: bool,
 
+    /// Number of spaces for indentation
+    #[arg(
+        long,
+        value_name = "N",
+        conflicts_with_all = ["compact", "tab"],
+        value_parser = clap::value_parser!(u8).range(0..=8),
+        help = "Set indentation to N spaces (0-8)",
+        long_help = "Set the number of spaces for indentation in pretty-printed output.\nValid range: 0-8. Default is 2 spaces. Use 0 for no indentation\n(but still with newlines, unlike --compact)."
+    )]
+    pub(crate) indent: Option<u8>,
+
+    /// Use tabs for indentation
+    #[arg(
+        long,
+        conflicts_with_all = ["compact", "indent"],
+        help = "Use tab characters for indentation"
+    )]
+    pub(crate) tab: bool,
+
     /// Sort object keys in output
     #[arg(
         short = 'S',
