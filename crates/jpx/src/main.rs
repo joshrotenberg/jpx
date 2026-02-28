@@ -188,8 +188,8 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
-    // Handle --stream: process input line by line (NDJSON/JSON Lines)
-    if args.stream {
+    // Handle --stream or --raw-input (without slurp): process line by line
+    if args.stream || (args.raw_input && !args.slurp) {
         return streaming::run_streaming(&expressions, &args, &runtime);
     }
 

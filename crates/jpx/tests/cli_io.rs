@@ -218,6 +218,70 @@ mod input_modes {
     }
 }
 
+mod raw_input {
+    use super::*;
+
+    #[test]
+    fn raw_input_single_line() {
+        jpx()
+            .args(["-R", "@"])
+            .write_stdin("hello world\n")
+            .assert()
+            .success()
+            .stdout("\"hello world\"\n");
+    }
+
+    #[test]
+    fn raw_input_multiple_lines() {
+        jpx()
+            .args(["-R", "upper(@)"])
+            .write_stdin("hello\nworld\n")
+            .assert()
+            .success()
+            .stdout("\"HELLO\"\n\"WORLD\"\n");
+    }
+
+    #[test]
+    fn raw_input_slurp() {
+        jpx()
+            .args(["-Rs", "@", "--color", "never"])
+            .write_stdin("a\nb\nc\n")
+            .assert()
+            .success()
+            .stdout("[\n  \"a\",\n  \"b\",\n  \"c\"\n]\n");
+    }
+
+    #[test]
+    fn raw_input_slurp_length() {
+        jpx()
+            .args(["-Rs", "length(@)"])
+            .write_stdin("a\nb\nc\n")
+            .assert()
+            .success()
+            .stdout("3\n");
+    }
+
+    #[test]
+    fn raw_input_with_expression() {
+        jpx()
+            .args(["-R", "-c", "split(@, ' ')"])
+            .write_stdin("hello world\n")
+            .assert()
+            .success()
+            .stdout("[\"hello\",\"world\"]\n");
+    }
+
+    #[test]
+    fn raw_input_empty_lines() {
+        jpx()
+            .args(["-R", "@"])
+            .write_stdin("a\n\nb\n")
+            .assert()
+            .success()
+            .stdout("\"a\"\n\"\"\n\"b\"\n");
+    }
+}
+
 mod output_formats {
     use super::*;
 

@@ -387,6 +387,16 @@ pub(crate) struct Args {
     )]
     pub(crate) slurp: bool,
 
+    /// Read input as raw text lines, not JSON
+    #[arg(
+        short = 'R',
+        long = "raw-input",
+        conflicts_with_all = ["stream", "null_input"],
+        help = "Read input as raw text lines, not JSON",
+        long_help = "Raw input mode - read each line as a JSON string rather than parsing as JSON.\nCombined with --slurp, reads the entire input as an array of strings.\nUseful for processing log files, CSV data, and other non-JSON text."
+    )]
+    pub(crate) raw_input: bool,
+
     /// Process input line by line
     #[arg(long, visible_alias = "each", conflicts_with_all = ["slurp", "null_input"],
           help = "Process input line by line (NDJSON)",
