@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.2...jpx-v0.4.3) - 2026-02-28
+
+### Added
+
+- add --arg and --argjson flags for variable binding ([#170](https://github.com/joshrotenberg/jpx/pull/170))
+- add --indent N and --tab flags for indentation control ([#169](https://github.com/joshrotenberg/jpx/pull/169))
+- add --exit-status / -x flag for shell scripting ([#166](https://github.com/joshrotenberg/jpx/pull/166))
+- add --join-output / -j flag for newline-free output ([#167](https://github.com/joshrotenberg/jpx/pull/167))
+- add --raw-input / -R flag for non-JSON text processing ([#165](https://github.com/joshrotenberg/jpx/pull/165))
+
+### Fixed
+
+- use exit_code in --join-output return path ([#168](https://github.com/joshrotenberg/jpx/pull/168))
+
 ## [0.4.2](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.1...jpx-v0.4.2) - 2026-02-11
 
 ### Other
