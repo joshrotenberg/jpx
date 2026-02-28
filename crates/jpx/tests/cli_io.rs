@@ -298,6 +298,36 @@ mod output_formats {
     }
 
     #[test]
+    fn indent_four_spaces() {
+        jpx()
+            .args(["--indent", "4", "--color", "never", "@"])
+            .write_stdin(r#"{"a":1}"#)
+            .assert()
+            .success()
+            .stdout("{\n    \"a\": 1\n}\n");
+    }
+
+    #[test]
+    fn indent_zero_still_has_newlines() {
+        jpx()
+            .args(["--indent", "0", "--color", "never", "@"])
+            .write_stdin(r#"{"a":1}"#)
+            .assert()
+            .success()
+            .stdout("{\n\"a\": 1\n}\n");
+    }
+
+    #[test]
+    fn tab_indent() {
+        jpx()
+            .args(["--tab", "--color", "never", "@"])
+            .write_stdin(r#"{"a":1}"#)
+            .assert()
+            .success()
+            .stdout("{\n\t\"a\": 1\n}\n");
+    }
+
+    #[test]
     fn compact_json() {
         jpx()
             .arg("-c")

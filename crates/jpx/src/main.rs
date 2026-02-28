@@ -398,6 +398,15 @@ fn run() -> Result<i32> {
         ColorMode::Auto => args.output.is_none() && atty::is(atty::Stream::Stdout),
     };
 
+    // Determine indent string
+    let indent_str = if args.tab {
+        "\t".to_string()
+    } else if let Some(n) = args.indent {
+        " ".repeat(n as usize)
+    } else {
+        "  ".to_string() // default: 2 spaces
+    };
+
     let output_str = if should_colorize && !args.compact {
         // Colored pretty output with custom color scheme
         use colored_json::{ColoredFormatter, PrettyFormatter, Style, Styler};
@@ -412,7 +421,8 @@ fn run() -> Result<i32> {
             ..Default::default()
         };
 
-        let formatter = ColoredFormatter::with_styler(PrettyFormatter::new(), styler);
+        let pf = PrettyFormatter::with_indent(indent_str.as_bytes());
+        let formatter = ColoredFormatter::with_styler(pf, styler);
         let mut writer = Vec::new();
         let mut serializer = serde_json::Serializer::with_formatter(&mut writer, formatter);
         use serde::Serialize;
@@ -421,7 +431,12 @@ fn run() -> Result<i32> {
     } else if args.compact {
         serde_json::to_string(&json_value)?
     } else {
-        serde_json::to_string_pretty(&json_value)?
+        let mut writer = Vec::new();
+        let formatter = serde_json::ser::PrettyFormatter::with_indent(indent_str.as_bytes());
+        let mut serializer = serde_json::Serializer::with_formatter(&mut writer, formatter);
+        use serde::Serialize;
+        json_value.serialize(&mut serializer)?;
+        String::from_utf8(writer)?
     };
 
     // Write output to file or stdout
