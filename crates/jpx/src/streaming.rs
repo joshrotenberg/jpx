@@ -39,17 +39,21 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
         let trimmed = line.trim();
         line_count += 1;
 
-        if trimmed.is_empty() {
+        if trimmed.is_empty() && !args.raw_input {
             continue;
         }
 
-        let data: Value = match serde_json::from_str(trimmed) {
-            Ok(d) => d,
-            Err(e) => {
-                if !quiet {
-                    eprintln!("jpx: Failed to parse JSON: {}", e);
+        let data: Value = if args.raw_input {
+            Value::String(trimmed.to_string())
+        } else {
+            match serde_json::from_str(trimmed) {
+                Ok(d) => d,
+                Err(e) => {
+                    if !quiet {
+                        eprintln!("jpx: Failed to parse JSON: {}", e);
+                    }
+                    continue;
                 }
-                continue;
             }
         };
 

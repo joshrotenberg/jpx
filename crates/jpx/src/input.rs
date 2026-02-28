@@ -134,11 +134,23 @@ pub(crate) fn read_input_as_value(args: &Args) -> Result<Value> {
         }
     };
 
-    if args.slurp {
+    if args.raw_input {
+        parse_raw_input(&input)
+    } else if args.slurp {
         parse_slurp(&input)
     } else {
         serde_json::from_str(&input).map_err(|e| json_parse_error(&input, e))
     }
+}
+
+/// Parse raw text input into an array of strings (one per line).
+/// Used for `-R -s` (raw-input + slurp) mode.
+fn parse_raw_input(input: &str) -> Result<Value> {
+    let lines: Vec<Value> = input
+        .lines()
+        .map(|line| Value::String(line.to_string()))
+        .collect();
+    Ok(Value::Array(lines))
 }
 
 /// Parse multiple JSON values from input into an array
