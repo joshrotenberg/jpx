@@ -275,6 +275,30 @@ pub(crate) struct Args {
     )]
     pub(crate) check_queries: bool,
 
+    /// Bind a string variable for use in expressions
+    #[arg(
+        long = "arg",
+        value_name = "NAME VALUE",
+        num_args = 2,
+        action = clap::ArgAction::Append,
+        help = "Bind a string variable: --arg name value",
+        long_help = "Bind a string variable for use in expressions as $name.\nThe value is always treated as a string.\n\n\
+            Example: jpx --arg name Alice '[?name == $name]' data.json"
+    )]
+    pub(crate) arg: Vec<String>,
+
+    /// Bind a JSON variable for use in expressions
+    #[arg(
+        long = "argjson",
+        value_name = "NAME VALUE",
+        num_args = 2,
+        action = clap::ArgAction::Append,
+        help = "Bind a JSON variable: --argjson name '{\"key\":1}'",
+        long_help = "Bind a JSON variable for use in expressions as $name.\nThe value is parsed as JSON (numbers, booleans, arrays, objects, etc.).\n\n\
+            Example: jpx --argjson threshold 42 '[?score > $threshold]' data.json"
+    )]
+    pub(crate) argjson: Vec<String>,
+
     /// Input JSON file
     #[arg(
         short,

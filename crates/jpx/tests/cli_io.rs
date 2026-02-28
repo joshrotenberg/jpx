@@ -282,6 +282,100 @@ mod raw_input {
     }
 }
 
+mod variable_bindings {
+    use super::*;
+
+    #[test]
+    fn arg_string_binding() {
+        jpx()
+            .args(["--arg", "name", "alice", "-c", "$name"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("\"alice\"\n");
+    }
+
+    #[test]
+    fn argjson_number_binding() {
+        jpx()
+            .args(["--argjson", "n", "42", "$n"])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("42\n");
+    }
+
+    #[test]
+    fn arg_in_filter_expression() {
+        jpx()
+            .args(["--arg", "name", "alice", "-c", "[?name == $name]"])
+            .write_stdin(r#"[{"name":"alice"},{"name":"bob"}]"#)
+            .assert()
+            .success()
+            .stdout("[{\"name\":\"alice\"}]\n");
+    }
+
+    #[test]
+    fn argjson_in_comparison() {
+        jpx()
+            .args([
+                "--argjson",
+                "threshold",
+                "60",
+                "-c",
+                "[?score > $threshold]",
+            ])
+            .write_stdin(r#"[{"score":80},{"score":50}]"#)
+            .assert()
+            .success()
+            .stdout("[{\"score\":80}]\n");
+    }
+
+    #[test]
+    fn multiple_bindings() {
+        jpx()
+            .args([
+                "--arg",
+                "greeting",
+                "hello",
+                "--argjson",
+                "count",
+                "3",
+                "-c",
+                "[$greeting, $count]",
+            ])
+            .write_stdin("{}")
+            .assert()
+            .success()
+            .stdout("[\"hello\",3]\n");
+    }
+
+    #[test]
+    fn argjson_invalid_json_fails() {
+        jpx()
+            .args(["--argjson", "x", "not-json", "@"])
+            .write_stdin("{}")
+            .assert()
+            .failure();
+    }
+
+    #[test]
+    fn arg_in_streaming_mode() {
+        jpx()
+            .args([
+                "--arg",
+                "prefix",
+                "hi",
+                "--stream",
+                "join(' ', [$prefix, name])",
+            ])
+            .write_stdin("{\"name\":\"a\"}\n{\"name\":\"b\"}")
+            .assert()
+            .success()
+            .stdout("\"hi a\"\n\"hi b\"\n");
+    }
+}
+
 mod output_formats {
     use super::*;
 

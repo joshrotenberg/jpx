@@ -184,6 +184,9 @@ fn run() -> Result<i32> {
         vec!["@".to_string()]
     };
 
+    // Apply --arg / --argjson variable bindings by wrapping expressions with let bindings
+    let expressions = wrap_with_variable_bindings(expressions, &args)?;
+
     // Handle --explain: parse and show AST without evaluating
     if args.explain {
         for (i, expression) in expressions.iter().enumerate() {
@@ -435,6 +438,49 @@ fn run() -> Result<i32> {
     }
 
     Ok(exit_code)
+}
+
+/// Parse --arg and --argjson flags and wrap each expression with let bindings.
+/// Returns the expressions unchanged if no variables are defined.
+fn wrap_with_variable_bindings(expressions: Vec<String>, args: &Args) -> Result<Vec<String>> {
+    if args.arg.is_empty() && args.argjson.is_empty() {
+        return Ok(expressions);
+    }
+
+    // Collect bindings as (name, json_literal) pairs
+    let mut bindings: Vec<(String, String)> = Vec::new();
+
+    // --arg pairs: treat values as strings
+    for pair in args.arg.chunks(2) {
+        let name = &pair[0];
+        let value = &pair[1];
+        // Encode as JSON string and wrap in backticks for JMESPath literal
+        let json_literal = serde_json::to_string(value)?;
+        bindings.push((name.clone(), json_literal));
+    }
+
+    // --argjson pairs: values are already JSON
+    for pair in args.argjson.chunks(2) {
+        let name = &pair[0];
+        let json_value = &pair[1];
+        // Validate it's valid JSON
+        serde_json::from_str::<serde_json::Value>(json_value)
+            .with_context(|| format!("Invalid JSON for --argjson {}: {}", name, json_value))?;
+        bindings.push((name.clone(), json_value.clone()));
+    }
+
+    // Wrap each expression with let bindings
+    Ok(expressions
+        .into_iter()
+        .map(|expr| {
+            let mut wrapped = String::new();
+            for (name, json_lit) in &bindings {
+                wrapped.push_str(&format!("let ${} = `{}` in ", name, json_lit));
+            }
+            wrapped.push_str(&expr);
+            wrapped
+        })
+        .collect())
 }
 
 fn print_debug_info(args: &Args, registry: &FunctionRegistry) {
