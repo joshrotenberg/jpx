@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.0...jpx-core-v0.2.1) - 2026-02-28
+
+### Fixed
+
+- replace chrono-english with interim (RUSTSEC-2024-0395) ([#163](https://github.com/joshrotenberg/jpx/pull/163))
+
 ## [0.2.0](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.1.3...jpx-core-v0.2.0) - 2026-02-23
 
 ### Added
