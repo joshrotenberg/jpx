@@ -949,7 +949,7 @@ impl Function for ParseNaturalDateFn {
 
         let input = args[0].as_str().unwrap();
 
-        match chrono_english::parse_date_string(input, Utc::now(), chrono_english::Dialect::Us) {
+        match interim::parse_date_string(input, Utc::now(), interim::Dialect::Us) {
             Ok(dt) => {
                 let iso = dt.format("%Y-%m-%dT%H:%M:%SZ").to_string();
                 Ok(Value::String(iso))

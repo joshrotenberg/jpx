@@ -34,7 +34,7 @@ hex = { version = "0.4", optional = true }
 rand = { version = "0.8", optional = true }
 chrono = { version = "0.4", optional = true }
 chrono-tz = { version = "0.10", optional = true }
-chrono-english = { version = "0.1", optional = true }
+interim = { version = "0.2", features = ["chrono_0_4"], optional = true }
 dateparser = { version = "0.2", optional = true }
 strsim = { version = "0.11", optional = true }
 rphonetic = { version = "3.0", optional = true }
@@ -77,7 +77,7 @@ extensions = [
     "dep:regex",
     "dep:uuid",
     "dep:rand",
-    "dep:chrono", "dep:chrono-tz", "dep:chrono-english", "dep:dateparser",
+    "dep:chrono", "dep:chrono-tz", "dep:interim", "dep:dateparser",
     "dep:strsim",
     "dep:rphonetic",
     "dep:geoutils", "dep:geohash",
