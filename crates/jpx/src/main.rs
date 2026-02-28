@@ -22,13 +22,22 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 fn main() {
-    if let Err(err) = run() {
-        eprintln!("jpx: {err:#}");
-        std::process::exit(1);
+    match run() {
+        Ok(code) => std::process::exit(code),
+        Err(err) => {
+            eprintln!("jpx: {err:#}");
+            std::process::exit(1);
+        }
     }
 }
 
-fn run() -> Result<()> {
+/// Check whether a JSON value is "truthy" for --exit-status purposes.
+/// null and false are falsy; everything else is truthy.
+fn is_truthy(value: &Value) -> bool {
+    !value.is_null() && value.as_bool() != Some(false)
+}
+
+fn run() -> Result<i32> {
     let mut args = Args::parse();
 
     // Load config and apply defaults (priority: config < env var < CLI flag)
@@ -41,7 +50,7 @@ fn run() -> Result<()> {
         let mut cmd = Args::command();
         let name = cmd.get_name().to_string();
         generate(shell, &mut cmd, name, &mut io::stdout());
-        return Ok(());
+        return Ok(0);
     }
 
     // Load engine config (jpx.toml discovery) and create runtime/registry
@@ -50,32 +59,33 @@ fn run() -> Result<()> {
 
     // Handle REPL mode
     if args.repl || args.demo.is_some() {
-        return repl::run(args.demo.as_deref(), runtime, registry);
+        repl::run(args.demo.as_deref(), runtime, registry)?;
+        return Ok(0);
     }
 
     if args.list_functions {
         discovery::print_functions(&registry);
-        return Ok(());
+        return Ok(0);
     }
 
     if let Some(category_name) = &args.list_category {
         discovery::print_category(&registry, category_name)?;
-        return Ok(());
+        return Ok(0);
     }
 
     if let Some(func_name) = &args.describe {
         discovery::describe_function(&registry, func_name)?;
-        return Ok(());
+        return Ok(0);
     }
 
     if let Some(query) = &args.search {
         discovery::search_functions(&registry, query);
-        return Ok(());
+        return Ok(0);
     }
 
     if let Some(func_name) = &args.similar {
         discovery::find_similar_functions(&registry, func_name)?;
-        return Ok(());
+        return Ok(0);
     }
 
     // Debug mode: show diagnostic information
@@ -85,45 +95,50 @@ fn run() -> Result<()> {
 
     // Handle --diff: generate JSON Patch from two files
     if let Some(files) = &args.diff {
-        return ops::diff_files(
+        ops::diff_files(
             &files[0],
             &files[1],
             args.compact,
             &args.color,
             args.sort_keys,
-        );
+        )?;
+        return Ok(0);
     }
 
     // Handle --patch: apply JSON Patch to document
     if let Some(patch_file) = &args.patch {
-        return ops::apply_patch(
+        ops::apply_patch(
             &args.file,
             patch_file,
             args.compact,
             &args.color,
             args.sort_keys,
-        );
+        )?;
+        return Ok(0);
     }
 
     // Handle --merge: apply JSON Merge Patch to document
     if let Some(merge_file) = &args.merge {
-        return ops::apply_merge(
+        ops::apply_merge(
             &args.file,
             merge_file,
             args.compact,
             &args.color,
             args.sort_keys,
-        );
+        )?;
+        return Ok(0);
     }
 
     // Handle --stats: show data statistics
     if args.stats {
-        return stats::show_stats(&args.file, &args.color);
+        stats::show_stats(&args.file, &args.color)?;
+        return Ok(0);
     }
 
     // Handle --paths: list all paths in JSON
     if args.paths {
-        return stats::show_paths(&args.file, &args.color, args.types, args.values);
+        stats::show_paths(&args.file, &args.color, args.types, args.values)?;
+        return Ok(0);
     }
 
     // Handle --list-queries: list available queries in a .jpx file
@@ -132,7 +147,8 @@ fn run() -> Result<()> {
             .query_file
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("--list-queries requires -Q/--query-file"))?;
-        return ops::list_queries(query_path, &args.color);
+        ops::list_queries(query_path, &args.color)?;
+        return Ok(0);
     }
 
     // Handle --check: validate queries without running
@@ -141,7 +157,8 @@ fn run() -> Result<()> {
             .query_file
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("--check requires -Q/--query-file"))?;
-        return ops::check_queries(query_path, &args.color, &runtime);
+        ops::check_queries(query_path, &args.color, &runtime)?;
+        return Ok(0);
     }
 
     // jq-style: if the last positional arg is an existing file and no -f was given, use it as input
@@ -185,12 +202,16 @@ fn run() -> Result<()> {
             explain::print_ast(&ast, 0);
             println!();
         }
-        return Ok(());
+        return Ok(0);
     }
 
     // Handle --stream or --raw-input (without slurp): process line by line
     if args.stream || (args.raw_input && !args.slurp) {
-        return streaming::run_streaming(&expressions, &args, &runtime);
+        let had_truthy = streaming::run_streaming(&expressions, &args, &runtime)?;
+        if args.exit_status && !had_truthy {
+            return Ok(1);
+        }
+        return Ok(0);
     }
 
     // Get input data
@@ -229,14 +250,15 @@ fn run() -> Result<()> {
 
     // Handle --bench: benchmark expression performance
     if let Some(iterations) = args.bench {
-        return bench::run_benchmark(
+        bench::run_benchmark(
             &runtime,
             &expressions,
             &data,
             iterations,
             args.warmup,
             &args.color,
-        );
+        )?;
+        return Ok(0);
     }
 
     // Compile and execute expression(s)
@@ -298,17 +320,24 @@ fn run() -> Result<()> {
         eprintln!();
     }
 
+    // Determine exit code for --exit-status before output
+    let exit_code = if args.exit_status && !is_truthy(&result) {
+        1
+    } else {
+        0
+    };
+
     // Output result
     if result.is_null() {
         // Don't print anything for null results (like jq)
-        return Ok(());
+        return Ok(exit_code);
     }
 
     #[allow(clippy::collapsible_if)]
     if args.raw {
         if let Some(s) = result.as_str() {
             println!("{}", s);
-            return Ok(());
+            return Ok(exit_code);
         }
     }
 
@@ -321,31 +350,35 @@ fn run() -> Result<()> {
 
     // Handle alternative output formats
     if args.yaml {
-        return output::output_as_yaml(&json_value, &args.output);
+        output::output_as_yaml(&json_value, &args.output)?;
+        return Ok(exit_code);
     }
     if args.toml_output {
-        return output::output_as_toml(&json_value, &args.output);
+        output::output_as_toml(&json_value, &args.output)?;
+        return Ok(exit_code);
     }
     if args.csv_output {
-        return output::output_as_csv(&json_value, &args.output);
+        output::output_as_csv(&json_value, &args.output)?;
+        return Ok(exit_code);
     }
     if args.tsv_output {
-        return output::output_as_tsv(&json_value, &args.output);
+        output::output_as_tsv(&json_value, &args.output)?;
+        return Ok(exit_code);
     }
     if args.lines_output {
-        return output::output_as_lines(&json_value, &args.output);
+        output::output_as_lines(&json_value, &args.output)?;
+        return Ok(exit_code);
     }
     #[cfg(feature = "parquet")]
     if args.parquet_output {
         let output_path = args.output.as_ref().expect("--parquet requires --output");
-        return jpx::parquet_support::write_json_to_parquet(
-            &json_value,
-            std::path::Path::new(output_path),
-        )
-        .context("Failed to write parquet file");
+        jpx::parquet_support::write_json_to_parquet(&json_value, std::path::Path::new(output_path))
+            .context("Failed to write parquet file")?;
+        return Ok(exit_code);
     }
     if args.table {
-        return output::output_as_table(&json_value, &args.output, &args.table_style, &args.color);
+        output::output_as_table(&json_value, &args.output, &args.table_style, &args.color)?;
+        return Ok(exit_code);
     }
 
     // When writing to file, don't colorize unless explicitly requested
@@ -391,7 +424,7 @@ fn run() -> Result<()> {
         println!("{}", output_str);
     }
 
-    Ok(())
+    Ok(exit_code)
 }
 
 fn print_debug_info(args: &Args, registry: &FunctionRegistry) {

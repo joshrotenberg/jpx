@@ -5,8 +5,13 @@ use jpx_engine::Runtime;
 use serde_json::Value;
 use std::io::{self, BufRead, BufWriter, Write};
 
-/// Run streaming mode - process input line by line (NDJSON/JSON Lines)
-pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runtime) -> Result<()> {
+/// Run streaming mode - process input line by line (NDJSON/JSON Lines).
+/// Returns whether any truthy (non-null, non-false) result was produced.
+pub(crate) fn run_streaming(
+    expressions: &[String],
+    args: &Args,
+    runtime: &Runtime,
+) -> Result<bool> {
     // Set up input reader
     let input: Box<dyn BufRead> = match &args.file {
         Some(path) => {
@@ -33,6 +38,7 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
     let quiet = args.quiet;
     let raw = args.raw;
     let mut line_count = 0u64;
+    let mut had_truthy = false;
 
     for line in input.lines() {
         let line = line.context("Failed to read line")?;
@@ -76,6 +82,10 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
             result
         };
 
+        if !result.is_null() && result.as_bool() != Some(false) {
+            had_truthy = true;
+        }
+
         if result.is_null() {
             continue;
         }
@@ -101,5 +111,5 @@ pub(crate) fn run_streaming(expressions: &[String], args: &Args, runtime: &Runti
     }
 
     writer.flush()?;
-    Ok(())
+    Ok(had_truthy)
 }

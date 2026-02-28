@@ -420,6 +420,15 @@ pub(crate) struct Args {
     )]
     pub(crate) output: Option<String>,
 
+    /// Set exit status based on result
+    #[arg(
+        short = 'x',
+        long = "exit-status",
+        help = "Exit with 1 if result is false or null",
+        long_help = "Exit status mode - set the process exit code based on the result value.\nExits with 0 if the result is truthy (non-null, non-false),\nexits with 1 if the result is false or null.\nUseful for shell scripting conditionals."
+    )]
+    pub(crate) exit_status: bool,
+
     /// Suppress errors and warnings
     #[arg(
         short = 'q',

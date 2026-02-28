@@ -192,6 +192,82 @@ mod mode_flags {
                     .and(predicate::str::contains("Effective settings")),
             );
     }
+
+    #[test]
+    fn exit_status_truthy_exits_zero() {
+        jpx()
+            .args(["-x", "@"])
+            .write_stdin(r#"{"enabled":true}"#)
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn exit_status_false_exits_one() {
+        jpx()
+            .args(["-x", "enabled"])
+            .write_stdin(r#"{"enabled":false}"#)
+            .assert()
+            .failure()
+            .code(1);
+    }
+
+    #[test]
+    fn exit_status_null_exits_one() {
+        jpx()
+            .args(["-x", "missing"])
+            .write_stdin(r#"{"a":1}"#)
+            .assert()
+            .failure()
+            .code(1);
+    }
+
+    #[test]
+    fn exit_status_string_exits_zero() {
+        jpx()
+            .args(["-x", "name"])
+            .write_stdin(r#"{"name":"alice"}"#)
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn exit_status_number_exits_zero() {
+        jpx()
+            .args(["-x", "count"])
+            .write_stdin(r#"{"count":0}"#)
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn exit_status_stream_truthy() {
+        jpx()
+            .args(["-x", "--stream", "a"])
+            .write_stdin("{\"a\":1}\n{\"a\":2}")
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn exit_status_stream_all_null() {
+        jpx()
+            .args(["-x", "--stream", "missing"])
+            .write_stdin("{\"a\":1}\n{\"a\":2}")
+            .assert()
+            .failure()
+            .code(1);
+    }
+
+    #[test]
+    fn without_exit_status_null_still_exits_zero() {
+        // Without -x, null results still exit 0
+        jpx()
+            .arg("missing")
+            .write_stdin(r#"{"a":1}"#)
+            .assert()
+            .success();
+    }
 }
 
 // ============================================================================
