@@ -10,7 +10,7 @@ compatibility: Requires jpx-mcp server (stdio or HTTP transport)
 
 # jpx MCP Server Guide
 
-The jpx MCP server exposes 32 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 400+ extended functions beyond the JMESPath specification.
+The jpx MCP server exposes 30 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 460+ extended functions beyond the JMESPath specification.
 
 ## Tool Groups
 
@@ -150,5 +150,5 @@ The server discovers `jpx.toml` configuration (cwd -> home -> XDG) for function 
 ## Related Skills
 
 - [jmespath-query](../jmespath-query/SKILL.md) -- JMESPath expression syntax
-- [jpx-functions](../jpx-functions/SKILL.md) -- 400+ extension functions
+- [jpx-functions](../jpx-functions/SKILL.md) -- 460+ extension functions
 - [jpx-cli](../jpx-cli/SKILL.md) -- Command-line usage

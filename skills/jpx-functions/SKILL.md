@@ -1,6 +1,6 @@
 ---
 name: jpx-functions
-description: "Look up and call the 400+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when a task needs functions beyond the 26 standard JMESPath built-ins."
+description: "Look up and call the 460+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when a task needs functions beyond the 26 standard JMESPath built-ins."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg
@@ -10,7 +10,7 @@ compatibility: Requires jpx, jpx-core, jpx-engine, or jpx-python
 
 # jpx Extension Functions
 
-jpx extends JMESPath with 400+ functions across 33 categories. This skill covers function discovery, the most commonly used functions, and key conventions.
+jpx extends JMESPath with 460+ functions across 33 categories. This skill covers function discovery, the most commonly used functions, and key conventions.
 
 ## Discovering Functions
 

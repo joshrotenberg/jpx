@@ -1,6 +1,6 @@
 # jpx MCP Tool Reference
 
-Complete parameter reference for all 32 tools.
+Complete parameter reference for all 30 tools.
 
 ## Evaluation Tools
 
