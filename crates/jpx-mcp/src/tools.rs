@@ -365,6 +365,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- evaluate
     let e = engine.clone();
     let evaluate = ToolBuilder::new("evaluate")
+        .title("Evaluate Expression")
         .description("Evaluate a JMESPath expression against JSON input. Returns the result of applying the expression to the input data. Supports 400+ extended functions beyond standard JMESPath.")
         .read_only()
         .handler(move |params: EvaluateParams| {
@@ -381,6 +382,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- functions
     let e = engine.clone();
     let functions = ToolBuilder::new("functions")
+        .title("List Functions")
         .description("List available JMESPath functions. Optionally filter by category (e.g., 'String', 'Math', 'Array', 'Datetime', 'Hash', 'Encoding', etc.). Returns function names with signatures and descriptions.")
         .read_only()
         .handler(move |params: FunctionsParams| {
@@ -395,6 +397,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- describe
     let e = engine.clone();
     let describe = ToolBuilder::new("describe")
+        .title("Describe Function")
         .description("Get detailed information about a specific JMESPath function including its signature, description, example usage, and category. Accepts function name or alias.")
         .read_only()
         .handler(move |params: DescribeParams| {
@@ -413,6 +416,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
 
     // -- categories
     let categories = ToolBuilder::new("categories")
+        .title("List Categories")
         .description("List all available JMESPath function categories. Use these category names with the 'functions' tool to filter by category.")
         .read_only()
         .handler(move |_params: EmptyParams| {
@@ -430,6 +434,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- validate
     let e = engine.clone();
     let validate = ToolBuilder::new("validate")
+        .title("Validate Expression")
         .description("Validate a JMESPath expression without executing it. Returns whether the expression is syntactically valid and any parse errors.")
         .read_only()
         .handler(move |params: ValidateParams| {
@@ -444,6 +449,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- explain
     let e = engine.clone();
     let explain = ToolBuilder::new("explain")
+        .title("Explain Expression")
         .description("Explain a JMESPath expression by breaking it down into steps. Returns a structured breakdown of each part of the expression including node types, descriptions, functions used, and complexity rating. Useful for understanding complex queries or debugging unexpected results. Also works for invalid expressions (returns the parse error).")
         .read_only()
         .handler(move |params: ExplainParams| {
@@ -460,6 +466,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- batch_evaluate
     let e = engine.clone();
     let batch_evaluate = ToolBuilder::new("batch_evaluate")
+        .title("Batch Evaluate")
         .description("Evaluate multiple JMESPath expressions against the same JSON input in a single call. Parses the input once and runs all expressions, returning results for each. Useful for extracting multiple values from the same data.")
         .read_only()
         .handler(move |params: BatchEvaluateParams| {
@@ -476,6 +483,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- format
     let e = engine.clone();
     let format = ToolBuilder::new("format")
+        .title("Format JSON")
         .description("Format and validate JSON. Pretty-prints the input with configurable indentation. Use indent=0 for compact output. Returns an error if the input is not valid JSON.")
         .read_only()
         .handler(move |params: FormatParams| {
@@ -492,6 +500,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- diff
     let e = engine.clone();
     let diff = ToolBuilder::new("diff")
+        .title("JSON Diff")
         .description("Generate a JSON Patch (RFC 6902) that transforms the source document into the target document. Returns an array of patch operations (add, remove, replace, move, copy, test). See https://datatracker.ietf.org/doc/html/rfc6902")
         .read_only()
         .handler(move |params: DiffParams| {
@@ -508,6 +517,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- patch
     let e = engine.clone();
     let patch = ToolBuilder::new("patch")
+        .title("Apply JSON Patch")
         .description("Apply a JSON Patch (RFC 6902) to a JSON document. The patch is an array of operations (add, remove, replace, move, copy, test). Returns the patched document or an error if the patch cannot be applied. See https://datatracker.ietf.org/doc/html/rfc6902")
         .handler(move |params: PatchParams| {
             let engine = e.clone();
@@ -523,6 +533,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- merge
     let e = engine.clone();
     let merge = ToolBuilder::new("merge")
+        .title("JSON Merge Patch")
         .description("Apply a JSON Merge Patch (RFC 7396) to a JSON document. The merge patch is a JSON document that describes changes: values are replaced, null values remove keys, and objects are merged recursively. Simpler than JSON Patch but less expressive. See https://datatracker.ietf.org/doc/html/rfc7396")
         .handler(move |params: MergeParams| {
             let engine = e.clone();
@@ -538,6 +549,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- keys
     let e = engine.clone();
     let keys = ToolBuilder::new("keys")
+        .title("Extract Keys")
         .description("Extract keys from a JSON object. By default returns top-level keys only. Set recursive=true to get all nested keys in dot notation (e.g., 'user.profile.age'). Useful for understanding JSON structure before querying.")
         .read_only()
         .handler(move |params: KeysParams| {
@@ -554,6 +566,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- evaluate_file
     let e = engine.clone();
     let evaluate_file = ToolBuilder::new("evaluate_file")
+        .title("Evaluate File")
         .description("Read a JSON file from disk and evaluate a JMESPath expression against it. More efficient than passing large JSON content through the protocol. The file must exist and contain valid JSON.")
         .read_only()
         .handler(move |params: EvaluateFileParams| {
@@ -605,6 +618,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- search
     let e = engine.clone();
     let search = ToolBuilder::new("search")
+        .title("Search Functions")
         .description("Search for JMESPath functions using fuzzy matching. Searches function names, descriptions, categories, signatures, and aliases. Returns ranked results with match type and relevance score. Essential for discovering functions when you're not sure of the exact name.")
         .read_only()
         .handler(move |params: SearchParams| {
@@ -619,6 +633,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- similar
     let e = engine.clone();
     let similar = ToolBuilder::new("similar")
+        .title("Similar Functions")
         .description("Find functions similar to a specified function. Returns functions in the same category, functions with similar signatures (same input/output types), and functions with related concepts based on description keywords. Useful for discovering alternative approaches.")
         .read_only()
         .handler(move |params: SimilarParams| {
@@ -638,6 +653,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- suggest_function
     let e = engine.clone();
     let suggest_function = ToolBuilder::new("suggest_function")
+        .title("Suggest Function")
         .description(
             "Suggest JMESPath functions for a task described in natural language. \
             Accepts a plain-English description of what you want to accomplish \
@@ -676,6 +692,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- stats
     let e = engine.clone();
     let stats = ToolBuilder::new("stats")
+        .title("JSON Statistics")
         .description("Analyze JSON data and return statistics including type, size, depth, field analysis for arrays of objects, and type distribution. Useful for understanding data structure before writing queries.")
         .read_only()
         .handler(move |params: StatsParams| {
@@ -692,6 +709,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- paths
     let e = engine.clone();
     let paths = ToolBuilder::new("paths")
+        .title("Extract Paths")
         .description("Extract all paths from JSON data in dot notation (e.g., 'users.0.name'). Optionally includes type information and values. Essential for understanding complex JSON structure before writing JMESPath queries.")
         .read_only()
         .handler(move |params: PathsParams| {
@@ -712,6 +730,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- register_tools
     let e = engine.clone();
     let register_tools = ToolBuilder::new("register_tools")
+        .title("Register Tools")
         .description("Register an MCP server's tools for cross-server discovery. Accepts either a full discovery spec (via 'spec') or a simplified format (via 'server_name' + 'tools'). Tools are indexed for full-text search across name, description, tags, and parameters.")
         .handler(move |params: RegisterToolsParams| {
             let engine = e.clone();
@@ -779,6 +798,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- query_tools
     let e = engine.clone();
     let query_tools = ToolBuilder::new("query_tools")
+        .title("Query Tools")
         .description("Search for tools across all registered MCP servers. Uses BM25 full-text search to find relevant tools by name, description, tags, category, or parameters. Returns ranked results with match scores.")
         .read_only()
         .handler(move |params: QueryToolsParams| {
@@ -795,6 +815,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- similar_tools
     let e = engine.clone();
     let similar_tools = ToolBuilder::new("similar_tools")
+        .title("Similar Tools")
         .description("Find tools similar to a specified tool based on shared terms and concepts. Uses the tool's indexed content to find related tools across all registered servers.")
         .read_only()
         .handler(move |params: SimilarToolsParams| {
@@ -811,6 +832,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- unregister_discovery
     let e = engine.clone();
     let unregister_discovery = ToolBuilder::new("unregister_discovery")
+        .title("Unregister Server")
         .description("Remove an MCP server's tools from the discovery index. Use this when a server is no longer available or to re-register with updated tools.")
         .handler(move |params: UnregisterDiscoveryParams| {
             let engine = e.clone();
@@ -832,6 +854,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- list_discovery_servers
     let e = engine.clone();
     let list_discovery_servers = ToolBuilder::new("list_discovery_servers")
+        .title("List Discovery Servers")
         .description("List all MCP servers that have registered their tools for discovery. Returns server names, versions, descriptions, and tool counts.")
         .read_only()
         .handler(move |_params: EmptyParams| {
@@ -848,6 +871,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- list_discovery_categories
     let e = engine.clone();
     let list_discovery_categories = ToolBuilder::new("list_discovery_categories")
+        .title("List Discovery Categories")
         .description("List all tool categories from registered MCP servers. Returns category names with tool counts and which servers provide tools in each category.")
         .read_only()
         .handler(move |_params: EmptyParams| {
@@ -868,6 +892,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- define_query
     let e = engine.clone();
     let define_query = ToolBuilder::new("define_query")
+        .title("Define Query")
         .description("Store a named JMESPath query for reuse during this session. Useful for building and refining complex queries iteratively. The query is validated before storing.")
         .handler(move |params: DefineQueryParams| {
             let engine = e.clone();
@@ -890,6 +915,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- get_query
     let e = engine.clone();
     let get_query = ToolBuilder::new("get_query")
+        .title("Get Query")
         .description(
             "Retrieve a stored query by name. Returns the expression and description if found.",
         )
@@ -909,6 +935,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- delete_query
     let e = engine.clone();
     let delete_query = ToolBuilder::new("delete_query")
+        .title("Delete Query")
         .description("Delete a stored query by name. Returns the deleted query if it existed.")
         .handler(move |params: DeleteQueryParams| {
             let engine = e.clone();
@@ -928,6 +955,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- list_queries
     let e = engine.clone();
     let list_queries = ToolBuilder::new("list_queries")
+        .title("List Queries")
         .description("List all named queries stored in this session. Shows query names, expressions, and descriptions.")
         .read_only()
         .handler(move |_params: EmptyParams| {
@@ -944,6 +972,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- run_query
     let e = engine.clone();
     let run_query = ToolBuilder::new("run_query")
+        .title("Run Query")
         .description("Execute a stored query by name against JSON input. Combines the convenience of named queries with evaluation.")
         .read_only()
         .handler(move |params: RunQueryParams| {
@@ -967,6 +996,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     // -- engine_info
     let e = engine.clone();
     let engine_info = ToolBuilder::new("engine_info")
+        .title("Engine Info")
         .description("Get information about the jpx engine including version, mode, function count, and current session state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
         .read_only()
         .handler(move |params: EngineInfoParams| {
