@@ -413,7 +413,7 @@ pub(crate) struct Args {
     #[cfg(feature = "parquet")]
     #[arg(
         long = "parquet",
-        conflicts_with_all = ["yaml", "toml_output", "csv_output", "tsv_output", "lines_output", "table"],
+        conflicts_with_all = ["yaml", "toml_output", "csv_output", "tsv_output", "lines_output", "table", "stream"],
         requires = "output",
         help = "Output as Parquet file",
         long_help = "Output as Parquet file. Requires --output to specify the file path.\nBest for arrays of objects. Uses Snappy compression."
@@ -450,9 +450,9 @@ pub(crate) struct Args {
     pub(crate) raw_input: bool,
 
     /// Process input line by line
-    #[arg(long, visible_alias = "each", conflicts_with_all = ["slurp", "null_input"],
+    #[arg(long, visible_alias = "each", conflicts_with_all = ["slurp", "null_input", "table", "yaml", "toml_output", "lines_output"],
           help = "Process input line by line (NDJSON)",
-          long_help = "Stream mode - process input line by line (for NDJSON/JSON Lines).\nEach line is parsed and evaluated independently with constant memory usage.")]
+          long_help = "Stream mode - process input line by line (for NDJSON/JSON Lines).\nEach line is parsed and evaluated independently with constant memory usage.\nSupports --csv and --tsv output (headers derived from first result).")]
     pub(crate) stream: bool,
 
     /// Flush output after each record in streaming mode

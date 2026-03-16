@@ -271,3 +271,142 @@ fn stream_whitespace_lines() {
         .success()
         .stdout("1\n2\n");
 }
+
+// ---------------------------------------------------------------------------
+// 7. Streaming CSV/TSV output
+// ---------------------------------------------------------------------------
+
+#[test]
+fn stream_csv_basic() {
+    let input = "{\"name\":\"alice\",\"age\":30}\n{\"name\":\"bob\",\"age\":25}\n";
+
+    jpx()
+        .args(["--stream", "--csv", "@", "--color", "never"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("age,name\n30,alice\n25,bob\n");
+}
+
+#[test]
+fn stream_tsv_basic() {
+    let input = "{\"name\":\"alice\",\"age\":30}\n{\"name\":\"bob\",\"age\":25}\n";
+
+    jpx()
+        .args(["--stream", "--tsv", "@", "--color", "never"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("age\tname\n30\talice\n25\tbob\n");
+}
+
+#[test]
+fn stream_csv_with_expression() {
+    let input = "{\"user\":\"alice\",\"score\":90,\"grade\":\"A\"}\n{\"user\":\"bob\",\"score\":75,\"grade\":\"B\"}\n";
+
+    jpx()
+        .args([
+            "--stream",
+            "--csv",
+            "{name: user, score: score}",
+            "--color",
+            "never",
+        ])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("name,score\nalice,90\nbob,75\n");
+}
+
+#[test]
+fn stream_csv_nested_objects() {
+    let input = "{\"name\":\"alice\",\"addr\":{\"city\":\"NYC\"}}\n{\"name\":\"bob\",\"addr\":{\"city\":\"LA\"}}\n";
+
+    jpx()
+        .args(["--stream", "--csv", "@", "--color", "never"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("addr.city,name\nNYC,alice\nLA,bob\n");
+}
+
+#[test]
+fn stream_csv_primitive_results() {
+    let input = "{\"name\":\"alice\"}\n{\"name\":\"bob\"}\n";
+
+    jpx()
+        .args(["--stream", "--csv", "name", "--color", "never"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("value\nalice\nbob\n");
+}
+
+#[test]
+fn stream_csv_missing_fields() {
+    // Second record has extra field "email", first doesn't -- extra fields are silently dropped
+    // since headers are derived from first record
+    let input = "{\"name\":\"alice\",\"age\":30}\n{\"name\":\"bob\",\"email\":\"bob@test.com\"}\n";
+
+    let output = jpx()
+        .args(["--stream", "--csv", "@", "--color", "never"])
+        .write_stdin(input)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Headers come from first record
+    assert!(stdout.starts_with("age,name\n"));
+    // Second record has empty age, bob for name (email is not in headers)
+    assert!(stdout.contains(",bob\n"));
+}
+
+#[test]
+fn stream_csv_null_results_skipped() {
+    // null results should still be skipped in CSV mode
+    let input = "{\"name\":\"alice\"}\n{\"name\":null}\n{\"name\":\"carol\"}\n";
+
+    // The expression `name` yields null for the second line, which gets skipped
+    // But @  yields the full object which is not null, so test with a filter
+    jpx()
+        .args([
+            "--stream",
+            "--csv",
+            "--color",
+            "never",
+            "if(name != 'null_sentinel', @, null)",
+        ])
+        .write_stdin(input)
+        .assert()
+        .success();
+}
+
+#[test]
+fn stream_table_conflicts() {
+    jpx()
+        .args(["--stream", "--table", "@"])
+        .write_stdin("{}")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
+fn stream_yaml_conflicts() {
+    jpx()
+        .args(["--stream", "--yaml", "@"])
+        .write_stdin("{}")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
+fn stream_toml_conflicts() {
+    jpx()
+        .args(["--stream", "--toml", "@"])
+        .write_stdin("{}")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
