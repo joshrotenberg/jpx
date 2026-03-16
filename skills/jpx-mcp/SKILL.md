@@ -1,6 +1,6 @@
 ---
 name: jpx-mcp
-description: "Use the jpx MCP server and its 32 tools for JMESPath evaluation, function discovery, JSON utilities, and cross-server tool discovery. Use when evaluating JMESPath expressions via MCP, exploring available functions, analyzing JSON structure, managing named queries, or registering tools for discovery across MCP servers."
+description: "Invoke jpx MCP server tools for JMESPath evaluation, function discovery, JSON utilities, and cross-server tool discovery. Use when evaluating expressions via MCP, exploring functions, analyzing JSON structure, or managing named queries."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg

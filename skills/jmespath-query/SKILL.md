@@ -1,6 +1,6 @@
 ---
 name: jmespath-query
-description: "Write JMESPath expressions to query and transform JSON data. Use when the user needs to extract, filter, project, or reshape JSON -- or when JMESPath is mentioned. Covers the full JMESPath specification including identifiers, projections, filters, multi-select, pipes, functions, and let expressions. Applicable to any JMESPath implementation (AWS CLI, Azure CLI, Boto3, jpx, etc.)."
+description: "Write JMESPath expressions to query and transform JSON. Use when extracting, filtering, projecting, or reshaping JSON data. Covers identifiers, projections, filters, multi-select, pipes, functions, and let expressions. Works with any JMESPath implementation."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg

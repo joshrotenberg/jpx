@@ -1,6 +1,6 @@
 ---
 name: jpx-cli
-description: "Use the jpx command-line tool to query and transform JSON data. Covers output formats (CSV, TSV, table, YAML, TOML), streaming NDJSON processing, input modes (slurp, raw-input, null-input), query files, variable binding, shell pipelines, and the interactive REPL. Use when the user needs to process JSON from the command line or in shell scripts."
+description: "Run jpx to query and transform JSON from the command line. Covers output formats (CSV, TSV, table, YAML), streaming NDJSON, input modes (slurp, raw-input, null-input), query files, variable binding, and shell pipelines. Use when building shell pipelines or exporting JSON data."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg

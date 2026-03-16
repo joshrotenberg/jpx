@@ -1,6 +1,6 @@
 ---
 name: jpx-functions
-description: "Look up and use the 400+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when the user needs a function beyond the 26 standard JMESPath built-ins, or when working with jpx-core, jpx-engine, or jpx-python."
+description: "Look up and call the 400+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when a task needs functions beyond the 26 standard JMESPath built-ins."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg
@@ -161,6 +161,13 @@ let mut registry = jpx_core::FunctionRegistry::new();
 registry.register_all();               // loads extensions from functions.toml
 registry.apply(&mut runtime);          // registers enabled functions
 ```
+
+## Common Errors
+
+- **"Unknown function 'xyz'"** -- the function doesn't exist or is misspelled. Use `jpx --search xyz` or the MCP `search` tool to find the correct name.
+- **"Invalid argument type"** -- wrong argument type (e.g., passing a string where a number is expected). Use `jpx --describe function_name` to check the signature.
+- **"Expected expref"** -- the function expects `&expr` but got a plain value. Add `&` prefix: `sort_by(arr, &field)` not `sort_by(arr, field)`.
+- **Extension function in strict mode** -- strict mode (`--strict` or `JPX_STRICT=1`) disables all extensions. Only the 26 standard functions are available.
 
 ## Related Skills
 
