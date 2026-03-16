@@ -123,25 +123,26 @@ features = ["core"]
 [[functions]]
 name = "group_by"
 category = "array"
-description = "Group array elements by key"
-signature = "array, string -> object"
+description = "Group array elements by expression or field name"
+signature = "array, expression|string -> object"
 examples = [
-    { code = "group_by([{t: 'a'}, {t: 'b'}, {t: 'a'}], 't') -> {a: [{t:'a'}, {t:'a'}], b: [{t:'b'}]}", description = "Group by field" },
-    { code = "group_by(users, 'role') -> {admin: [...], user: [...]}", description = "Group users by role" },
-    { code = "group_by([], 'key') -> {}", description = "Empty array returns empty object" },
+    { code = "group_by([{t: 'a'}, {t: 'b'}, {t: 'a'}], &t) -> {a: [{t:'a'}, {t:'a'}], b: [{t:'b'}]}", description = "Group by field (expref)" },
+    { code = "group_by([{t: 'a'}, {t: 'b'}, {t: 'a'}], 't') -> {a: [{t:'a'}, {t:'a'}], b: [{t:'b'}]}", description = "Group by field (string, legacy)" },
+    { code = "group_by([1, 2, 3, 4], &@ > `2`) -> {true: [3, 4], false: [1, 2]}", description = "Group by condition" },
+    { code = "group_by([], &key) -> {}", description = "Empty array returns empty object" },
 ]
 features = ["core"]
 
 [[functions]]
 name = "index_by"
 category = "array"
-description = "Create lookup map from array using key field (last value wins for duplicates)"
-signature = "array, string -> object"
+description = "Create lookup map from array using expression or key field (last value wins for duplicates)"
+signature = "array, expression|string -> object"
 examples = [
-    { code = '''index_by([{id: 1, name: "alice"}, {id: 2, name: "bob"}], "id") -> {"1": {id: 1, name: "alice"}, "2": {id: 2, name: "bob"}}''', description = "Index by id field" },
-    { code = '''index_by([{code: "US", name: "USA"}], "code") -> {"US": {code: "US", name: "USA"}}''', description = "Index by string key" },
-    { code = '''index_by([{t: "a", v: 1}, {t: "a", v: 2}], "t") -> {"a": {t: "a", v: 2}}''', description = "Last value wins for duplicates" },
-    { code = '''index_by([], "id") -> {}''', description = "Empty array returns empty object" },
+    { code = '''index_by([{id: 1, name: "alice"}, {id: 2, name: "bob"}], &id) -> {"1": {id: 1, name: "alice"}, "2": {id: 2, name: "bob"}}''', description = "Index by id (expref)" },
+    { code = '''index_by([{id: 1, name: "alice"}, {id: 2, name: "bob"}], "id") -> {"1": {id: 1, name: "alice"}, "2": {id: 2, name: "bob"}}''', description = "Index by id (string, legacy)" },
+    { code = '''index_by([{t: "a", v: 1}, {t: "a", v: 2}], &t) -> {"a": {t: "a", v: 2}}''', description = "Last value wins for duplicates" },
+    { code = '''index_by([], &id) -> {}''', description = "Empty array returns empty object" },
 ]
 features = ["core"]
 
@@ -408,12 +409,13 @@ features = ["core"]
 [[functions]]
 name = "partition_by"
 category = "array"
-description = "Split array into partitions when field value changes (preserves order unlike group_by)"
-signature = "array, string -> array"
+description = "Split array into partitions when expression or field value changes (preserves order unlike group_by)"
+signature = "array, expression|string -> array"
 examples = [
-    { code = '''partition_by([{t: "a"}, {t: "a"}, {t: "b"}, {t: "a"}], "t") -> [[{t: "a"}, {t: "a"}], [{t: "b"}], [{t: "a"}]]''', description = "Split on field change" },
-    { code = '''partition_by([{status: "ok"}, {status: "ok"}, {status: "err"}], "status") -> [[...ok...], [...err...]]''', description = "Group consecutive statuses" },
-    { code = '''partition_by([], "type") -> []''', description = "Empty array returns empty" },
+    { code = '''partition_by([{t: "a"}, {t: "a"}, {t: "b"}, {t: "a"}], &t) -> [[{t: "a"}, {t: "a"}], [{t: "b"}], [{t: "a"}]]''', description = "Split on field change (expref)" },
+    { code = '''partition_by([{t: "a"}, {t: "a"}, {t: "b"}, {t: "a"}], "t") -> [[{t: "a"}, {t: "a"}], [{t: "b"}], [{t: "a"}]]''', description = "Split on field change (string, legacy)" },
+    { code = '''partition_by([1, 1, 2, 2, 1], &@ > `1`) -> [[1, 1], [2, 2], [1]]''', description = "Partition by condition" },
+    { code = '''partition_by([], &type) -> []''', description = "Empty array returns empty" },
 ]
 features = ["core"]
 
@@ -1444,13 +1446,12 @@ features = ["core", "fp"]
 [[functions]]
 name = "group_by_expr"
 category = "expression"
-description = "Group elements into object keyed by expression result"
-signature = "array, expression -> object"
+description = "Group elements into object keyed by expression result (legacy alias, prefer group_by(array, &expr))"
+signature = "expression, array -> object"
 examples = [
-    { code = "group_by_expr([{t: 'a'}, {t: 'b'}], &t) -> {a: [...], b: [...]}", description = "Group by field" },
-    { code = "group_by_expr([1, 2, 3, 4], &@ > `2`) -> {true: [3, 4], false: [1, 2]}", description = "Group by condition" },
-    { code = "group_by_expr(users, &department) -> {eng: [...], sales: [...]}", description = "Group users" },
-    { code = "group_by_expr([], &@) -> {}", description = "Empty array" },
+    { code = "group_by_expr(&t, [{t: 'a'}, {t: 'b'}]) -> {a: [...], b: [...]}", description = "Group by field" },
+    { code = "group_by_expr(&@ > `2`, [1, 2, 3, 4]) -> {true: [3, 4], false: [1, 2]}", description = "Group by condition" },
+    { code = "group_by_expr(&@, []) -> {}", description = "Empty array" },
 ]
 features = ["core"]
 

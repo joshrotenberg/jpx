@@ -4,10 +4,54 @@ use std::collections::HashSet;
 
 use serde_json::{Number, Value};
 
+use crate::ast::Ast;
 use crate::functions::{Function, custom_error};
-use crate::interpreter::SearchResult;
+use crate::interpreter::{SearchResult, interpret};
 use crate::registry::register_if_enabled;
-use crate::{Context, Runtime, arg, defn};
+use crate::{Context, Runtime, arg, defn, get_expref_id};
+
+/// Helper to extract an expref AST from a function argument.
+fn get_expref_ast<'a>(value: &Value, ctx: &'a Context<'_>) -> Option<&'a Ast> {
+    get_expref_id(value).and_then(|id| ctx.get_expref(id))
+}
+
+/// Convert a Value to a string key for grouping/indexing.
+fn value_to_key(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Null => "null".to_string(),
+        _ => serde_json::to_string(value).unwrap_or_default(),
+    }
+}
+
+/// Extract a key from an item using either an expref or a string field name.
+/// Returns `None` if the item is not an object (for string field mode) or the
+/// field is missing and we should skip the item.
+fn extract_key(
+    item: &Value,
+    second_arg: &Value,
+    ctx: &mut Context<'_>,
+) -> Result<Option<String>, crate::error::JmespathError> {
+    if let Some(ast) = get_expref_ast(second_arg, ctx) {
+        let ast = ast.clone();
+        let key_val = interpret(item, &ast, ctx)?;
+        Ok(Some(value_to_key(&key_val)))
+    } else if let Some(field_name) = second_arg.as_str() {
+        if let Some(obj) = item.as_object() {
+            if let Some(field_value) = obj.get(field_name) {
+                Ok(Some(value_to_key(field_value)))
+            } else {
+                Ok(None) // field missing
+            }
+        } else {
+            Ok(None) // not an object
+        }
+    } else {
+        Err(custom_error(ctx, "Expected expref or string field name"))
+    }
+}
 
 /// Register only the array functions that are in the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
@@ -524,10 +568,10 @@ impl Function for LastFn {
 }
 
 // =============================================================================
-// group_by(array, field_name) -> object
+// group_by(array, &expr | field_name) -> object
 // =============================================================================
 
-defn!(GroupByFn, vec![arg!(array), arg!(string)], None);
+defn!(GroupByFn, vec![arg!(array), arg!(expref | string)], None);
 
 impl Function for GroupByFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
@@ -537,35 +581,26 @@ impl Function for GroupByFn {
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let field_name = args[1]
-            .as_str()
-            .ok_or_else(|| custom_error(ctx, "Expected field name string"))?;
-
-        let mut groups: std::collections::BTreeMap<String, Vec<Value>> =
-            std::collections::BTreeMap::new();
+        let mut group_keys: Vec<String> = Vec::new();
+        let mut group_map: std::collections::HashMap<String, Vec<Value>> =
+            std::collections::HashMap::new();
 
         for item in arr {
-            let key = if let Some(obj) = item.as_object() {
-                if let Some(field_value) = obj.get(field_name) {
-                    match field_value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        Value::Null => "null".to_string(),
-                        _ => continue,
-                    }
-                } else {
-                    "null".to_string()
-                }
-            } else {
-                continue;
+            let key = match extract_key(item, &args[1], ctx)? {
+                Some(k) => k,
+                None => "null".to_string(),
             };
-            groups.entry(key).or_default().push(item.clone());
+            if !group_map.contains_key(&key) {
+                group_keys.push(key.clone());
+            }
+            group_map.entry(key).or_default().push(item.clone());
         }
 
         let mut result = serde_json::Map::new();
-        for (k, v) in groups {
-            result.insert(k, Value::Array(v));
+        for key in group_keys {
+            if let Some(items) = group_map.remove(&key) {
+                result.insert(key, Value::Array(items));
+            }
         }
 
         Ok(Value::Object(result))
@@ -573,10 +608,10 @@ impl Function for GroupByFn {
 }
 
 // =============================================================================
-// index_by(array, field_name) -> object (last value wins for duplicates)
+// index_by(array, &expr | field_name) -> object (last value wins for duplicates)
 // =============================================================================
 
-defn!(IndexByFn, vec![arg!(array), arg!(string)], None);
+defn!(IndexByFn, vec![arg!(array), arg!(expref | string)], None);
 
 impl Function for IndexByFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
@@ -586,28 +621,12 @@ impl Function for IndexByFn {
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let field_name = args[1]
-            .as_str()
-            .ok_or_else(|| custom_error(ctx, "Expected field name string"))?;
-
         let mut result = serde_json::Map::new();
 
         for item in arr {
-            let key = if let Some(obj) = item.as_object() {
-                if let Some(field_value) = obj.get(field_name) {
-                    match field_value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        Value::Null => "null".to_string(),
-                        _ => continue,
-                    }
-                } else {
-                    // Skip items without the key field
-                    continue;
-                }
-            } else {
-                continue;
+            let key = match extract_key(item, &args[1], ctx)? {
+                Some(k) => k,
+                None => continue, // skip items without the key
             };
             // Last value wins for duplicate keys
             result.insert(key, item.clone());
@@ -1146,10 +1165,14 @@ impl Function for ZipmapFn {
 }
 
 // =============================================================================
-// partition_by(array, field_name) -> array (split when field value changes)
+// partition_by(array, &expr | field_name) -> array (split when value changes)
 // =============================================================================
 
-defn!(PartitionByFn, vec![arg!(array), arg!(string)], None);
+defn!(
+    PartitionByFn,
+    vec![arg!(array), arg!(expref | string)],
+    None
+);
 
 impl Function for PartitionByFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
@@ -1159,29 +1182,36 @@ impl Function for PartitionByFn {
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let field_name = args[1]
-            .as_str()
-            .ok_or_else(|| custom_error(ctx, "Expected field name string"))?;
-
         if arr.is_empty() {
             return Ok(Value::Array(vec![]));
         }
+
+        let is_expref = get_expref_ast(&args[1], ctx).is_some();
 
         let mut result: Vec<Value> = Vec::new();
         let mut current_partition: Vec<Value> = Vec::new();
         let mut last_key: Option<String> = None;
 
         for item in arr {
-            // Extract key from object field, or serialize the item itself for primitives
-            let key = if let Some(obj) = item.as_object() {
-                if let Some(field_value) = obj.get(field_name) {
-                    serde_json::to_string(field_value).unwrap_or_default()
+            let key = if is_expref {
+                // expref mode: evaluate the expression against each item
+                match extract_key(item, &args[1], ctx)? {
+                    Some(k) => k,
+                    None => "null".to_string(),
+                }
+            } else if let Some(field_name) = args[1].as_str() {
+                // string field mode: extract field, or serialize the item for primitives
+                if let Some(obj) = item.as_object() {
+                    if let Some(field_value) = obj.get(field_name) {
+                        serde_json::to_string(field_value).unwrap_or_default()
+                    } else {
+                        "null".to_string()
+                    }
                 } else {
-                    "null".to_string()
+                    serde_json::to_string(item).unwrap_or_default()
                 }
             } else {
-                // For non-objects, use the value itself as the key
-                serde_json::to_string(item).unwrap_or_default()
+                return Err(custom_error(ctx, "Expected expref or string field name"));
             };
 
             match &last_key {
