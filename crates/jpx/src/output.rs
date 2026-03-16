@@ -288,7 +288,7 @@ fn flatten_value_recursive(
 }
 
 /// Convert a JSON value to a CSV cell string
-fn value_to_cell(value: &serde_json::Value) -> String {
+pub(crate) fn value_to_cell(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::Null => String::new(),
         serde_json::Value::Bool(b) => b.to_string(),

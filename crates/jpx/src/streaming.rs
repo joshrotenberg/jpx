@@ -1,9 +1,83 @@
 use crate::args::Args;
 use crate::input;
+use crate::output::{collect_flattened_keys, flatten_object, value_to_cell};
 use anyhow::{Context, Result};
 use jpx_engine::Runtime;
 use serde_json::Value;
 use std::io::{self, BufRead, BufWriter, Write};
+
+/// Streaming delimited output state -- tracks headers derived from the first result.
+struct DelimitedState {
+    headers: Vec<String>,
+    header_written: bool,
+    delimiter: u8,
+}
+
+impl DelimitedState {
+    fn new(delimiter: u8) -> Self {
+        Self {
+            headers: Vec::new(),
+            header_written: false,
+            delimiter,
+        }
+    }
+
+    /// Write the header row and/or a data row for the given value.
+    /// Returns Ok(true) if the value was written, Ok(false) if skipped (non-object primitive).
+    fn write_row(&mut self, value: &Value, writer: &mut impl Write) -> Result<bool> {
+        match value {
+            Value::Object(obj) => {
+                if !self.header_written {
+                    // Derive headers from first object
+                    let mut seen = std::collections::HashSet::new();
+                    collect_flattened_keys(obj, "", &mut self.headers, &mut seen);
+
+                    // Write header row
+                    let mut wtr = csv::WriterBuilder::new()
+                        .delimiter(self.delimiter)
+                        .from_writer(Vec::new());
+                    wtr.write_record(&self.headers)?;
+                    writer.write_all(&wtr.into_inner()?)?;
+                    self.header_written = true;
+                }
+
+                // Write data row
+                let flattened = flatten_object(value);
+                let cells: Vec<String> = self
+                    .headers
+                    .iter()
+                    .map(|key| flattened.get(key).map(value_to_cell).unwrap_or_default())
+                    .collect();
+
+                let mut wtr = csv::WriterBuilder::new()
+                    .delimiter(self.delimiter)
+                    .from_writer(Vec::new());
+                wtr.write_record(&cells)?;
+                writer.write_all(&wtr.into_inner()?)?;
+                Ok(true)
+            }
+            _ => {
+                // Non-object: write as single-column value
+                if !self.header_written {
+                    let mut wtr = csv::WriterBuilder::new()
+                        .delimiter(self.delimiter)
+                        .from_writer(Vec::new());
+                    wtr.write_record(["value"])?;
+                    writer.write_all(&wtr.into_inner()?)?;
+                    self.header_written = true;
+                    self.headers = vec!["value".to_string()];
+                }
+
+                let mut wtr = csv::WriterBuilder::new()
+                    .delimiter(self.delimiter)
+                    .from_writer(Vec::new());
+                wtr.write_record([&value_to_cell(value)])?;
+                writer.write_all(&wtr.into_inner()?)?;
+                Ok(true)
+            }
+        }
+    }
+}
 
 /// Run streaming mode - process input line by line (NDJSON/JSON Lines).
 /// Returns whether any truthy (non-null, non-false) result was produced.
@@ -39,6 +113,15 @@ pub(crate) fn run_streaming(
     let raw = args.raw;
     let mut line_count = 0u64;
     let mut had_truthy = false;
+
+    // Set up delimited output state if CSV/TSV requested
+    let mut delimited = if args.csv_output {
+        Some(DelimitedState::new(b','))
+    } else if args.tsv_output {
+        Some(DelimitedState::new(b'\t'))
+    } else {
+        None
+    };
 
     for line in input.lines() {
         let line = line.context("Failed to read line")?;
@@ -90,21 +173,28 @@ pub(crate) fn run_streaming(
             continue;
         }
 
-        let output = if args.join_output || raw {
-            if let Some(s) = result.as_str() {
-                s.to_string()
+        if let Some(ref mut state) = delimited {
+            // CSV/TSV streaming output
+            state.write_row(&result, &mut writer)?;
+        } else {
+            // Default JSON streaming output
+            let output = if args.join_output || raw {
+                if let Some(s) = result.as_str() {
+                    s.to_string()
+                } else {
+                    serde_json::to_string(&result)?
+                }
             } else {
                 serde_json::to_string(&result)?
-            }
-        } else {
-            serde_json::to_string(&result)?
-        };
+            };
 
-        if args.join_output {
-            write!(writer, "{}", output)?;
-        } else {
-            writeln!(writer, "{}", output)?;
+            if args.join_output {
+                write!(writer, "{}", output)?;
+            } else {
+                writeln!(writer, "{}", output)?;
+            }
         }
+
         if args.unbuffered {
             writer.flush()?;
         }
