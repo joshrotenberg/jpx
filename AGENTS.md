@@ -2,6 +2,19 @@
 
 Instructions for AI coding agents working on the jpx project.
 
+## Agent Skills
+
+This project includes [Agent Skills](https://agentskills.io/) in the `skills/` directory for in-depth guidance on specific topics:
+
+| Skill | When to use |
+|-------|-------------|
+| [`jmespath-query`](skills/jmespath-query/SKILL.md) | Writing JMESPath expressions (syntax, patterns, built-in functions) |
+| [`jpx-functions`](skills/jpx-functions/SKILL.md) | Using the 400+ extension functions (signatures, categories, examples) |
+| [`jpx-cli`](skills/jpx-cli/SKILL.md) | Using the jpx CLI (output formats, streaming, pipelines, REPL) |
+| [`jpx-mcp`](skills/jpx-mcp/SKILL.md) | Using the jpx MCP server (32 tools, discovery, query store) |
+
+Each skill has a SKILL.md overview and a `references/` directory with detailed docs loaded on demand.
+
 ## Project overview
 
 jpx is a JMESPath CLI and toolchain with 400+ extension functions — a `jq` alternative.
@@ -14,7 +27,7 @@ Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
 | `jpx` | `crates/jpx/` | CLI with REPL, streaming, multiple output formats (JSON, YAML, CSV, TSV, table) |
 | `jpx-core` | `crates/jpx-core/` | From-scratch JMESPath parser and interpreter, 425 functions across 32 categories |
 | `jpx-engine` | `crates/jpx-engine/` | Query engine, introspection, BM25 discovery index, config |
-| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (29 tools) built on `tower-mcp` |
+| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (32 tools) built on `tower-mcp` |
 | `python` | `python/` | Python bindings via PyO3 (`jmespath-extensions` on PyPI) |
 
 ## Build and test
@@ -84,13 +97,14 @@ items[?status == `"active"`]       — string comparison (backtick + JSON string
 items[?enabled == `true`]          — boolean comparison
 ```
 
-### Expref (&) vs string key
+### Expref (&) arguments
 
-Some functions take an expref (`&field`), others take a string key (`'field'`):
+Functions that key on a field use expression references, matching the JMESPath spec:
 
 ```
 sort_by(arr, &name)       — expref (standard JMESPath)
-group_by(arr, 'name')     — string key (jpx extension)
+group_by(arr, &name)      — expref (preferred)
+group_by(arr, 'name')     — string key (legacy, still works)
 ```
 
 Check function signatures with `jpx --describe <function>` or the MCP `describe` tool.
@@ -161,7 +175,7 @@ Always use `describe` to check a function's exact signature before using it.
 
 ## MCP server tools
 
-The MCP server exposes 29 tools. Key patterns:
+The MCP server exposes 32 tools. Key patterns:
 
 - **`evaluate`** / **`evaluate_file`** — run a JMESPath expression against JSON input or a file
 - **`batch_evaluate`** — run multiple expressions against the same input
