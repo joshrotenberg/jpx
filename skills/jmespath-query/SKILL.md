@@ -275,4 +275,4 @@ length([?status != 'ok']) == `0`        -- all ok?
 
 ## Extended Functions
 
-jpx extends JMESPath with 400+ additional functions for strings, math, dates, hashing, encoding, regex, and more. See the [jpx-functions skill](../jpx-functions/SKILL.md) for details.
+jpx extends JMESPath with 460+ additional functions for strings, math, dates, hashing, encoding, regex, and more. See the [jpx-functions skill](../jpx-functions/SKILL.md) for details.
