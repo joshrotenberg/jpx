@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.3...jpx-v0.4.4) - 2026-03-16
+
+### Added
+
+- support CSV/TSV output in streaming mode ([#176](https://github.com/joshrotenberg/jpx/pull/176))
+
 ## [0.4.3](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.2...jpx-v0.4.3) - 2026-02-28
 
 ### Added

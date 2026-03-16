@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.1...jpx-core-v0.2.2) - 2026-03-16
+
+### Added
+
+- unify group_by, index_by, partition_by to accept exprefs ([#175](https://github.com/joshrotenberg/jpx/pull/175))
+
 ## [0.2.1](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.0...jpx-core-v0.2.1) - 2026-02-28
 
 ### Fixed
