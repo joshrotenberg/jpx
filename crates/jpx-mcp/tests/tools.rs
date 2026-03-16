@@ -1179,7 +1179,7 @@ async fn test_suggest_respects_limit() {
 
     assert!(!result.is_error);
     let text = result.first_text().unwrap();
-    let parsed: Vec<serde_json::Value> = serde_json::from_str(&text).unwrap();
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(text).unwrap();
     assert!(
         parsed.len() <= 2,
         "should respect limit: got {}",
