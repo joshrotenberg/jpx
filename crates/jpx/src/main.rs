@@ -8,6 +8,7 @@ mod output;
 mod repl;
 mod stats;
 mod streaming;
+mod util;
 
 use args::{Args, ColorMode, ConfigDefaults};
 use jpx::query_library::{self, LoadResult};

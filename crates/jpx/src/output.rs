@@ -482,12 +482,8 @@ fn value_to_table_cell(value: &serde_json::Value, use_color: bool) -> String {
             }
         }
         serde_json::Value::String(s) => {
-            // Truncate long strings
-            if s.len() <= 40 {
-                s.clone()
-            } else {
-                format!("{}...", &s[..37])
-            }
+            // Truncate long strings (character-safe).
+            crate::util::truncate_str(s, 40)
         }
         serde_json::Value::Array(arr) => {
             if use_color {

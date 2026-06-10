@@ -2,6 +2,8 @@ use anyhow::Result;
 use colored::Colorize;
 use jpx_engine::{Category, FunctionInfo, FunctionRegistry};
 
+use crate::util::truncate_str;
+
 pub(crate) fn print_functions(registry: &FunctionRegistry) {
     println!(
         "{}\n",
@@ -569,13 +571,4 @@ fn extract_keywords(description: &str) -> Vec<String> {
         .filter(|w| w.len() > 3 && !stopwords.contains(w))
         .map(|s| s.to_string())
         .collect()
-}
-
-/// Truncate a string to max length with ellipsis
-fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len - 3])
-    }
 }

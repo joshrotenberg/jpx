@@ -238,6 +238,12 @@ impl Function for ColorComplementFn {
 fn parse_hex_color(hex: &str) -> Option<(u8, u8, u8)> {
     let hex = hex.trim().trim_start_matches('#');
 
+    // Hex digits are ASCII; rejecting non-ASCII input up front keeps the
+    // byte-index slicing below safe (for ASCII, byte length == char length).
+    if !hex.is_ascii() {
+        return None;
+    }
+
     match hex.len() {
         3 => {
             let r = u8::from_str_radix(&hex[0..1], 16).ok()?;
@@ -380,6 +386,16 @@ mod tests {
         assert_eq!(parse_hex_color("#000000"), Some((0, 0, 0)));
         assert_eq!(parse_hex_color("#ffffff"), Some((255, 255, 255)));
         assert_eq!(parse_hex_color("invalid"), None);
+    }
+
+    #[test]
+    fn test_parse_hex_color_multibyte_does_not_panic() {
+        // Non-ASCII strings whose byte length happens to be 3 or 6 previously
+        // sliced through a multibyte code point and panicked; they must now
+        // return None.
+        assert_eq!(parse_hex_color("é2"), None); // 3 bytes, 2 chars
+        assert_eq!(parse_hex_color("ééé"), None); // 6 bytes, 3 chars
+        assert_eq!(parse_hex_color("#é2"), None);
     }
 
     #[test]
