@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     // Load engine config (jpx.toml discovery) and merge CLI flags
     let mut engine_config = jpx_engine::config::EngineConfig::discover().unwrap_or_default();
     if args.strict {
-        engine_config.engine.strict = true;
+        engine_config.engine.strict = Some(true);
     }
 
     // Build the router
