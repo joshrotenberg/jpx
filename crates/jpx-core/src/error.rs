@@ -41,12 +41,16 @@ impl JmespathError {
             + 1
     }
 
-    /// Returns the column number of the error (0-indexed).
+    /// Returns the column number of the error (0-indexed, in characters).
+    ///
+    /// `offset` is a byte position, so the column is counted in characters
+    /// since the last newline -- a byte count would misalign the `^` caret in
+    /// [`Display`](Self) for expressions containing multibyte characters.
     pub fn column(&self) -> usize {
         let before = &self.expression[..self.offset.min(self.expression.len())];
         match before.rfind('\n') {
-            Some(pos) => self.offset - pos - 1,
-            None => self.offset,
+            Some(pos) => before[pos + 1..].chars().count(),
+            None => before.chars().count(),
         }
     }
 }
@@ -165,8 +169,16 @@ mod tests {
         let err = JmespathError::new("foo", 100, ErrorReason::Parse("test".into()));
         // line() clamps to expression length, so still line 1
         assert_eq!(err.line(), 1);
-        // column() returns the raw offset when no newline is found
-        assert_eq!(err.column(), 100);
+        // column() clamps to the expression and counts characters (3 for "foo")
+        assert_eq!(err.column(), 3);
+    }
+
+    #[test]
+    fn column_counts_characters_not_bytes() {
+        // "ä.x": 'ä' is 2 bytes, so the byte offset of 'x' is 3 but its column
+        // (in characters, for caret alignment) is 2.
+        let err = JmespathError::new("ä.x", 3, ErrorReason::Parse("test".into()));
+        assert_eq!(err.column(), 2);
     }
 
     #[test]
