@@ -15,6 +15,14 @@ pub(crate) fn truncate_str(s: &str, max_chars: usize) -> String {
     }
 }
 
+/// Whether stdout is connected to a terminal.
+///
+/// Uses the std library's `IsTerminal` (stable since Rust 1.70) rather than the
+/// unmaintained, unsound `atty` crate.
+pub(crate) fn stdout_is_terminal() -> bool {
+    std::io::IsTerminal::is_terminal(&std::io::stdout())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

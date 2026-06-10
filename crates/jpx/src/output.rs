@@ -52,7 +52,7 @@ pub(crate) fn output_json(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     if compact {
@@ -315,7 +315,7 @@ pub(crate) fn output_as_table(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => output_path.is_none() && atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => output_path.is_none() && crate::util::stdout_is_terminal(),
     };
 
     match value {

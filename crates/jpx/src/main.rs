@@ -417,7 +417,7 @@ fn run() -> Result<i32> {
     let should_colorize = match args.color {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => args.output.is_none() && atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => args.output.is_none() && crate::util::stdout_is_terminal(),
     };
 
     // Determine indent string
