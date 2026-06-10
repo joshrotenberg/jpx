@@ -298,6 +298,26 @@ fn error_result(message: impl Into<String>) -> CallToolResult {
     CallToolResult::error(message)
 }
 
+/// Maximum byte length accepted for an inline JSON argument. Mirrors the 50 MiB
+/// cap already enforced for `evaluate_file`, so the inline-JSON tools cannot be
+/// used to drive unbounded memory use from a single request.
+const MAX_INLINE_JSON_BYTES: usize = 50 * 1024 * 1024;
+/// Maximum number of expressions accepted by `batch_evaluate` in one call.
+const MAX_BATCH_EXPRESSIONS: usize = 1000;
+/// Upper bound applied to client-provided result counts (`limit` / `top_k`).
+const MAX_RESULT_LIMIT: usize = 1000;
+
+/// Rejects an inline JSON argument that exceeds [`MAX_INLINE_JSON_BYTES`].
+fn ensure_json_size(label: &str, s: &str) -> Result<(), Error> {
+    if s.len() > MAX_INLINE_JSON_BYTES {
+        return Err(Error::tool(format!(
+            "{label} exceeds the maximum size of {MAX_INLINE_JSON_BYTES} bytes ({} given)",
+            s.len()
+        )));
+    }
+    Ok(())
+}
+
 /// Strip natural-language filler from a task description to extract search terms.
 fn clean_task_description(task: &str) -> String {
     let prefixes: &[&str] = &[
@@ -371,6 +391,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: EvaluateParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 match engine.evaluate_str(&params.expression, &params.input) {
                     Ok(result) => json_result(&result),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -472,6 +493,13 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: BatchEvaluateParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
+                if params.expressions.len() > MAX_BATCH_EXPRESSIONS {
+                    return Err(Error::tool(format!(
+                        "too many expressions: {} (maximum {MAX_BATCH_EXPRESSIONS})",
+                        params.expressions.len()
+                    )));
+                }
                 let input: Value = serde_json::from_str(&params.input)
                     .map_err(|e| Error::tool(format!("Invalid JSON: {}", e)))?;
                 let result = engine.batch_evaluate(&params.expressions, &input);
@@ -489,6 +517,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: FormatParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 match engine.format_json(&params.input, params.indent) {
                     Ok(formatted) => Ok(text_result(formatted)),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -506,6 +535,8 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: DiffParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("source", &params.source)?;
+                ensure_json_size("target", &params.target)?;
                 match engine.diff(&params.source, &params.target) {
                     Ok(patch) => json_result(&patch),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -522,6 +553,8 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: PatchParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
+                ensure_json_size("patch", &params.patch)?;
                 match engine.patch(&params.input, &params.patch) {
                     Ok(result) => json_result(&result),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -538,6 +571,8 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: MergeParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
+                ensure_json_size("patch", &params.patch)?;
                 match engine.merge(&params.input, &params.patch) {
                     Ok(result) => json_result(&result),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -555,6 +590,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: KeysParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 match engine.keys(&params.input, params.recursive) {
                     Ok(keys) => json_result(&keys),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -624,7 +660,8 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: SearchParams| {
             let engine = e.clone();
             async move {
-                let results = engine.search_functions(&params.query, params.limit);
+                let results =
+                    engine.search_functions(&params.query, params.limit.min(MAX_RESULT_LIMIT));
                 json_result(&results)
             }
         })
@@ -672,7 +709,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                     ));
                 }
 
-                let results = engine.search_functions(&query, params.limit);
+                let results = engine.search_functions(&query, params.limit.min(MAX_RESULT_LIMIT));
                 let suggestions: Vec<Suggestion> = results
                     .into_iter()
                     .map(|r| Suggestion {
@@ -698,6 +735,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: StatsParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 match engine.stats(&params.input) {
                     Ok(stats) => json_result(&stats),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -715,6 +753,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: PathsParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 match engine.paths(&params.input, params.include_types, params.include_values) {
                     Ok(paths) => json_result(&paths),
                     Err(e) => Err(Error::tool(e.to_string())),
@@ -804,7 +843,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: QueryToolsParams| {
             let engine = e.clone();
             async move {
-                match engine.query_tools(&params.query, params.top_k) {
+                match engine.query_tools(&params.query, params.top_k.min(MAX_RESULT_LIMIT)) {
                     Ok(results) => json_result(&results),
                     Err(e) => Err(Error::tool(e.to_string())),
                 }
@@ -821,7 +860,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: SimilarToolsParams| {
             let engine = e.clone();
             async move {
-                match engine.similar_tools(&params.tool_id, params.top_k) {
+                match engine.similar_tools(&params.tool_id, params.top_k.min(MAX_RESULT_LIMIT)) {
                     Ok(results) => json_result(&results),
                     Err(e) => Err(Error::tool(e.to_string())),
                 }
@@ -893,7 +932,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let define_query = ToolBuilder::new("define_query")
         .title("Define Query")
-        .description("Store a named JMESPath query for reuse during this session. Useful for building and refining complex queries iteratively. The query is validated before storing.")
+        .description("Store a named JMESPath query for reuse. Useful for building and refining complex queries iteratively. The query is validated before storing. Note: the query store is shared across all clients of this server, not isolated per session.")
         .handler(move |params: DefineQueryParams| {
             let engine = e.clone();
             async move {
@@ -956,7 +995,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let list_queries = ToolBuilder::new("list_queries")
         .title("List Queries")
-        .description("List all named queries stored in this session. Shows query names, expressions, and descriptions.")
+        .description("List all named queries stored on this server (shared across all clients, not isolated per session). Shows query names, expressions, and descriptions.")
         .read_only()
         .handler(move |_params: EmptyParams| {
             let engine = e.clone();
@@ -978,6 +1017,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .handler(move |params: RunQueryParams| {
             let engine = e.clone();
             async move {
+                ensure_json_size("input", &params.input)?;
                 let input: Value = serde_json::from_str(&params.input)
                     .map_err(|e| Error::tool(format!("Invalid JSON: {}", e)))?;
 

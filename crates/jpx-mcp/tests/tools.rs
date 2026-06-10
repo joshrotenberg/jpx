@@ -1186,3 +1186,32 @@ async fn test_suggest_respects_limit() {
         parsed.len()
     );
 }
+
+// =============================================================================
+// Resource limits (#191)
+// =============================================================================
+
+#[tokio::test]
+async fn test_batch_evaluate_rejects_too_many_expressions() {
+    let mut client = create_client().await;
+    let exprs: Vec<String> = (0..1001).map(|_| "@".to_string()).collect();
+    let result = client
+        .call_tool_expect_error(
+            "batch_evaluate",
+            json!({ "input": "{}", "expressions": exprs }),
+        )
+        .await;
+    assert!(result.get("code").is_some() || result.get("isError").is_some());
+}
+
+#[tokio::test]
+async fn test_batch_evaluate_within_limit_ok() {
+    let mut client = create_client().await;
+    let result = client
+        .call_tool(
+            "batch_evaluate",
+            json!({ "input": r#"{"a":1}"#, "expressions": ["a", "@"] }),
+        )
+        .await;
+    assert!(!result.is_error);
+}
