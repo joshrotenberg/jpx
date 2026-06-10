@@ -19,11 +19,21 @@ pub fn parse(expr: &str) -> ParseResult {
 /// The maximum binding power for a token that can stop a projection.
 const PROJECTION_STOP: usize = 10;
 
+/// Maximum expression nesting depth accepted by the parser.
+///
+/// Every nested sub-expression enters through [`Parser::nud`] exactly once, so
+/// bounding `nud` recursion here prevents deeply nested input (e.g. `!!!...`,
+/// `(((...)))`, nested filters or function arguments) from overflowing the
+/// stack and aborting the process. Kept in step with the interpreter's
+/// `MAX_EVAL_DEPTH`; far above any realistic expression.
+const MAX_PARSE_DEPTH: usize = 128;
+
 struct Parser<'a> {
     tokens: Vec<TokenTuple<'a>>,
     cursor: usize,
     expr: &'a str,
     offset: usize,
+    depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -33,6 +43,7 @@ impl<'a> Parser<'a> {
             cursor: 0,
             expr,
             offset: 0,
+            depth: 0,
         }
     }
 
@@ -83,13 +94,43 @@ impl<'a> Parser<'a> {
 
     fn expr(&mut self, rbp: usize) -> ParseResult {
         let mut left = self.nud();
+        // Bound the left-associative chain length (e.g. `a.a.a...`, `a|a|a...`).
+        // Such chains are built iteratively here without deep recursion, so
+        // `nud`'s depth guard does not catch them, yet they produce a deeply
+        // nested AST that would overflow any recursive AST walker (the
+        // interpreter, `explain`, drop). Rejecting them here keeps every
+        // downstream consumer safe.
+        let mut chain = 0usize;
         while rbp < self.peek(0).lbp() {
+            chain += 1;
+            if chain > MAX_PARSE_DEPTH {
+                return Err(self.err(
+                    self.peek(0),
+                    &format!("Expression nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"),
+                    true,
+                ));
+            }
             left = self.led(Box::new(left?));
         }
         left
     }
 
     fn nud(&mut self) -> ParseResult {
+        self.depth += 1;
+        if self.depth > MAX_PARSE_DEPTH {
+            self.depth -= 1;
+            return Err(self.err(
+                self.peek(0),
+                &format!("Expression nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"),
+                true,
+            ));
+        }
+        let result = self.nud_inner();
+        self.depth -= 1;
+        result
+    }
+
+    fn nud_inner(&mut self) -> ParseResult {
         let (offset, token) = self.advance_with_pos();
         match token {
             Token::At => Ok(Ast::Identity { offset }),
@@ -304,6 +345,7 @@ impl<'a> Parser<'a> {
     #[cfg(feature = "let-expr")]
     fn parse_let_binding_expr_bp(&mut self, rbp: usize) -> ParseResult {
         let mut left = self.nud();
+        let mut chain = 0usize;
         loop {
             match self.peek(0) {
                 Token::Comma => break,
@@ -312,6 +354,14 @@ impl<'a> Parser<'a> {
             }
             if rbp >= self.peek(0).lbp() {
                 break;
+            }
+            chain += 1;
+            if chain > MAX_PARSE_DEPTH {
+                return Err(self.err(
+                    self.peek(0),
+                    &format!("Expression nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"),
+                    true,
+                ));
             }
             left = self.led(Box::new(left?));
         }
@@ -800,6 +850,44 @@ mod tests {
     fn error_trailing_comma_in_list() {
         let result = parse("[a, b,]");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_on_excessive_not_nesting() {
+        // Deeply nested prefix operators (recursive descent) must return a
+        // parse error, not overflow the stack.
+        let expr = format!("{}a", "!".repeat(300));
+        let result = parse(&expr);
+        assert!(result.is_err(), "deep nesting should error, not abort");
+        let msg = format!("{}", result.unwrap_err());
+        assert!(msg.contains("nesting"), "unexpected message: {msg}");
+    }
+
+    #[test]
+    fn error_on_excessive_paren_nesting() {
+        let expr = format!("{}a{}", "(".repeat(500), ")".repeat(500));
+        assert!(parse(&expr).is_err());
+    }
+
+    #[test]
+    fn error_on_excessive_subexpr_chain() {
+        // A long left-associative chain is rejected at parse time so it can
+        // never build an AST deep enough to overflow a downstream walker
+        // (interpreter, explain, drop).
+        let expr = format!("a{}", ".a".repeat(300));
+        let result = parse(&expr);
+        assert!(
+            result.is_err(),
+            "deep chain should error, not build a deep AST"
+        );
+        let msg = format!("{}", result.unwrap_err());
+        assert!(msg.contains("nesting"), "unexpected message: {msg}");
+    }
+
+    #[test]
+    fn parse_nesting_within_limit_ok() {
+        assert!(parse(&format!("{}a", "!".repeat(100))).is_ok());
+        assert!(parse(&format!("a{}", ".a".repeat(100))).is_ok());
     }
 
     #[cfg(feature = "let-expr")]

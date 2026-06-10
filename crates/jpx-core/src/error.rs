@@ -117,6 +117,12 @@ pub enum RuntimeError {
         position: usize,
         invocation: usize,
     },
+    /// Expression nesting exceeded the maximum evaluation depth.
+    #[error("Recursion limit exceeded: maximum expression nesting depth is {limit}")]
+    RecursionLimitExceeded {
+        /// The maximum allowed nesting depth.
+        limit: usize,
+    },
 }
 
 #[cfg(test)]

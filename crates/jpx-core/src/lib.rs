@@ -139,6 +139,9 @@ pub struct Context<'a> {
     /// Side-channel table for expression references.
     /// Exprefs are stored here and referenced by index in sentinel values.
     pub(crate) expref_table: Vec<Ast>,
+    /// Current interpreter recursion depth, used to bound evaluation nesting
+    /// and prevent stack overflow on deeply nested ASTs.
+    pub(crate) eval_depth: usize,
     /// Variable scopes for let expressions (JEP-18).
     #[cfg(feature = "let-expr")]
     scopes: Vec<HashMap<String, Value>>,
@@ -153,6 +156,7 @@ impl<'a> Context<'a> {
             runtime,
             offset: 0,
             expref_table: Vec::new(),
+            eval_depth: 0,
             #[cfg(feature = "let-expr")]
             scopes: Vec::new(),
         }

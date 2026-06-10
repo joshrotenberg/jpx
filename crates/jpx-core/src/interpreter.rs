@@ -13,8 +13,37 @@ use crate::{ErrorReason, JmespathError, RuntimeError, make_expref_sentinel};
 /// Result of searching data using a JMESPath Expression.
 pub type SearchResult = Result<Value, JmespathError>;
 
+/// Maximum interpreter recursion depth.
+///
+/// Bounds evaluation nesting so that a deeply nested AST (e.g. a long
+/// left-associative `a.a.a...` chain, which the parser builds without deep
+/// recursion of its own) cannot overflow the stack and abort the process.
+///
+/// Chosen to stay safe even when the interpreter runs on a ~2 MiB stack (the
+/// default for tokio worker threads and the Rust test harness), where each
+/// recursive frame is large in debug builds. Still far above any realistic
+/// expression, whose AST nesting is in the low tens.
+const MAX_EVAL_DEPTH: usize = 128;
+
 /// Interprets the given data using an AST node.
+///
+/// Thin wrapper that bounds recursion depth via [`Context::eval_depth`];
+/// the actual interpretation happens in [`interpret_inner`].
 pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
+    ctx.eval_depth += 1;
+    if ctx.eval_depth > MAX_EVAL_DEPTH {
+        ctx.eval_depth -= 1;
+        let reason = ErrorReason::Runtime(RuntimeError::RecursionLimitExceeded {
+            limit: MAX_EVAL_DEPTH,
+        });
+        return Err(JmespathError::from_ctx(ctx, reason));
+    }
+    let result = interpret_inner(data, node, ctx);
+    ctx.eval_depth -= 1;
+    result
+}
+
+fn interpret_inner(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
     match node {
         Ast::Field { name, .. } => Ok(data.get_field(name)),
         Ast::Subexpr { lhs, rhs, .. } => {
@@ -394,5 +423,43 @@ mod tests {
     #[test]
     fn builtin_function_sort() {
         assert_eq!(search("sort(@)", &json!([3, 1, 2])), json!([1, 2, 3]));
+    }
+
+    #[test]
+    fn deep_ast_eval_errors_gracefully() {
+        // The parser rejects deeply nested input, so build a deep AST directly
+        // to exercise the interpreter's own defense-in-depth guard (which also
+        // protects API callers that construct an AST themselves). Run on a
+        // 2 MiB stack (a typical async worker-thread size): if the guard were
+        // too lax this thread would abort the whole test process instead of
+        // returning an error.
+        use crate::Runtime;
+        use crate::ast::Ast;
+        let msg = std::thread::Builder::new()
+            .stack_size(2 * 1024 * 1024)
+            .spawn(|| {
+                let mut ast = Ast::Identity { offset: 0 };
+                for _ in 0..400 {
+                    ast = Ast::Subexpr {
+                        offset: 0,
+                        lhs: Box::new(ast),
+                        rhs: Box::new(Ast::Identity { offset: 0 }),
+                    };
+                }
+                let rt = Runtime::strict();
+                let expr = crate::Expression::new("<deep>", ast, &rt);
+                format!("{}", expr.search(&json!({})).unwrap_err())
+            })
+            .unwrap()
+            .join()
+            .expect("deep evaluation must not overflow the stack");
+        assert!(msg.contains("Recursion limit"), "unexpected message: {msg}");
+    }
+
+    #[test]
+    fn moderate_ast_eval_ok() {
+        // Well within the depth limit: evaluates normally (null on empty object).
+        let expr = format!("a{}", ".a".repeat(50));
+        assert_eq!(search(&expr, &json!({})), json!(null));
     }
 }
