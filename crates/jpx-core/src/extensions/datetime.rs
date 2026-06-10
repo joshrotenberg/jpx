@@ -13,7 +13,8 @@ use crate::{Context, Runtime, arg, defn};
 
 /// Register datetime functions filtered by the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
-    register_if_enabled(runtime, "now", enabled, Box::new(NowFn::new()));
+    // `now` is owned by the utility category (see extensions/utility.rs), which
+    // provides the same Unix-seconds value plus an optional fallback argument.
     register_if_enabled(runtime, "now_millis", enabled, Box::new(NowMillisFn::new()));
     register_if_enabled(runtime, "parse_date", enabled, Box::new(ParseDateFn::new()));
     register_if_enabled(
@@ -114,17 +115,6 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(ParseNaturalDateFn::new()),
     );
-}
-
-// now() -> number
-defn!(NowFn, vec![], None);
-
-impl Function for NowFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let ts = Utc::now().timestamp();
-        Ok(number_value(ts as f64))
-    }
 }
 
 // now_millis() -> number
@@ -621,8 +611,12 @@ impl Function for FromEpochMsFn {
         self.signature.validate(args, ctx)?;
 
         let epoch_ms = args[0].as_f64().unwrap() as i64;
-        let seconds = epoch_ms / 1000;
-        let nanos = ((epoch_ms % 1000) * 1_000_000) as u32;
+        // Use Euclidean division/remainder so timestamps before the Unix epoch
+        // keep a sub-second remainder in [0, 999]. Plain `%` yields a negative
+        // remainder that wraps to a huge value when cast to `u32` nanoseconds,
+        // which `from_timestamp` then rejects (returning Null for valid input).
+        let seconds = epoch_ms.div_euclid(1000);
+        let nanos = (epoch_ms.rem_euclid(1000) * 1_000_000) as u32;
 
         match DateTime::from_timestamp(seconds, nanos) {
             Some(dt) => Ok(Value::String(
@@ -1595,6 +1589,17 @@ mod tests {
         let expr = runtime.compile("from_epoch_ms(`1702425600500`)").unwrap();
         let result = expr.search(&json!(null)).unwrap();
         assert_eq!(result.as_str().unwrap(), "2023-12-13T00:00:00.500Z");
+    }
+
+    #[test]
+    fn test_from_epoch_ms_negative() {
+        let runtime = setup_runtime();
+        // -500ms is 500ms before the Unix epoch: 1969-12-31T23:59:59.500Z.
+        // A naive `% 1000` would wrap the negative remainder when cast to u32
+        // and yield Null instead of the correct sub-second time.
+        let expr = runtime.compile("from_epoch_ms(`-500`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        assert_eq!(result.as_str().unwrap(), "1969-12-31T23:59:59.500Z");
     }
 
     #[test]

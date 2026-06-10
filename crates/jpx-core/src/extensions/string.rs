@@ -1491,13 +1491,19 @@ impl Function for MaskFn {
 }
 
 // =============================================================================
-// redact(string, pattern, replacement?) -> string
-// Replace all matches of a regex pattern with a replacement string
+// redact_pattern(string, pattern, replacement?) -> string
+// Replace all matches of a regex pattern with a replacement string.
+// Named `redact_pattern` to avoid colliding with the object-category `redact`,
+// which redacts named fields in a structure.
 // =============================================================================
 
-defn!(RedactFn, vec![arg!(string), arg!(string)], Some(arg!(any)));
+defn!(
+    RedactPatternFn,
+    vec![arg!(string), arg!(string)],
+    Some(arg!(any))
+);
 
-impl Function for RedactFn {
+impl Function for RedactPatternFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
         let s = args[0]
@@ -1877,7 +1883,12 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     // this custom-mask-character variant lives under a distinct name to avoid a
     // nondeterministic collision.
     register_if_enabled(runtime, "obscure", enabled, Box::new(MaskFn::new()));
-    register_if_enabled(runtime, "redact", enabled, Box::new(RedactFn::new()));
+    register_if_enabled(
+        runtime,
+        "redact_pattern",
+        enabled,
+        Box::new(RedactPatternFn::new()),
+    );
     register_if_enabled(
         runtime,
         "normalize_whitespace",

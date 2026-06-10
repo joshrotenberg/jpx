@@ -2,6 +2,19 @@
 
 Mathematical and statistical functions: arithmetic, rounding, statistics, and number formatting.
 
+## Non-numeric elements
+
+The statistical functions in this category -- `median`, `variance`, `stddev`,
+`percentile`, `quantile`, `quartiles`, `skew`, `kurtosis`, `mad`, `zscore`,
+`normalize`, `standardize`, `trend`, `trend_slope`, `rate_of_change`,
+`cumulative_sum`, `moving_avg`, `ewma`, `correlation`, `covariance`,
+`outliers_iqr`, `outliers_zscore`, and `histogram` -- operate on the numeric
+elements of their array argument and **silently ignore any non-numeric
+elements**. This is intentional and differs from the standard JMESPath `avg`
+and `sum` functions, which require every element to be a number and raise a
+type error otherwise. When no numeric elements remain, these functions return
+`null` (or an empty result for the element-wise functions).
+
 ## Summary
 
 | Function | Signature | Description |

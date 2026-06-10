@@ -26,7 +26,7 @@ Functions for string manipulation: case conversion, splitting, joining, padding,
 | [`normalize_whitespace`](#normalize-whitespace) | `string -> string` | Collapse multiple whitespace to single space |
 | [`pad_left`](#pad-left) | `string, number, string -> string` | Pad string on the left to reach target length |
 | [`pad_right`](#pad-right) | `string, number, string -> string` | Pad string on the right to reach target length |
-| [`redact`](#redact) | `string, string, string? -> string` | Redact regex pattern matches with replacement |
+| [`redact_pattern`](#redact_pattern) | `string, string, string? -> string` | Redact regex pattern matches with replacement |
 | [`repeat`](#repeat) | `string, number -> string` | Repeat a string n times |
 | [`shouty_kebab_case`](#shouty-kebab-case) | `string -> string` | Convert to SHOUTY-KEBAB-CASE |
 | [`shouty_snake_case`](#shouty-snake-case) | `string -> string` | Convert to SHOUTY_SNAKE_CASE |
@@ -521,7 +521,7 @@ pad_right('hello', `3`, '0') -> \"hello\"
 echo '{}' | jpx 'pad_right(`"5"`, `3`, `"0"`)'
 ```
 
-### redact
+### redact_pattern
 
 Redact regex pattern matches with replacement
 
@@ -531,17 +531,17 @@ Redact regex pattern matches with replacement
 
 ```text
 # Redact email
-redact('email: test@example.com', '\\S+@\\S+', '[EMAIL]') -> \"email: [EMAIL]\"
+redact_pattern('email: test@example.com', '\\S+@\\S+', '[EMAIL]') -> \"email: [EMAIL]\"
 # Redact phone
-redact('call 555-1234', '\\d{3}-\\d{4}', '[PHONE]') -> \"call [PHONE]\"
+redact_pattern('call 555-1234', '\\d{3}-\\d{4}', '[PHONE]') -> \"call [PHONE]\"
 # No matches
-redact('no match', 'xyz', '[X]') -> \"no match\"
+redact_pattern('no match', 'xyz', '[X]') -> \"no match\"
 ```
 
 **CLI Usage:**
 
 ```bash
-echo '{}' | jpx 'redact(`"email: test@example.com"`, `"\\S+@\\S+"`, `"[EMAIL]"`)'
+echo '{}' | jpx 'redact_pattern(`"email: test@example.com"`, `"\\S+@\\S+"`, `"[EMAIL]"`)'
 ```
 
 ### repeat
