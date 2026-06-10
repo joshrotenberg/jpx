@@ -9,6 +9,13 @@ use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
 
+/// Maximum decimal precision for `to_fixed`. An f64 carries ~17 significant
+/// digits, so anything beyond this is meaningless and only risks a huge
+/// allocation from a user-controlled precision (e.g. `to_fixed(`1`, `1e15`)`).
+const MAX_FLOAT_PRECISION: usize = 100;
+/// Maximum number of bins accepted by `histogram`, to bound allocation.
+const MAX_HISTOGRAM_BINS: usize = 1_000_000;
+
 /// Register only the math functions that are in the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "round", enabled, Box::new(RoundFn::new()));
@@ -664,7 +671,9 @@ impl Function for ToFixedFn {
         self.signature.validate(args, ctx)?;
 
         let num = args[0].as_f64().unwrap();
-        let precision = args[1].as_f64().unwrap() as usize;
+        // Clamp to a meaningful maximum -- f64 has ~17 significant digits, and a
+        // huge precision would otherwise allocate an enormous string.
+        let precision = (args[1].as_f64().unwrap() as usize).min(MAX_FLOAT_PRECISION);
 
         let result = format!("{:.prec$}", num, prec = precision);
         Ok(Value::String(result))
@@ -780,6 +789,13 @@ impl Function for HistogramFn {
         let arr = args[0].as_array().unwrap();
 
         let num_bins = args[1].as_f64().unwrap() as usize;
+
+        if num_bins > MAX_HISTOGRAM_BINS {
+            return Err(crate::functions::custom_error(
+                ctx,
+                "Number of bins exceeds the maximum allowed",
+            ));
+        }
 
         if num_bins == 0 {
             return Err(crate::functions::custom_error(
@@ -1578,6 +1594,25 @@ mod tests {
         let expr = runtime.compile("round(`3.14159`, `2`)").unwrap();
         let result = expr.search(&json!(null)).unwrap();
         assert!((result.as_f64().unwrap() - 3.14_f64).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_to_fixed_clamps_huge_precision() {
+        // A huge precision must be clamped rather than allocating a giant string.
+        let runtime = setup_runtime();
+        let expr = runtime.compile("to_fixed(`1`, `1000000000`)").unwrap();
+        let result = expr.search(&json!(null)).unwrap();
+        // "1." + at most MAX_FLOAT_PRECISION (100) fractional digits.
+        assert!(result.as_str().unwrap().len() <= 103);
+    }
+
+    #[test]
+    fn test_histogram_rejects_excessive_bins() {
+        let runtime = setup_runtime();
+        let expr = runtime
+            .compile("histogram(`[1,2,3]`, `100000000`)")
+            .unwrap();
+        assert!(expr.search(&json!(null)).is_err());
     }
 
     #[test]
