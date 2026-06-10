@@ -139,8 +139,9 @@ pub(crate) fn run_benchmark(
     println!("done");
     println!();
 
-    // Calculate statistics
-    timings.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // Calculate statistics (total_cmp is total over all f64, so no unwrap of a
+    // possible NaN comparison).
+    timings.sort_by(|a, b| a.total_cmp(b));
 
     let total: f64 = timings.iter().sum();
     let mean = total / timings.len() as f64;

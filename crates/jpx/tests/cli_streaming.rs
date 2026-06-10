@@ -134,6 +134,44 @@ fn stream_multiple_expressions() {
         .stdout("alice\nbob\n");
 }
 
+#[test]
+fn stream_pipeline_stage_error_skips_line() {
+    // The first stage errors (unknown function). The whole line must be skipped
+    // -- no output -- rather than running the later stage on the un-transformed
+    // value and emitting it anyway.
+    jpx()
+        .args([
+            "--stream",
+            "-e",
+            "nonexistent_fn(@)",
+            "-e",
+            "@",
+            "--color",
+            "never",
+        ])
+        .write_stdin("{\"a\":1}\n")
+        .assert()
+        .success()
+        .stdout("")
+        .stderr(predicate::str::contains("Expression error"));
+}
+
+#[test]
+fn stream_output_to_file() {
+    // --output must be honoured in streaming mode (previously silently ignored,
+    // with everything going to stdout).
+    let file = tempfile::NamedTempFile::new().unwrap();
+    jpx()
+        .args(["--stream", "a", "--color", "never", "-o"])
+        .arg(file.path())
+        .write_stdin("{\"a\":1}\n{\"a\":2}\n")
+        .assert()
+        .success()
+        .stdout("");
+    let contents = std::fs::read_to_string(file.path()).unwrap();
+    assert_eq!(contents, "1\n2\n");
+}
+
 // ---------------------------------------------------------------------------
 // 4. Complex expressions
 // ---------------------------------------------------------------------------

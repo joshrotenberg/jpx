@@ -4,6 +4,7 @@ use crate::output::{collect_flattened_keys, flatten_object, value_to_cell};
 use anyhow::{Context, Result};
 use jpx_engine::Runtime;
 use serde_json::Value;
+use std::fs::File;
 use std::io::{self, BufRead, BufWriter, Write};
 
 /// Streaming delimited output state -- tracks headers derived from the first result.
@@ -95,9 +96,15 @@ pub(crate) fn run_streaming(
         None => Box::new(std::io::BufReader::new(io::stdin())),
     };
 
-    // Set up buffered output
-    let stdout = io::stdout();
-    let mut writer = BufWriter::new(stdout.lock());
+    // Set up buffered output, honouring --output if given (previously the
+    // streaming path always wrote to stdout and silently ignored --output).
+    let sink: Box<dyn Write> = match &args.output {
+        Some(path) => Box::new(
+            File::create(path).with_context(|| format!("Failed to create output file: {path}"))?,
+        ),
+        None => Box::new(io::stdout().lock()),
+    };
+    let mut writer = BufWriter::new(sink);
 
     // Compile expressions once
     let compiled: Vec<_> = expressions
@@ -123,7 +130,7 @@ pub(crate) fn run_streaming(
         None
     };
 
-    for line in input.lines() {
+    'lines: for line in input.lines() {
         let line = line.context("Failed to read line")?;
         let trimmed = line.trim();
         line_count += 1;
@@ -154,7 +161,11 @@ pub(crate) fn run_streaming(
                     if !quiet {
                         eprintln!("jpx: Expression error: {}", e);
                     }
-                    continue;
+                    // Abandon the whole line: skip remaining pipeline stages and
+                    // do not emit output for it (previously this `continue`
+                    // skipped only the failed stage, then ran later stages on
+                    // the un-transformed value and still emitted a result).
+                    continue 'lines;
                 }
             };
         }
