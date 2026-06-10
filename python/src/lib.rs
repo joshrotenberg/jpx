@@ -40,6 +40,17 @@ fn python_to_json(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         Ok(Value::Bool(b))
     } else if let Ok(i) = obj.extract::<i64>() {
         Ok(Value::Number(i.into()))
+    } else if let Ok(u) = obj.extract::<u64>() {
+        // Ints in (i64::MAX, u64::MAX] -- preserved exactly rather than being
+        // coerced to a lossy f64.
+        Ok(Value::Number(u.into()))
+    } else if obj.is_instance_of::<pyo3::types::PyInt>() {
+        // A Python int that fits neither i64 nor u64 cannot be represented in
+        // JSON without losing precision; error rather than silently coercing it
+        // to a float.
+        Err(PyValueError::new_err(
+            "integer is too large to represent in JSON (exceeds 64-bit range)",
+        ))
     } else if let Ok(f) = obj.extract::<f64>() {
         Ok(serde_json::Number::from_f64(f)
             .map(Value::Number)
@@ -79,6 +90,10 @@ fn json_to_python(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 Ok(i.into_pyobject(py)?.to_owned().into_any().unbind())
+            } else if let Some(u) = n.as_u64() {
+                // Values in (i64::MAX, u64::MAX] -- return an exact Python int
+                // instead of falling through to a lossy float.
+                Ok(u.into_pyobject(py)?.to_owned().into_any().unbind())
             } else if let Some(f) = n.as_f64() {
                 Ok(f.into_pyobject(py)?.to_owned().into_any().unbind())
             } else {

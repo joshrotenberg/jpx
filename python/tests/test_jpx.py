@@ -470,3 +470,44 @@ class TestJpxEngineQueryStore:
             assert False, "Should have raised ValueError"
         except ValueError:
             pass
+
+
+# =============================================================================
+# Numeric fidelity (#193)
+# =============================================================================
+
+
+class TestNumericFidelity:
+    """Large integers must round-trip exactly, not degrade to floats."""
+
+    def test_int_above_i64_roundtrips(self):
+        # 2**63 exceeds i64::MAX; must stay an exact int, not become a float.
+        n = 2**63
+        result = jpx.search("@", n)
+        assert result == n
+        assert isinstance(result, int)
+
+    def test_u64_max_roundtrips(self):
+        n = 2**64 - 1
+        result = jpx.search("@", n)
+        assert result == n
+        assert isinstance(result, int)
+
+    def test_int_beyond_u64_raises(self):
+        # Too large for 64-bit JSON integers: error rather than silently lossy.
+        try:
+            jpx.search("@", 2**64)
+            assert False, "Should have raised ValueError"
+        except ValueError:
+            pass
+
+    def test_regular_int_and_float_unaffected(self):
+        assert jpx.search("@", 42) == 42
+        assert isinstance(jpx.search("@", 42), int)
+        assert jpx.search("@", 3.14) == 3.14
+        assert isinstance(jpx.search("@", 3.14), float)
+
+    def test_large_int_in_nested_structure(self):
+        data = {"id": 2**63, "vals": [2**64 - 1, 1]}
+        assert jpx.search("id", data) == 2**63
+        assert jpx.search("vals[0]", data) == 2**64 - 1
