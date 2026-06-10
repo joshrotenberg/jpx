@@ -649,9 +649,18 @@ mod flatten_unflatten {
     }
 
     #[test]
-    fn test_flatten_alias() {
-        let result = run_query(r#"{"a": {"b": 1}}"#, "flatten(@)");
-        assert!(result.contains("\"a.b\": 1"));
+    fn test_flatten_is_array_flatten_not_object_alias() {
+        // `flatten` is the array one-level flatten; object key-flattening is
+        // `flatten_keys`. Previously `flatten` also aliased object flattening,
+        // which collided nondeterministically with the array impl.
+        let arr = run_query(r#"[[1, 2], [3]]"#, "flatten(@)");
+        assert!(arr.contains('1') && arr.contains('2') && arr.contains('3'));
+        // It must NOT flatten object keys any more.
+        let obj = run_query(r#"{"a": {"b": 1}}"#, "flatten(@)");
+        assert!(
+            !obj.contains("a.b"),
+            "flatten should not key-flatten objects"
+        );
     }
 
     #[test]

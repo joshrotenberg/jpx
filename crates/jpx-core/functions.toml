@@ -3033,18 +3033,6 @@ examples = [
 features = ["core"]
 
 [[functions]]
-name = "flatten"
-category = "object"
-description = "Alias for flatten_keys - flatten nested object with dot notation keys"
-signature = "object -> object"
-examples = [
-    { code = '''flatten({a: {b: 1}}) -> {\"a.b\": 1}''', description = "Simple nested" },
-    { code = '''flatten({a: {b: {c: 1}}}) -> {\"a.b.c\": 1}''', description = "Deep nested" },
-    { code = '''flatten({a: 1, b: 2}) -> {\"a\": 1, \"b\": 2}''', description = "Flat object" },
-]
-features = ["core"]
-
-[[functions]]
 name = "flatten_array"
 category = "object"
 description = "Flatten nested objects and arrays with dot notation keys (arrays use numeric indices)"
@@ -4534,14 +4522,14 @@ examples = [
 features = ["core"]
 
 [[functions]]
-name = "mask"
+name = "obscure"
 category = "string"
-description = "Mask string, keeping last N characters visible"
+description = "Mask all but the last N characters, with an optional mask character (defaults to masking the whole string with '*')"
 signature = "string, number?, string? -> string"
 examples = [
-    { code = '''mask('4111111111111111', `4`) -> \"************1111\"''', description = "Credit card" },
-    { code = '''mask('secret', `0`) -> \"******\"''', description = "Mask all" },
-    { code = '''mask('password', `4`, '#') -> \"####word\"''', description = "Custom mask char" },
+    { code = '''obscure('4111111111111111', `4`) -> \"************1111\"''', description = "Credit card" },
+    { code = '''obscure('secret', `0`) -> \"******\"''', description = "Mask all" },
+    { code = '''obscure('password', `4`, '#') -> \"####word\"''', description = "Custom mask char" },
 ]
 features = ["core"]
 

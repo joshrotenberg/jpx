@@ -1856,7 +1856,10 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(EscapeRegexFn::new()),
     );
     register_if_enabled(runtime, "start_case", enabled, Box::new(StartCaseFn::new()));
-    register_if_enabled(runtime, "mask", enabled, Box::new(MaskFn::new()));
+    // Registered as `obscure`: the canonical `mask` is the object-module impl;
+    // this custom-mask-character variant lives under a distinct name to avoid a
+    // nondeterministic collision.
+    register_if_enabled(runtime, "obscure", enabled, Box::new(MaskFn::new()));
     register_if_enabled(runtime, "redact", enabled, Box::new(RedactFn::new()));
     register_if_enabled(
         runtime,
@@ -2219,6 +2222,17 @@ mod tests {
         let expr = runtime.compile("mask(@, `4`)").unwrap();
         let result = expr.search(&json!("héllo")).unwrap();
         assert_eq!(result.as_str().unwrap(), "*éllo");
+    }
+
+    #[test]
+    fn test_obscure_custom_char_and_default() {
+        // `obscure` is the renamed string-module mask: defaults to masking the
+        // whole string and supports a custom mask character.
+        let runtime = setup_runtime();
+        let expr = runtime.compile("obscure('password', `4`, '#')").unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!("####word"));
+        let expr = runtime.compile("obscure('secret')").unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!("******"));
     }
 
     #[test]
