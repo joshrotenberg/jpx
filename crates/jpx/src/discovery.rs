@@ -71,7 +71,7 @@ pub(crate) fn print_functions(registry: &FunctionRegistry) {
     println!("Use {} to find functions", "--search <query>".cyan());
     println!(
         "\nFor full documentation: {}",
-        "https://docs.rs/jmespath_extensions".blue().underline()
+        "https://joshrotenberg.github.io/jpx/".blue().underline()
     );
 }
 
@@ -571,4 +571,115 @@ fn extract_keywords(description: &str) -> Vec<String> {
         .filter(|w| w.len() > 3 && !stopwords.contains(w))
         .map(|s| s.to_string())
         .collect()
+}
+
+/// Print a concise one-page quick reference of syntax and common functions.
+///
+/// The function count is read live from the registry so it cannot drift; the
+/// featured functions are a curated sampling -- use `--list-functions` for the
+/// complete set and `--describe <fn>` for details.
+pub(crate) fn print_cheatsheet(registry: &FunctionRegistry) {
+    let total = registry.functions().count();
+
+    // Pad to a column width *before* coloring; padding a colored string would
+    // count the ANSI escape bytes and misalign the columns.
+    fn row(key: &str, desc: &str, width: usize) {
+        println!("  {} {}", format!("{key:<width$}").cyan(), desc.dimmed());
+    }
+    fn header(title: &str) {
+        println!("\n{}", title.bold().green());
+    }
+
+    println!("{}", "jpx cheatsheet".bold().cyan());
+    println!(
+        "{}",
+        "JMESPath with extended functions -- quick reference".dimmed()
+    );
+
+    header("BASICS");
+    for (k, v) in [
+        (".field", "Select a field"),
+        ("[0]  [-1]", "Index (negative counts from the end)"),
+        ("[*]", "All array elements (projection)"),
+        ("[1:5]  [::2]", "Slice / slice with step"),
+        ("@", "The current element"),
+        ("|", "Pipe: feed the result into the next expression"),
+        (
+            "&expr",
+            "Expression reference (sort_by, group_by, map, ...)",
+        ),
+        (
+            "`1`  `\"s\"`",
+            "JSON literal (number, string, true/false/null)",
+        ),
+    ] {
+        row(k, v, 14);
+    }
+
+    header("SELECT & RESHAPE");
+    for (k, v) in [
+        ("items[*].name", "Extract a field from each element"),
+        ("items[?price > `10`]", "Filter by a condition"),
+        ("items[?status=='active'].name", "Filter, then project"),
+        (
+            "{name: name, qty: count}",
+            "Build an object (multiselect hash)",
+        ),
+        ("[name, count]", "Build an array (multiselect list)"),
+    ] {
+        row(k, v, 31);
+    }
+
+    header("COMMON PATTERNS");
+    for (k, v) in [
+        ("sort_by(items, &price)", "Sort ascending by a field"),
+        ("reverse(sort_by(items, &price))", "Sort descending"),
+        ("max_by(items, &score)", "Element with the largest field"),
+        (
+            "group_by(items, &category)",
+            "Group into an object keyed by field",
+        ),
+        ("merge(a, b)", "Shallow-merge objects (later wins)"),
+        ("pick(obj, ['id', 'name'])", "Keep only these keys"),
+        ("omit(obj, ['secret'])", "Drop these keys"),
+    ] {
+        row(k, v, 33);
+    }
+
+    header("LET EXPRESSIONS (JEP-18)");
+    row(
+        "let $top = max(p[*].v) in p[?v == $top]",
+        "Name an intermediate result",
+        41,
+    );
+
+    header("A FEW FUNCTIONS BY CATEGORY");
+    for (cat, fns) in [
+        (
+            "String",
+            "split join upper lower trim replace pad_left contains",
+        ),
+        ("Array", "first last unique flatten chunk zip count_by"),
+        ("Object", "keys values items merge pick omit map_values"),
+        ("Math", "sum avg median min max round abs clamp percentile"),
+        ("Date", "now format_date parse_date date_diff from_epoch"),
+    ] {
+        println!("  {} {}", format!("{cat:<8}").yellow(), fns);
+    }
+
+    header("DISCOVER");
+    for (k, v) in [
+        ("jpx --list-functions", "Every function, by category"),
+        ("jpx --describe <fn>", "Signature, description, examples"),
+        ("jpx --search <keyword>", "Find functions by keyword"),
+        ("jpx --repl", "Interactive REPL with completion"),
+    ] {
+        row(k, v, 23);
+    }
+
+    println!(
+        "\n{} functions available.  Docs: {}",
+        total.to_string().yellow(),
+        "https://joshrotenberg.github.io/jpx/".cyan()
+    );
 }
