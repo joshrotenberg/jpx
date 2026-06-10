@@ -400,7 +400,10 @@ fn run() -> Result<i32> {
     }
     #[cfg(feature = "parquet")]
     if args.parquet_output {
-        let output_path = args.output.as_ref().expect("--parquet requires --output");
+        let output_path = args
+            .output
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("--parquet requires --output"))?;
         jpx::parquet_support::write_json_to_parquet(&json_value, std::path::Path::new(output_path))
             .context("Failed to write parquet file")?;
         return Ok(exit_code);
