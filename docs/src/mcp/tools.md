@@ -76,6 +76,16 @@ Get detailed documentation for a specific function including signature, paramete
 }
 ```
 
+### batch_describe
+
+Get details for several functions in one call. Returns one `{name, detail}` entry per requested name, in order; unknown names yield a `null` detail rather than failing the whole batch.
+
+```json
+{
+  "names": ["pad_left", "split", "join"]
+}
+```
+
 ### categories
 
 List all function categories with function counts.

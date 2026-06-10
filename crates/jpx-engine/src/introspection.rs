@@ -220,6 +220,33 @@ impl JpxEngine {
         self.registry.get_function(name).map(FunctionDetail::from)
     }
 
+    /// Describes multiple functions in a single call.
+    ///
+    /// Returns one `(name, detail)` entry per requested name, preserving input
+    /// order, with `None` for names that do not resolve to a function (rather
+    /// than failing the whole batch). Names may be aliases, just like
+    /// [`describe_function`](Self::describe_function).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jpx_engine::JpxEngine;
+    ///
+    /// let engine = JpxEngine::new();
+    /// let results = engine.describe_functions(&["upper", "not_a_function"]);
+    /// assert_eq!(results.len(), 2);
+    /// assert_eq!(results[0].0, "upper");
+    /// assert!(results[0].1.is_some());
+    /// assert_eq!(results[1].0, "not_a_function");
+    /// assert!(results[1].1.is_none());
+    /// ```
+    pub fn describe_functions(&self, names: &[&str]) -> Vec<(String, Option<FunctionDetail>)> {
+        names
+            .iter()
+            .map(|&name| (name.to_string(), self.describe_function(name)))
+            .collect()
+    }
+
     /// Searches for functions matching a query string.
     ///
     /// Uses fuzzy matching, synonyms, and searches across names, descriptions,
@@ -665,6 +692,28 @@ mod tests {
 
         let missing = engine.describe_function("nonexistent");
         assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_describe_functions_batch() {
+        let engine = JpxEngine::new();
+
+        let results = engine.describe_functions(&["upper", "nonexistent", "lower"]);
+        assert_eq!(results.len(), 3);
+
+        // Order is preserved and each name is echoed back.
+        assert_eq!(results[0].0, "upper");
+        assert_eq!(results[0].1.as_ref().unwrap().name, "upper");
+
+        // Missing names yield None rather than failing the whole batch.
+        assert_eq!(results[1].0, "nonexistent");
+        assert!(results[1].1.is_none());
+
+        assert_eq!(results[2].0, "lower");
+        assert_eq!(results[2].1.as_ref().unwrap().name, "lower");
+
+        // Empty input yields an empty result.
+        assert!(engine.describe_functions(&[]).is_empty());
     }
 
     #[test]

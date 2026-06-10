@@ -42,6 +42,7 @@ The MCP server exposes **29 tools** organized by purpose:
 | `similar` | Find functions related to a specified function |
 | `functions` | List available functions (optionally filter by category) |
 | `describe` | Get detailed info for a specific function |
+| `batch_describe` | Get details for several functions in one call |
 | `categories` | List all function categories |
 
 ### JSON Utilities
