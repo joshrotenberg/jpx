@@ -49,7 +49,9 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(FlattenKeysFn::new()),
     );
-    register_if_enabled(runtime, "flatten", enabled, Box::new(FlattenKeysFn::new()));
+    // NB: object key-flattening is registered only as `flatten_keys`. The array
+    // `flatten` (array.rs) owns the `flatten` name; registering FlattenKeysFn
+    // under `flatten` too created a nondeterministic collision.
     register_if_enabled(
         runtime,
         "unflatten_keys",
