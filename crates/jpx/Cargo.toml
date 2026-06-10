@@ -48,6 +48,10 @@ tabled = "0.20"
 # Parquet support (optional)
 parquet = { version = "54", optional = true, default-features = false, features = ["arrow", "snap"] }
 
+# Restore default SIGPIPE handling so `jpx ... | head` exits cleanly (Unix only).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 default = []
 let-expr = ["jpx-engine/let-expr"]
