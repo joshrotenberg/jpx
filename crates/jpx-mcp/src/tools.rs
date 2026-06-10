@@ -36,6 +36,12 @@ pub struct DescribeParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct BatchDescribeParams {
+    /// Function names to describe (canonical names; each result also lists aliases)
+    pub names: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ValidateParams {
     /// JMESPath expression to validate
     pub expression: String,
@@ -431,6 +437,26 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                         params.name
                     ))),
                 }
+            }
+        })
+        .build();
+
+    // -- batch_describe
+    let e = engine.clone();
+    let batch_describe = ToolBuilder::new("batch_describe")
+        .title("Describe Multiple Functions")
+        .description("Get detailed information about several JMESPath functions in one call. Accepts a list of function names and returns one entry per name in the same order, each `{name, detail}`; unknown names yield a null detail rather than failing the whole batch. Prefer this over calling 'describe' repeatedly when comparing functions.")
+        .read_only()
+        .handler(move |params: BatchDescribeParams| {
+            let engine = e.clone();
+            async move {
+                let names: Vec<&str> = params.names.iter().map(String::as_str).collect();
+                let results: Vec<serde_json::Value> = engine
+                    .describe_functions(&names)
+                    .into_iter()
+                    .map(|(name, detail)| serde_json::json!({ "name": name, "detail": detail }))
+                    .collect();
+                json_result(&results)
             }
         })
         .build();
@@ -1098,6 +1124,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
         .tool(evaluate)
         .tool(functions)
         .tool(describe)
+        .tool(batch_describe)
         .tool(categories)
         .tool(validate)
         .tool(explain)

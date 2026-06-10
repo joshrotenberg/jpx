@@ -48,8 +48,8 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    // Should have 30 tools (29 + suggest_function)
-    assert_eq!(tools.len(), 30, "Expected 30 tools, got {}", tools.len());
+    // Should have 31 tools (30 + batch_describe)
+    assert_eq!(tools.len(), 31, "Expected 31 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -65,6 +65,7 @@ async fn test_list_tools() {
     // Introspection tools
     assert!(tool_names.contains(&"functions"));
     assert!(tool_names.contains(&"describe"));
+    assert!(tool_names.contains(&"batch_describe"));
     assert!(tool_names.contains(&"categories"));
     assert!(tool_names.contains(&"search"));
     assert!(tool_names.contains(&"similar"));
@@ -245,6 +246,28 @@ async fn test_categories() {
     assert!(text.contains("string") || text.contains("String"));
     assert!(text.contains("math") || text.contains("Math"));
     assert!(text.contains("array") || text.contains("Array"));
+}
+
+#[tokio::test]
+async fn test_batch_describe() {
+    let mut client = create_client().await;
+
+    let result = client
+        .call_tool(
+            "batch_describe",
+            json!({ "names": ["upper", "nonexistent", "lower"] }),
+        )
+        .await;
+
+    assert!(!result.is_error);
+    let text = result.first_text().unwrap();
+    // Known functions are described...
+    assert!(text.contains("upper"));
+    assert!(text.contains("lower"));
+    // ...and an unknown name is echoed back with a null detail rather than
+    // failing the whole batch.
+    assert!(text.contains("nonexistent"));
+    assert!(text.contains("null"));
 }
 
 #[tokio::test]
