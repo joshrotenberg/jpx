@@ -766,7 +766,10 @@ impl Function for StartOfDayFn {
             Some(t) => t,
             None => return Ok(Value::Null),
         };
-        let dt = DateTime::from_timestamp(ts, 0).unwrap();
+        let dt = match DateTime::from_timestamp(ts, 0) {
+            Some(dt) => dt,
+            None => return Ok(Value::Null),
+        };
         let start = dt.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         Ok(Value::String(
@@ -789,7 +792,10 @@ impl Function for EndOfDayFn {
             Some(t) => t,
             None => return Ok(Value::Null),
         };
-        let dt = DateTime::from_timestamp(ts, 0).unwrap();
+        let dt = match DateTime::from_timestamp(ts, 0) {
+            Some(dt) => dt,
+            None => return Ok(Value::Null),
+        };
         let end = dt.date_naive().and_hms_opt(23, 59, 59).unwrap().and_utc();
 
         Ok(Value::String(end.format("%Y-%m-%dT%H:%M:%SZ").to_string()))
@@ -810,7 +816,10 @@ impl Function for StartOfWeekFn {
             Some(t) => t,
             None => return Ok(Value::Null),
         };
-        let dt = DateTime::from_timestamp(ts, 0).unwrap();
+        let dt = match DateTime::from_timestamp(ts, 0) {
+            Some(dt) => dt,
+            None => return Ok(Value::Null),
+        };
 
         // Calculate days since Monday (Monday = 0)
         let days_since_monday = dt.weekday().num_days_from_monday();
@@ -837,7 +846,10 @@ impl Function for StartOfMonthFn {
             Some(t) => t,
             None => return Ok(Value::Null),
         };
-        let dt = DateTime::from_timestamp(ts, 0).unwrap();
+        let dt = match DateTime::from_timestamp(ts, 0) {
+            Some(dt) => dt,
+            None => return Ok(Value::Null),
+        };
 
         let start = dt
             .date_naive()
@@ -867,7 +879,10 @@ impl Function for StartOfYearFn {
             Some(t) => t,
             None => return Ok(Value::Null),
         };
-        let dt = DateTime::from_timestamp(ts, 0).unwrap();
+        let dt = match DateTime::from_timestamp(ts, 0) {
+            Some(dt) => dt,
+            None => return Ok(Value::Null),
+        };
 
         let start = chrono::NaiveDate::from_ymd_opt(dt.year(), 1, 1)
             .unwrap()
@@ -980,6 +995,23 @@ mod tests {
         let ts = result.as_f64().unwrap();
         // Should be a reasonable timestamp (after 2020)
         assert!(ts > 1577836800.0);
+    }
+
+    #[test]
+    fn test_start_of_out_of_range_timestamp_is_null_not_panic() {
+        // A timestamp chrono cannot represent must yield null, not abort the
+        // process (these used to `from_timestamp(..).unwrap()`).
+        let runtime = setup_runtime();
+        for f in [
+            "start_of_day",
+            "end_of_day",
+            "start_of_week",
+            "start_of_month",
+            "start_of_year",
+        ] {
+            let expr = runtime.compile(&format!("{f}(`1e19`)")).unwrap();
+            assert_eq!(expr.search(&json!(null)).unwrap(), json!(null), "{f}");
+        }
     }
 
     #[test]

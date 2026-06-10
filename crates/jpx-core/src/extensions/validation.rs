@@ -1,6 +1,7 @@
 //! Data validation functions.
 
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::Value;
@@ -9,6 +10,19 @@ use crate::functions::Function;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
+
+// Constant validation patterns, compiled once instead of on every call (these
+// were previously recompiled per invocation, e.g. once per element in a map).
+static EMAIL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
+static URL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap());
+static UUID_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+        .unwrap()
+});
+static PHONE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\+?[\d\s\-\(\)\.]{7,}$").unwrap());
 
 /// Register validation functions filtered by the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
@@ -49,8 +63,7 @@ impl Function for IsEmailFn {
 
         let s = args[0].as_str().unwrap();
 
-        let email_re = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-        Ok(Value::Bool(email_re.is_match(s)))
+        Ok(Value::Bool(EMAIL_RE.is_match(s)))
     }
 }
 
@@ -66,8 +79,7 @@ impl Function for IsUrlFn {
 
         let s = args[0].as_str().unwrap();
 
-        let url_re = Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap();
-        Ok(Value::Bool(url_re.is_match(s)))
+        Ok(Value::Bool(URL_RE.is_match(s)))
     }
 }
 
@@ -83,11 +95,7 @@ impl Function for IsUuidFn {
 
         let s = args[0].as_str().unwrap();
 
-        let uuid_re = Regex::new(
-            r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-        )
-        .unwrap();
-        Ok(Value::Bool(uuid_re.is_match(s)))
+        Ok(Value::Bool(UUID_RE.is_match(s)))
     }
 }
 
@@ -210,8 +218,7 @@ impl Function for IsPhoneFn {
 
         // Basic phone pattern: optional + followed by digits, spaces, dashes, parens
         // Minimum 7 digits for a valid phone number
-        let phone_re = Regex::new(r"^\+?[\d\s\-\(\)\.]{7,}$").unwrap();
-        if !phone_re.is_match(s) {
+        if !PHONE_RE.is_match(s) {
             return Ok(Value::Bool(false));
         }
 

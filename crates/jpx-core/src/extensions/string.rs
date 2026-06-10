@@ -14,6 +14,11 @@ use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
 
+/// Upper bound on the size of a string produced by user-controlled repetition
+/// (`repeat`, `center`, ...). Prevents a single call from requesting a
+/// petabyte-sized allocation (e.g. `repeat('x', `1e15`)`).
+const MAX_GENERATED_STRING_BYTES: usize = 64 * 1024 * 1024;
+
 // =============================================================================
 // lower(string) -> string
 // =============================================================================
@@ -333,6 +338,12 @@ impl Function for RepeatFn {
             .map(|n| n as usize)
             .ok_or_else(|| custom_error(ctx, "Expected positive number for count"))?;
 
+        if count.saturating_mul(s.len()) > MAX_GENERATED_STRING_BYTES {
+            return Err(custom_error(
+                ctx,
+                "repeat result exceeds the maximum allowed size",
+            ));
+        }
         Ok(Value::String(s.repeat(count)))
     }
 }
@@ -1624,6 +1635,12 @@ impl Function for CenterFn {
             .as_f64()
             .ok_or_else(|| custom_error(ctx, "Expected number for width"))?
             as usize;
+        if width > MAX_GENERATED_STRING_BYTES {
+            return Err(custom_error(
+                ctx,
+                "center width exceeds the maximum allowed size",
+            ));
+        }
 
         // Padding character (default: ' ')
         let pad_char = if args.len() > 2 && !args[2].is_null() {
@@ -1909,6 +1926,17 @@ mod tests {
         let expr = runtime.compile("lower(@)").unwrap();
         let result = expr.search(&json!("HELLO")).unwrap();
         assert_eq!(result.as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_repeat_rejects_excessive_output() {
+        // A petabyte-sized repeat must error instead of attempting the alloc.
+        let runtime = setup_runtime();
+        let expr = runtime.compile("repeat('x', `1000000000000`)").unwrap();
+        assert!(expr.search(&json!(null)).is_err());
+        // A normal repeat still works.
+        let expr = runtime.compile("repeat('ab', `3`)").unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!("ababab"));
     }
 
     #[test]
