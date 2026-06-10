@@ -664,6 +664,6 @@ pub(crate) fn create_configured_runtime(
     engine_config: &jpx_engine::config::EngineConfig,
     strict: bool,
 ) -> (jpx_engine::Runtime, jpx_engine::FunctionRegistry) {
-    let effective_strict = strict || engine_config.engine.strict;
+    let effective_strict = strict || engine_config.is_strict();
     jpx_engine::config::build_runtime_from_config(&engine_config.functions, effective_strict)
 }

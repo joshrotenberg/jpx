@@ -349,7 +349,7 @@ fn relevance_note(match_type: &str) -> String {
 #[allow(dead_code)]
 pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
     let mut config = EngineConfig::default();
-    config.engine.strict = strict;
+    config.engine.strict = Some(strict);
     build_router_from_config(config)
 }
 

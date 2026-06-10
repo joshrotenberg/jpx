@@ -338,25 +338,37 @@ impl JpxEngine {
         let info = self.registry.get_function(name)?;
         let all_functions: Vec<_> = self.registry.functions().collect();
 
-        // Same category
-        let same_category: Vec<FunctionDetail> = all_functions
+        // Same category. Sorted by name before truncating so the result is
+        // deterministic (the registry iterates in HashMap order, so an
+        // unsorted `take(5)` returned an arbitrary, run-varying subset).
+        let mut same_category_fns: Vec<&FunctionInfo> = all_functions
             .iter()
+            .copied()
             .filter(|f| f.category == info.category && f.name != info.name)
+            .collect();
+        same_category_fns.sort_by_key(|f| f.name);
+        let same_category: Vec<FunctionDetail> = same_category_fns
+            .into_iter()
             .take(5)
-            .map(|f| FunctionDetail::from(*f))
+            .map(FunctionDetail::from)
             .collect();
 
-        // Similar signature (same arity)
+        // Similar signature (same arity), likewise name-sorted for determinism.
         let this_arity = count_params(info.signature);
-        let similar_signature: Vec<FunctionDetail> = all_functions
+        let mut similar_signature_fns: Vec<&FunctionInfo> = all_functions
             .iter()
+            .copied()
             .filter(|f| {
                 f.name != info.name
                     && f.category != info.category
                     && count_params(f.signature) == this_arity
             })
+            .collect();
+        similar_signature_fns.sort_by_key(|f| f.name);
+        let similar_signature: Vec<FunctionDetail> = similar_signature_fns
+            .into_iter()
             .take(5)
-            .map(|f| FunctionDetail::from(*f))
+            .map(FunctionDetail::from)
             .collect();
 
         // Related concepts (description keyword overlap)
@@ -372,7 +384,9 @@ impl JpxEngine {
             .filter(|(_, score)| *score > 0)
             .collect();
 
-        concept_scores.sort_by_key(|b| std::cmp::Reverse(b.1));
+        // Highest overlap first, breaking ties by name so the result is stable
+        // across runs (the underlying iteration order is not).
+        concept_scores.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(b.0.name)));
 
         let related_concepts: Vec<FunctionDetail> = concept_scores
             .into_iter()
@@ -1005,6 +1019,43 @@ mod tests {
             !result.same_category.iter().any(|f| f.name == "upper"),
             "same_category should not contain the function itself"
         );
+    }
+
+    #[test]
+    fn test_similar_functions_deterministic_and_ordered() {
+        let engine = JpxEngine::new();
+        let a = engine.similar_functions("upper").unwrap();
+        let b = engine.similar_functions("upper").unwrap();
+
+        let names = |r: &super::SimilarFunctionsResult| {
+            (
+                r.same_category
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>(),
+                r.similar_signature
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>(),
+                r.related_concepts
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>(),
+            )
+        };
+        // Repeated calls must return identical results (no HashMap-order flakiness).
+        assert_eq!(names(&a), names(&b));
+
+        // same_category and similar_signature are name-sorted.
+        let cat: Vec<_> = a.same_category.iter().map(|f| &f.name).collect();
+        let mut cat_sorted = cat.clone();
+        cat_sorted.sort();
+        assert_eq!(cat, cat_sorted, "same_category should be name-sorted");
+
+        let sig: Vec<_> = a.similar_signature.iter().map(|f| &f.name).collect();
+        let mut sig_sorted = sig.clone();
+        sig_sorted.sort();
+        assert_eq!(sig, sig_sorted, "similar_signature should be name-sorted");
     }
 
     #[test]

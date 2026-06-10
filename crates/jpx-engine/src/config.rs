@@ -54,8 +54,12 @@ pub struct EngineConfig {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct EngineSection {
-    /// If true, only standard JMESPath functions are available for evaluation.
-    pub strict: bool,
+    /// If `Some(true)`, only standard JMESPath functions are available for
+    /// evaluation. `None` means "not specified", which lets a higher-precedence
+    /// config layer override the value in either direction during [`EngineConfig::merge`]
+    /// (a plain `bool` could only ever be turned *on* by a later layer). Resolves
+    /// to `false` when unset; see [`EngineConfig::is_strict`].
+    pub strict: Option<bool>,
 }
 
 /// Function filtering configuration.
@@ -96,6 +100,12 @@ pub struct InlineQuery {
 }
 
 impl EngineConfig {
+    /// Returns whether strict mode is enabled, treating an unspecified value as
+    /// `false`.
+    pub fn is_strict(&self) -> bool {
+        self.engine.strict.unwrap_or(false)
+    }
+
     /// Parses an `EngineConfig` from a TOML file.
     pub fn from_file(path: &Path) -> crate::Result<Self> {
         let content = std::fs::read_to_string(path).map_err(|e| {
@@ -150,9 +160,11 @@ impl EngineConfig {
     /// - `queries.libraries`: concatenate
     /// - `queries.inline`: later keys override same-name
     pub fn merge(mut self, other: Self) -> Self {
-        // Engine section: later wins
-        if other.engine.strict {
-            self.engine.strict = true;
+        // Engine section: later wins in BOTH directions -- a later layer that
+        // explicitly sets `strict` (to true OR false) overrides; one that omits
+        // it leaves the earlier value intact.
+        if other.engine.strict.is_some() {
+            self.engine.strict = other.engine.strict;
         }
 
         // Functions section
@@ -211,7 +223,7 @@ impl EngineBuilder {
 
     /// Sets strict mode.
     pub fn strict(mut self, strict: bool) -> Self {
-        self.config.engine.strict = strict;
+        self.config.engine.strict = Some(strict);
         self
     }
 
@@ -436,7 +448,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = EngineConfig::default();
-        assert!(!config.engine.strict);
+        assert!(!config.is_strict());
+        assert_eq!(config.engine.strict, None);
         assert!(config.functions.disabled_categories.is_empty());
         assert!(config.functions.disabled_functions.is_empty());
         assert!(config.functions.enabled_categories.is_none());
@@ -461,7 +474,7 @@ libraries = ["~/.config/jpx/common.jpx"]
 active-users = { expression = "users[?active].name", description = "Get active user names" }
 "#;
         let config: EngineConfig = toml::from_str(toml).unwrap();
-        assert!(config.engine.strict);
+        assert_eq!(config.engine.strict, Some(true));
         assert_eq!(
             config.functions.disabled_categories,
             vec!["geo", "phonetic"]
@@ -475,11 +488,34 @@ active-users = { expression = "users[?active].name", description = "Get active u
     fn test_merge_scalars() {
         let base = EngineConfig::default();
         let overlay = EngineConfig {
-            engine: EngineSection { strict: true },
+            engine: EngineSection { strict: Some(true) },
             ..Default::default()
         };
         let merged = base.merge(overlay);
-        assert!(merged.engine.strict);
+        assert!(merged.is_strict());
+    }
+
+    #[test]
+    fn test_merge_strict_later_wins_both_directions() {
+        let strict_on = || EngineConfig {
+            engine: EngineSection { strict: Some(true) },
+            ..Default::default()
+        };
+        let strict_off = || EngineConfig {
+            engine: EngineSection {
+                strict: Some(false),
+            },
+            ..Default::default()
+        };
+
+        // A later layer that sets strict = false must override an earlier
+        // strict = true (the previous bug could only ever turn strict *on*).
+        assert!(!strict_on().merge(strict_off()).is_strict());
+        // ...and a later strict = true overrides an earlier false.
+        assert!(strict_off().merge(strict_on()).is_strict());
+        // A later layer that omits strict leaves the earlier value intact.
+        assert!(strict_on().merge(EngineConfig::default()).is_strict());
+        assert!(!strict_off().merge(EngineConfig::default()).is_strict());
     }
 
     #[test]
@@ -730,7 +766,7 @@ strict = true
         let b = EngineConfig::default();
         let merged = a.merge(b);
 
-        assert!(!merged.engine.strict);
+        assert!(!merged.is_strict());
         assert!(merged.functions.disabled_categories.is_empty());
         assert!(merged.functions.disabled_functions.is_empty());
         assert!(merged.functions.enabled_categories.is_none());

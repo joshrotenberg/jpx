@@ -446,7 +446,7 @@ impl JpxEngine {
     /// let engine = JpxEngine::from_config(config).unwrap();
     /// ```
     pub fn from_config(config: EngineConfig) -> Result<Self> {
-        let strict = config.engine.strict;
+        let strict = config.is_strict();
         let (runtime, registry) = config::build_runtime_from_config(&config.functions, strict);
 
         let discovery = Arc::new(RwLock::new(DiscoveryRegistryInner::new()));
