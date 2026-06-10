@@ -84,6 +84,11 @@ fn run() -> Result<i32> {
         return Ok(0);
     }
 
+    if args.cheatsheet {
+        discovery::print_cheatsheet(&registry);
+        return Ok(0);
+    }
+
     if let Some(category_name) = &args.list_category {
         discovery::print_category(&registry, category_name)?;
         return Ok(0);

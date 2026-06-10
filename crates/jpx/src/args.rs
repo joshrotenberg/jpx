@@ -205,6 +205,7 @@ pub(crate) enum ColorMode {
     "    jpx -y 'config' < data.json         # YAML output\n",
     "\n",
     "  Discovery:\n",
+    "    jpx --cheatsheet                    # One-page quick reference\n",
     "    jpx --list-functions                # List all 490+ functions\n",
     "    jpx --search date                   # Find date-related functions\n",
     "    jpx --describe format_date          # Function documentation\n",
@@ -221,7 +222,7 @@ pub(crate) enum ColorMode {
     "  ~/.config/jpx/config.toml  or  ~/.jpxrc\n",
     "\n",
     "Version: ", env!("CARGO_PKG_VERSION"),
-    "\nDocumentation: https://docs.rs/jmespath_extensions"
+    "\nDocumentation: https://joshrotenberg.github.io/jpx/"
 ))]
 pub(crate) struct Args {
     /// Print help (use --help for more detail)
@@ -532,6 +533,14 @@ pub(crate) struct Args {
         long_help = "List all available extension functions organized by category.\nUse --list-category for a specific category or --describe for details."
     )]
     pub(crate) list_functions: bool,
+
+    /// Print a one-page quick reference
+    #[arg(
+        long,
+        help = "Print a one-page cheatsheet of syntax and common functions",
+        long_help = "Print a concise quick reference covering JMESPath syntax, common\npatterns, and a sampling of functions by category. For the full list use\n--list-functions; for details on one function use --describe."
+    )]
+    pub(crate) cheatsheet: bool,
 
     /// List functions in category
     #[arg(

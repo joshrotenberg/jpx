@@ -309,6 +309,25 @@ mod cli_options {
     }
 
     #[test]
+    fn test_cheatsheet() {
+        let output = jpx_cmd()
+            .arg("--cheatsheet")
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn jpx")
+            .wait_with_output()
+            .expect("Failed to wait");
+
+        assert!(output.status.success());
+        let result = String::from_utf8_lossy(&output.stdout);
+        assert!(result.contains("cheatsheet"));
+        assert!(result.contains("BASICS"));
+        assert!(result.contains("COMMON PATTERNS"));
+        assert!(result.contains("sort_by(items, &price)"));
+        assert!(result.contains("functions available"));
+    }
+
+    #[test]
     fn test_version() {
         let output = jpx_cmd()
             .arg("--version")
