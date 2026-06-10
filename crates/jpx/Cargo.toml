@@ -34,7 +34,6 @@ serde_json.workspace = true
 anyhow.workspace = true
 colored_json.workspace = true
 colored = "3"
-atty.workspace = true
 rustyline = "17"
 dirs = "6.0.0"
 json-patch.workspace = true

@@ -55,7 +55,7 @@ pub(crate) fn list_queries(query_path: &str, color_mode: &ColorMode) -> Result<(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     println!("Queries in {}:\n", file_path);
@@ -132,7 +132,7 @@ pub(crate) fn check_queries(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     let mut has_errors = false;

@@ -19,7 +19,7 @@ pub(crate) fn run_benchmark(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     // Helper for colored output

@@ -11,7 +11,7 @@ pub(crate) fn show_stats(file_path: &Option<String>, color_mode: &ColorMode) -> 
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     // Helper for colored output
@@ -340,7 +340,7 @@ pub(crate) fn show_paths(
     let use_color = match color_mode {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => atty::is(atty::Stream::Stdout),
+        ColorMode::Auto => crate::util::stdout_is_terminal(),
     };
 
     let mut paths_info: Vec<(String, String, Option<String>)> = Vec::new();
