@@ -168,7 +168,7 @@ impl ValueExt for Value {
     }
 
     fn is_expref(&self) -> bool {
-        matches!(self, Value::Object(map) if map.contains_key("__jpx_expref__"))
+        matches!(self, Value::Object(map) if map.contains_key(crate::EXPREF_KEY.as_str()))
     }
 }
 
