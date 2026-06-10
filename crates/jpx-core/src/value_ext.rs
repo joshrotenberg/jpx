@@ -124,7 +124,11 @@ impl ValueExt for Value {
 
     fn slice(&self, start: Option<i32>, stop: Option<i32>, step: i32) -> Option<Vec<Value>> {
         let arr = self.as_array()?;
-        let len = arr.len() as i32;
+        // Slice endpoints are i32 (matching the AST); clamp rather than letting
+        // `arr.len() as i32` wrap negative for arrays larger than i32::MAX (which
+        // would then panic on `arr[i as usize]`). Such arrays are unrealistic but
+        // the cast must not be unchecked.
+        let len = i32::try_from(arr.len()).unwrap_or(i32::MAX);
         if len == 0 {
             return Some(vec![]);
         }
