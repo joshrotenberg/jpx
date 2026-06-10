@@ -148,7 +148,7 @@ pub(crate) fn search_functions(registry: &FunctionRegistry, query: &str) {
     }
 
     // Sort by score descending
-    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.sort_by_key(|b| std::cmp::Reverse(b.score));
 
     if results.is_empty() {
         println!(
@@ -260,7 +260,7 @@ pub(crate) fn suggest_for_unknown_function(
         })
         .collect();
 
-    scored.sort_by(|a, b| b.1.cmp(&a.1));
+    scored.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     if scored.is_empty() {
         return None;
@@ -443,7 +443,7 @@ pub(crate) fn find_similar_functions(registry: &FunctionRegistry, func_name: &st
         })
         .collect();
 
-    related.sort_by(|a, b| b.1.cmp(&a.1));
+    related.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     if !related.is_empty() {
         println!("  {} {}:", "▸".dimmed(), "Related concepts".bold());

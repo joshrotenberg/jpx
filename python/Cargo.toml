@@ -19,5 +19,5 @@ crate-type = ["cdylib"]
 [dependencies]
 jpx-core = { workspace = true, features = ["extensions"] }
 jpx-engine = { workspace = true, features = ["let-expr"] }
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.24", features = ["extension-module", "abi3-py39"] }
 serde_json = { workspace = true }
