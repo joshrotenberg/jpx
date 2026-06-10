@@ -201,11 +201,29 @@ impl<'a> Context<'a> {
     }
 }
 
+/// Per-process random key used for expref sentinels.
+///
+/// Exprefs (`&foo`) are carried internally as an in-band `Value` object keyed by
+/// this string. A fixed key (e.g. `"__jpx_expref__"`) collides with user data
+/// that happens to contain that key -- such data would be mis-typed as an expref
+/// and silently stripped from output. Seeding the key with a per-process random
+/// token (which never reaches output, since sentinels are stripped) means user
+/// data cannot accidentally -- or, in practice, maliciously, since the token is
+/// never observable -- be mistaken for an expref.
+pub(crate) static EXPREF_KEY: LazyLock<String> = LazyLock::new(|| {
+    use std::hash::{BuildHasher, Hasher};
+    // RandomState is seeded from OS entropy per process, so this differs across
+    // runs and is not predictable to a client.
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u8(0);
+    format!("__jpx_expref_{:016x}__", hasher.finish())
+});
+
 /// Creates an expref sentinel value from a table index.
 pub(crate) fn make_expref_sentinel(id: usize) -> Value {
     let mut map = serde_json::Map::new();
     map.insert(
-        "__jpx_expref__".to_string(),
+        EXPREF_KEY.clone(),
         Value::Number(serde_json::Number::from(id)),
     );
     Value::Object(map)
@@ -215,7 +233,7 @@ pub(crate) fn make_expref_sentinel(id: usize) -> Value {
 pub fn get_expref_id(value: &Value) -> Option<usize> {
     value
         .as_object()
-        .and_then(|m| m.get("__jpx_expref__"))
+        .and_then(|m| m.get(EXPREF_KEY.as_str()))
         .and_then(|v| v.as_u64())
         .map(|v| v as usize)
 }
@@ -223,7 +241,7 @@ pub fn get_expref_id(value: &Value) -> Option<usize> {
 /// Strips expref sentinels from a value (recursive for arrays/objects).
 fn strip_expref_sentinels(value: Value) -> Value {
     match value {
-        Value::Object(map) if map.contains_key("__jpx_expref__") => Value::Null,
+        Value::Object(map) if map.contains_key(EXPREF_KEY.as_str()) => Value::Null,
         Value::Array(arr) => Value::Array(arr.into_iter().map(strip_expref_sentinels).collect()),
         Value::Object(map) => Value::Object(
             map.into_iter()
@@ -257,6 +275,29 @@ mod tests {
         let expr = compile("foo.bar").unwrap();
         let data = json!({"foo": {"bar": true}});
         assert_eq!(json!(true), expr.search(&data).unwrap());
+    }
+
+    #[test]
+    fn user_data_with_expref_key_is_not_mistaken_for_an_expref() {
+        // The sentinel key is randomised per process, so user data containing
+        // the old fixed literal key is treated as ordinary data: it round-trips
+        // through output (previously stripped to null) and types as an object
+        // (previously "expref").
+        let data = json!({"__jpx_expref__": 0});
+        assert_eq!(compile("@").unwrap().search(&data).unwrap(), data);
+        assert_eq!(
+            compile("type(@)").unwrap().search(&data).unwrap(),
+            json!("object")
+        );
+    }
+
+    #[test]
+    fn exprefs_still_evaluate() {
+        let data = json!([{"n": 3}, {"n": 1}, {"n": 2}]);
+        assert_eq!(
+            compile("sort_by(@, &n)").unwrap().search(&data).unwrap(),
+            json!([{"n": 1}, {"n": 2}, {"n": 3}])
+        );
     }
 
     #[test]
