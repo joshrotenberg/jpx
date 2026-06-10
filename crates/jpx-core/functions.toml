@@ -5864,3 +5864,413 @@ examples = [
     { code = "convert_volume(`1`, 'cup', 'ml') -> 236.588", description = "Cups to milliliters" },
 ]
 features = ["core"]
+
+# =============================================================================
+# FUNCTIONS RESTORED TO THE REGISTRY
+# These functions were implemented and registered in code but missing from this
+# file, so register_if_enabled() never enabled them (#190). Categorised by the
+# module that registers them.
+# =============================================================================
+
+[[functions]]
+name = "acos"
+category = "math"
+description = "Arc cosine function (returns null for out-of-domain input)"
+signature = "number -> number"
+examples = [
+    { code = "acos(`1`) -> 0", description = "Arccos of 1" },
+    { code = "acos(`0`) -> ~1.5708", description = "Arccos of 0 (pi/2)" },
+    { code = "acos(`2`) -> null", description = "Out of domain (|n| > 1)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "asin"
+category = "math"
+description = "Arc sine function (returns null for out-of-domain input)"
+signature = "number -> number"
+examples = [
+    { code = "asin(`0`) -> 0", description = "Arcsin of 0" },
+    { code = "asin(`1`) -> ~1.5708", description = "Arcsin of 1 (pi/2)" },
+    { code = "asin(`2`) -> null", description = "Out of domain (|n| > 1)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "atan"
+category = "math"
+description = "Arc tangent function"
+signature = "number -> number"
+examples = [
+    { code = "atan(`0`) -> 0", description = "Arctan of 0" },
+    { code = "atan(`1`) -> ~0.7854", description = "Arctan of 1 (pi/4)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "atan2"
+category = "math"
+description = "Arc tangent of y/x using the signs of both arguments to determine the quadrant"
+signature = "number, number -> number"
+examples = [
+    { code = "atan2(`0`, `1`) -> 0", description = "Arctan2 of (0, 1)" },
+    { code = "atan2(`1`, `1`) -> ~0.7854", description = "Arctan2 of (1, 1) (pi/4)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "deg_to_rad"
+category = "math"
+description = "Convert degrees to radians"
+signature = "number -> number"
+examples = [
+    { code = "deg_to_rad(`0`) -> 0", description = "0 degrees" },
+    { code = "deg_to_rad(`180`) -> ~3.14159", description = "180 degrees (pi)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "rad_to_deg"
+category = "math"
+description = "Convert radians to degrees"
+signature = "number -> number"
+examples = [
+    { code = "rad_to_deg(`0`) -> 0", description = "0 radians" },
+    { code = "rad_to_deg(`3.14159`) -> ~180", description = "pi radians" },
+]
+features = ["core"]
+
+[[functions]]
+name = "sign"
+category = "math"
+description = "Sign of a number (-1, 0, or 1)"
+signature = "number -> number"
+examples = [
+    { code = "sign(`-5`) -> -1", description = "Negative number" },
+    { code = "sign(`0`) -> 0", description = "Zero" },
+    { code = "sign(`42`) -> 1", description = "Positive number" },
+]
+features = ["core"]
+
+[[functions]]
+name = "nth"
+category = "array"
+description = "Take every nth element starting from the first (step, not index)"
+signature = "array, number -> array"
+examples = [
+    { code = "nth([1, 2, 3, 4, 5, 6], `2`) -> [1, 3, 5]", description = "Every 2nd element" },
+    { code = "nth([10, 20, 30, 40], `1`) -> [10, 20, 30, 40]", description = "Step 1 returns all" },
+    { code = "nth([1, 2, 3], `0`) -> null", description = "Step of 0 returns null" },
+]
+features = ["core"]
+
+[[functions]]
+name = "interleave"
+category = "array"
+description = "Alternate elements from two arrays; remaining elements of the longer array are appended"
+signature = "array, array -> array"
+examples = [
+    { code = "interleave([1, 2, 3], [4, 5, 6]) -> [1, 4, 2, 5, 3, 6]", description = "Equal-length interleave" },
+    { code = "interleave([1, 2], [3, 4, 5, 6]) -> [1, 3, 2, 4, 5, 6]", description = "Trailing elements appended" },
+]
+features = ["core"]
+
+[[functions]]
+name = "rotate"
+category = "array"
+description = "Rotate array elements left by n positions (negative rotates right)"
+signature = "array, number -> array"
+examples = [
+    { code = "rotate([1, 2, 3, 4, 5], `2`) -> [3, 4, 5, 1, 2]", description = "Rotate left by 2" },
+    { code = "rotate([1, 2, 3, 4, 5], `-1`) -> [5, 1, 2, 3, 4]", description = "Negative rotates right" },
+]
+features = ["core"]
+
+[[functions]]
+name = "partition"
+category = "array"
+description = "Split array into n contiguous parts as evenly as possible (earlier parts get the remainder)"
+signature = "array, number -> array"
+examples = [
+    { code = "partition([1, 2, 3, 4, 5, 6], `3`) -> [[1, 2], [3, 4], [5, 6]]", description = "Even split into 3" },
+    { code = "partition([1, 2, 3, 4, 5], `3`) -> [[1, 2], [3, 4], [5]]", description = "Uneven split" },
+]
+features = ["core"]
+
+[[functions]]
+name = "tail"
+category = "array"
+description = "All elements except the first"
+signature = "array -> array"
+examples = [
+    { code = "tail([1, 2, 3, 4]) -> [2, 3, 4]", description = "Drop the first element" },
+    { code = "tail([1]) -> []", description = "Single-element array" },
+]
+features = ["core"]
+
+[[functions]]
+name = "without"
+category = "array"
+description = "Remove all occurrences of the given values from the array"
+signature = "array, array -> array"
+examples = [
+    { code = "without([1, 2, 3, 1, 2], [2]) -> [1, 3, 1]", description = "Remove all 2s" },
+    { code = "without([1, 2, 3], [2, 3]) -> [1]", description = "Remove multiple values" },
+]
+features = ["core"]
+
+[[functions]]
+name = "xor"
+category = "array"
+description = "Symmetric difference: elements in exactly one of the two arrays"
+signature = "array, array -> array"
+examples = [
+    { code = "xor([1, 2, 3], [2, 3, 4]) -> [1, 4]", description = "Elements unique to each" },
+    { code = "xor([1, 2, 3], [1, 2, 3]) -> []", description = "Identical arrays" },
+]
+features = ["core"]
+
+[[functions]]
+name = "combinations"
+category = "array"
+description = "All k-element combinations of the array, preserving input order"
+signature = "array, number -> array"
+examples = [
+    { code = "combinations([1, 2, 3], `2`) -> [[1, 2], [1, 3], [2, 3]]", description = "2-combinations of 3" },
+    { code = "combinations([1, 2, 3], `1`) -> [[1], [2], [3]]", description = "1-combinations" },
+]
+features = ["core"]
+
+[[functions]]
+name = "fill"
+category = "array"
+description = "Replace elements in the range [start, end) with a value (start/end optional, negative indices supported)"
+signature = "array, any, number -> array"
+examples = [
+    { code = "fill([1, 2, 3, 4], `0`) -> [0, 0, 0, 0]", description = "Fill entire array" },
+    { code = "fill([1, 2, 3, 4], `0`, `1`, `3`) -> [1, 0, 0, 4]", description = "Fill range [1, 3)" },
+]
+features = ["core"]
+
+[[functions]]
+name = "pull_at"
+category = "array"
+description = "Return elements at the given indices, in the order requested (negative indices supported)"
+signature = "array, array -> array"
+examples = [
+    { code = "pull_at([10, 20, 30, 40], [0, 2]) -> [10, 30]", description = "Elements at indices 0 and 2" },
+    { code = "pull_at([10, 20, 30, 40], [-1, 0]) -> [40, 10]", description = "Negative index from end" },
+]
+features = ["core"]
+
+[[functions]]
+name = "lower_case"
+category = "string"
+description = "Lowercase every character (no word splitting; same as lower)"
+signature = "string -> string"
+examples = [
+    { code = '''lower_case('fooBar') -> \"foobar\"''', description = "Per-character lowercase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "upper_case"
+category = "string"
+description = "Uppercase every character (no word splitting; same as upper)"
+signature = "string -> string"
+examples = [
+    { code = '''upper_case('fooBar') -> \"FOOBAR\"''', description = "Per-character uppercase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "start_case"
+category = "string"
+description = "Convert to Start Case: capitalize each word, lowercase the rest, space-separated"
+signature = "string -> string"
+examples = [
+    { code = '''start_case('hello_world') -> \"Hello World\"''', description = "From snake_case" },
+    { code = '''start_case('helloWorld') -> \"Hello World\"''', description = "From camelCase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "title_case"
+category = "string"
+description = "Convert to Title Case with space-separated capitalized words"
+signature = "string -> string"
+examples = [
+    { code = '''title_case('hello_world') -> \"Hello World\"''', description = "From snake_case" },
+    { code = '''title_case('fooBar') -> \"Foo Bar\"''', description = "From camelCase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "train_case"
+category = "string"
+description = "Convert to Train-Case: capitalized words joined by hyphens"
+signature = "string -> string"
+examples = [
+    { code = '''train_case('hello_world') -> \"Hello-World\"''', description = "From snake_case" },
+    { code = '''train_case('fooBar') -> \"Foo-Bar\"''', description = "From camelCase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "pascal_case"
+category = "string"
+description = "Convert to PascalCase (UpperCamelCase) with no separators"
+signature = "string -> string"
+examples = [
+    { code = '''pascal_case('hello_world') -> \"HelloWorld\"''', description = "From snake_case" },
+    { code = '''pascal_case('hello-world') -> \"HelloWorld\"''', description = "From kebab-case" },
+]
+features = ["core"]
+
+[[functions]]
+name = "shouty_snake_case"
+category = "string"
+description = "Convert to SHOUTY_SNAKE_CASE (uppercase words joined by underscores)"
+signature = "string -> string"
+examples = [
+    { code = '''shouty_snake_case('helloWorld') -> \"HELLO_WORLD\"''', description = "From camelCase" },
+    { code = '''shouty_snake_case('hello-world') -> \"HELLO_WORLD\"''', description = "From kebab-case" },
+]
+features = ["core"]
+
+[[functions]]
+name = "shouty_kebab_case"
+category = "string"
+description = "Convert to SHOUTY-KEBAB-CASE (uppercase words joined by hyphens)"
+signature = "string -> string"
+examples = [
+    { code = '''shouty_kebab_case('helloWorld') -> \"HELLO-WORLD\"''', description = "From camelCase" },
+    { code = '''shouty_kebab_case('hello_world') -> \"HELLO-WORLD\"''', description = "From snake_case" },
+]
+features = ["core"]
+
+[[functions]]
+name = "deburr"
+category = "string"
+description = "Remove diacritical marks by mapping Latin-1 accented characters to ASCII equivalents"
+signature = "string -> string"
+examples = [
+    { code = '''deburr('déjà vu') -> \"deja vu\"''', description = "Strips accents" },
+    { code = '''deburr('hello') -> \"hello\"''', description = "Plain ASCII unchanged" },
+]
+features = ["core"]
+
+[[functions]]
+name = "escape"
+category = "string"
+description = "Escape HTML special characters (& < > \" ') into entities"
+signature = "string -> string"
+examples = [
+    { code = '''escape('a < b & c') -> \"a &lt; b &amp; c\"''', description = "Escapes < and &" },
+]
+features = ["core"]
+
+[[functions]]
+name = "unescape"
+category = "string"
+description = "Unescape HTML entities (&amp; &lt; &gt; &quot; &#39;) back to characters"
+signature = "string -> string"
+examples = [
+    { code = '''unescape('a &lt; b &amp; c') -> \"a < b & c\"''', description = "Unescapes &lt; and &amp;" },
+]
+features = ["core"]
+
+[[functions]]
+name = "escape_regex"
+category = "string"
+description = "Escape regular-expression metacharacters with a backslash"
+signature = "string -> string"
+examples = [
+    { code = '''escape_regex('(group)') -> \"\\(group\\)\"''', description = "Escapes parentheses" },
+]
+features = ["core"]
+
+[[functions]]
+name = "format"
+category = "string"
+description = "Substitute placeholders in a template using positional ({0}) or named ({key}) references"
+signature = "string, any -> string"
+examples = [
+    { code = '''format('Hello {0}', 'World') -> \"Hello World\"''', description = "Positional substitution" },
+    { code = '''format('Hello {name}', {name: 'World'}) -> \"Hello World\"''', description = "Named substitution" },
+]
+features = ["core"]
+
+[[functions]]
+name = "humanize"
+category = "string"
+description = "Convert an identifier to a human-readable phrase (first word capitalized, rest lowercased)"
+signature = "string -> string"
+examples = [
+    { code = '''humanize('first_name') -> \"First name\"''', description = "From snake_case" },
+    { code = '''humanize('helloWorld') -> \"Hello world\"''', description = "From camelCase" },
+]
+features = ["core"]
+
+[[functions]]
+name = "words"
+category = "string"
+description = "Split a string into words on whitespace, underscores, hyphens, and camelCase boundaries"
+signature = "string -> array"
+examples = [
+    { code = "words('helloWorld') -> [\"hello\", \"World\"]", description = "Splits on camelCase boundary" },
+    { code = "words('foo bar-baz') -> [\"foo\", \"bar\", \"baz\"]", description = "Splits on space and hyphen" },
+]
+features = ["core"]
+
+[[functions]]
+name = "truncate"
+category = "string"
+description = "Truncate to a maximum length, appending a suffix (default \"...\") that counts toward the length"
+signature = "string, number -> string"
+examples = [
+    { code = '''truncate('hello world', `5`) -> \"he...\"''', description = "Truncate to 5 chars incl ellipsis" },
+    { code = '''truncate('hi', `10`) -> \"hi\"''', description = "Shorter than max, unchanged" },
+]
+features = ["core"]
+
+[[functions]]
+name = "pascal_keys"
+category = "object"
+description = "Recursively convert all keys to PascalCase"
+signature = "any -> any"
+examples = [
+    { code = "pascal_keys({user_name: \"alice\"}) -> {UserName: \"alice\"}", description = "Snake to pascal" },
+    { code = "pascal_keys({user_info: {first_name: \"x\"}}) -> {UserInfo: {FirstName: \"x\"}}", description = "Nested" },
+]
+features = ["core"]
+
+[[functions]]
+name = "shouty_snake_keys"
+category = "object"
+description = "Recursively convert all keys to SHOUTY_SNAKE_CASE"
+signature = "any -> any"
+examples = [
+    { code = "shouty_snake_keys({userName: \"alice\"}) -> {USER_NAME: \"alice\"}", description = "Camel to shouty snake" },
+]
+features = ["core"]
+
+[[functions]]
+name = "shouty_kebab_keys"
+category = "object"
+description = "Recursively convert all keys to SHOUTY-KEBAB-CASE"
+signature = "any -> any"
+examples = [
+    { code = "shouty_kebab_keys({userName: \"alice\"}) -> {\"USER-NAME\": \"alice\"}", description = "Camel to shouty kebab" },
+]
+features = ["core"]
+
+[[functions]]
+name = "train_keys"
+category = "object"
+description = "Recursively convert all keys to Train-Case"
+signature = "any -> any"
+examples = [
+    { code = "train_keys({user_name: \"bob\"}) -> {\"User-Name\": \"bob\"}", description = "Snake to train" },
+]
+features = ["core"]
