@@ -197,6 +197,38 @@ mod config_file {
     }
 
     #[test]
+    fn config_color_always_is_applied() {
+        // `color = "always"` from config now takes effect (previously ignored),
+        // so output is colored even though stdout is piped (not a terminal).
+        let mut config = NamedTempFile::new().unwrap();
+        writeln!(config, "color = \"always\"").unwrap();
+
+        jpx()
+            .env("JPX_CONFIG", config.path().as_os_str())
+            .arg("name")
+            .write_stdin(r#"{"name":"alice"}"#)
+            .assert()
+            .success()
+            // ANSI escape present -> color was forced on.
+            .stdout(predicate::str::contains("\u{1b}["));
+    }
+
+    #[test]
+    fn config_color_overridden_by_cli_flag() {
+        // An explicit --color never on the CLI wins over config color = always.
+        let mut config = NamedTempFile::new().unwrap();
+        writeln!(config, "color = \"always\"").unwrap();
+
+        jpx()
+            .env("JPX_CONFIG", config.path().as_os_str())
+            .args(["name", "--color", "never"])
+            .write_stdin(r#"{"name":"alice"}"#)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\u{1b}[").not());
+    }
+
+    #[test]
     fn config_invalid_toml() {
         let mut config = NamedTempFile::new().unwrap();
         writeln!(config, "invalid toml {{{{").unwrap();

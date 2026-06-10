@@ -1,6 +1,6 @@
 //! Extension functions for JMESPath.
 //!
-//! This module contains 400+ additional functions organized by category.
+//! This module contains 490+ additional functions organized by category.
 //! Each submodule provides a `register_filtered` function that registers
 //! only the enabled functions with the runtime.
 //!
