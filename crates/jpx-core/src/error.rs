@@ -72,25 +72,26 @@ impl fmt::Display for JmespathError {
 impl std::error::Error for JmespathError {}
 
 /// The reason for a JMESPath error.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Marked `#[non_exhaustive]`: new reason variants may be added in future
+/// releases, so downstream matches should include a wildcard arm.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[non_exhaustive]
 pub enum ErrorReason {
     /// A parse-time error.
+    #[error("Parse error: {0}")]
     Parse(String),
     /// A runtime error.
+    #[error("Runtime error: {0}")]
     Runtime(RuntimeError),
 }
 
-impl fmt::Display for ErrorReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ErrorReason::Parse(msg) => write!(f, "Parse error: {msg}"),
-            ErrorReason::Runtime(err) => write!(f, "Runtime error: {err}"),
-        }
-    }
-}
-
 /// Runtime errors that can occur during expression evaluation.
+///
+/// Marked `#[non_exhaustive]`: new runtime-error variants may be added in
+/// future releases, so downstream matches should include a wildcard arm.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[non_exhaustive]
 pub enum RuntimeError {
     /// A slice expression with step of 0.
     #[error("Invalid slice: step cannot be 0")]

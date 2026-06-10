@@ -46,7 +46,11 @@ use thiserror::Error;
 ///
 /// This allows consumers to programmatically handle different error types
 /// without parsing error message strings.
+///
+/// Marked `#[non_exhaustive]`: new failure modes may be added in future
+/// releases, so downstream matches should include a wildcard arm.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EvaluationErrorKind {
     /// Expression called a function that is not defined.
     ///
@@ -139,7 +143,11 @@ fn extract_number_after(s: &str, prefix: &str) -> Option<u32> {
 ///
 /// Each variant represents a specific failure mode, making it easy to
 /// handle different error types appropriately.
+///
+/// Marked `#[non_exhaustive]`: new failure modes may be added in future
+/// releases, so downstream matches should include a wildcard arm.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum EngineError {
     /// JMESPath expression has invalid syntax.
     ///

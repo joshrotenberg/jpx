@@ -12,7 +12,12 @@ use crate::Runtime;
 use crate::functions::Function;
 
 /// Function category matching compile-time features.
+///
+/// Marked `#[non_exhaustive]`: new categories are added as the extension set
+/// grows, so downstream matches should include a wildcard arm (and prefer
+/// iterating [`Category::all`] over matching every variant).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Category {
     /// Standard JMESPath built-in functions (always available)
     Standard,
@@ -142,7 +147,11 @@ impl Category {
 }
 
 /// Feature tags for function classification.
+///
+/// Marked `#[non_exhaustive]`: new feature tags may be added over time, so
+/// downstream matches should include a wildcard arm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Feature {
     /// Standard JMESPath spec functions
     Spec,
