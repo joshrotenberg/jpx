@@ -200,45 +200,9 @@ impl Function for IsEmptyFn {
     }
 }
 
-// =============================================================================
-// is_blank(string) -> boolean (empty or whitespace only)
-// =============================================================================
-
-defn!(IsBlankFn, vec![arg!(any)], None);
-
-impl Function for IsBlankFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-
-        match &args[0] {
-            Value::String(s) => Ok(Value::Bool(s.trim().is_empty())),
-            Value::Null => Ok(Value::Bool(true)),
-            // Return null for non-string types
-            _ => Ok(Value::Null),
-        }
-    }
-}
-
-// =============================================================================
-// is_json(any) -> boolean|null (valid JSON string)
-// =============================================================================
-
-defn!(IsJsonFn, vec![arg!(any)], None);
-
-impl Function for IsJsonFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-
-        // Return null for non-string types
-        let s = match args[0].as_str() {
-            Some(s) => s,
-            None => return Ok(Value::Null),
-        };
-
-        let is_valid = serde_json::from_str::<Value>(s).is_ok();
-        Ok(Value::Bool(is_valid))
-    }
-}
+// `is_blank` is owned by the string category (extensions/string.rs) and
+// `is_json` by the validation category (extensions/validation.rs); both match
+// the documented `string -> boolean` contract in functions.toml.
 
 // =============================================================================
 // parse_numbers(any) -> any (recursively convert numeric strings to numbers)
@@ -424,8 +388,6 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "is_object", enabled, Box::new(IsObjectFn::new()));
     register_if_enabled(runtime, "is_null", enabled, Box::new(IsNullFn::new()));
     register_if_enabled(runtime, "is_empty", enabled, Box::new(IsEmptyFn::new()));
-    register_if_enabled(runtime, "is_blank", enabled, Box::new(IsBlankFn::new()));
-    register_if_enabled(runtime, "is_json", enabled, Box::new(IsJsonFn::new()));
     register_if_enabled(
         runtime,
         "parse_numbers",

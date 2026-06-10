@@ -104,7 +104,6 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(FrequenciesFn::new()),
     );
-    register_if_enabled(runtime, "mode", enabled, Box::new(ModeFn::new()));
     register_if_enabled(runtime, "cartesian", enabled, Box::new(CartesianFn::new()));
     register_if_enabled(runtime, "initial", enabled, Box::new(InitialFn::new()));
     // Alias for initial (Clojure-style name)
@@ -929,43 +928,8 @@ impl Function for FrequenciesFn {
     }
 }
 
-// =============================================================================
-// mode(array) -> any (most frequent value)
-// =============================================================================
-
-defn!(ModeFn, vec![arg!(array)], None);
-
-impl Function for ModeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-
-        let arr = args[0]
-            .as_array()
-            .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
-
-        if arr.is_empty() {
-            return Ok(Value::Null);
-        }
-
-        let mut counts: std::collections::HashMap<String, (i64, Value)> =
-            std::collections::HashMap::new();
-
-        for item in arr {
-            let key = serde_json::to_string(item).unwrap_or_default();
-            counts
-                .entry(key)
-                .and_modify(|(count, _)| *count += 1)
-                .or_insert((1, item.clone()));
-        }
-
-        let (_, (_, mode_value)) = counts
-            .into_iter()
-            .max_by_key(|(_, (count, _))| *count)
-            .unwrap();
-
-        Ok(mode_value)
-    }
-}
+// `mode` is owned by the math category (extensions/math.rs); functions.toml
+// lists it under `math`.
 
 // =============================================================================
 // cartesian(arr1, arr2) -> array (cartesian product of 2 arrays)

@@ -4572,14 +4572,14 @@ jep = "JEP-014"
 features = ["core", "jep"]
 
 [[functions]]
-name = "redact"
+name = "redact_pattern"
 category = "string"
 description = "Redact regex pattern matches with replacement"
 signature = "string, string, string? -> string"
 examples = [
-    { code = '''redact('email: test@example.com', '\\S+@\\S+', '[EMAIL]') -> \"email: [EMAIL]\"''', description = "Redact email" },
-    { code = '''redact('call 555-1234', '\\d{3}-\\d{4}', '[PHONE]') -> \"call [PHONE]\"''', description = "Redact phone" },
-    { code = '''redact('no match', 'xyz', '[X]') -> \"no match\"''', description = "No matches" },
+    { code = '''redact_pattern('email: test@example.com', '\\S+@\\S+', '[EMAIL]') -> \"email: [EMAIL]\"''', description = "Redact email" },
+    { code = '''redact_pattern('call 555-1234', '\\d{3}-\\d{4}', '[PHONE]') -> \"call [PHONE]\"''', description = "Redact phone" },
+    { code = '''redact_pattern('no match', 'xyz', '[X]') -> \"no match\"''', description = "No matches" },
 ]
 features = ["core"]
 
