@@ -372,7 +372,7 @@ impl JpxEngine {
             .filter(|(_, score)| *score > 0)
             .collect();
 
-        concept_scores.sort_by(|a, b| b.1.cmp(&a.1));
+        concept_scores.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         let related_concepts: Vec<FunctionDetail> = concept_scores
             .into_iter()

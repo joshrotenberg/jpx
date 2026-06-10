@@ -167,7 +167,7 @@ impl Function for FuzzySearchFn {
         }
 
         // Sort by score descending
-        results.sort_by(|a, b| b.0.cmp(&a.0));
+        results.sort_by_key(|b| std::cmp::Reverse(b.0));
 
         let result_array: Vec<Value> = results.into_iter().map(|(_, item)| item).collect();
         Ok(Value::Array(result_array))

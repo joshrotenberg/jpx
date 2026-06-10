@@ -549,7 +549,7 @@ impl Bm25Index {
             .iter()
             .map(|(t, info)| (t.clone(), info.df))
             .collect();
-        terms.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by df descending
+        terms.sort_by_key(|b| std::cmp::Reverse(b.1)); // Sort by df descending
         terms
     }
 
