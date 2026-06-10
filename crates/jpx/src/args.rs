@@ -25,7 +25,6 @@ struct Config {
     raw: Option<bool>,
     compact: Option<bool>,
     /// Color mode (auto, always, never)
-    #[allow(dead_code)]
     color: Option<String>,
 }
 
@@ -103,6 +102,16 @@ impl ConfigDefaults for Config {
         }
         if !args.compact && self.compact == Some(true) {
             args.compact = true;
+        }
+        // Color: only applies when the user did not pass --color (still Auto).
+        if matches!(args.color, ColorMode::Auto)
+            && let Some(c) = &self.color
+        {
+            args.color = match c.to_lowercase().as_str() {
+                "always" => ColorMode::Always,
+                "never" => ColorMode::Never,
+                _ => ColorMode::Auto,
+            };
         }
     }
 }
@@ -196,7 +205,7 @@ pub(crate) enum ColorMode {
     "    jpx -y 'config' < data.json         # YAML output\n",
     "\n",
     "  Discovery:\n",
-    "    jpx --list-functions                # List all 400+ functions\n",
+    "    jpx --list-functions                # List all 490+ functions\n",
     "    jpx --search date                   # Find date-related functions\n",
     "    jpx --describe format_date          # Function documentation\n",
     "\n",

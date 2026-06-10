@@ -386,7 +386,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let evaluate = ToolBuilder::new("evaluate")
         .title("Evaluate Expression")
-        .description("Evaluate a JMESPath expression against JSON input. Returns the result of applying the expression to the input data. Supports 400+ extended functions beyond standard JMESPath.")
+        .description("Evaluate a JMESPath expression against JSON input. Returns the result of applying the expression to the input data. Supports 490+ extended functions beyond standard JMESPath.")
         .read_only()
         .handler(move |params: EvaluateParams| {
             let engine = e.clone();
@@ -1082,7 +1082,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let router = McpRouter::new()
         .server_info("jpx-mcp", env!("CARGO_PKG_VERSION"))
         .instructions(
-            "JMESPath query tool with 400+ extended functions. \
+            "JMESPath query tool with 490+ extended functions. \
             \n\nDISCOVERY: Use 'search' to find functions by keyword, 'similar' to find related functions, \
             'functions' to list all (optionally by category), 'describe' for function details, 'categories' to list categories. \
             \n\nDATA ANALYSIS: Use 'stats' to analyze JSON structure before querying, 'paths' to list all paths in dot notation, \

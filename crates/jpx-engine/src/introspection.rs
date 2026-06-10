@@ -727,7 +727,7 @@ mod tests {
             !all.is_empty(),
             "functions(None) should return a non-empty list"
         );
-        // There should be a substantial number of functions (400+)
+        // There should be a substantial number of functions (490+)
         assert!(
             all.len() > 100,
             "Expected at least 100 functions, got {}",

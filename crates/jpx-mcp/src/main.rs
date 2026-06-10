@@ -1,6 +1,6 @@
 //! JMESPath MCP Server
 //!
-//! An MCP server providing JMESPath functionality with 400+ extended functions.
+//! An MCP server providing JMESPath functionality with 490+ extended functions.
 
 mod tools;
 
@@ -20,7 +20,7 @@ enum Transport {
 
 #[derive(Parser, Debug)]
 #[command(name = "jpx-mcp")]
-#[command(about = "JMESPath MCP server with 400+ extended functions", long_about = None)]
+#[command(about = "JMESPath MCP server with 490+ extended functions", long_about = None)]
 #[command(version)]
 struct Args {
     /// Transport to use

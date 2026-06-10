@@ -170,10 +170,9 @@ impl<'a> Lexer<'a> {
     {
         loop {
             match self.iter.peek() {
-                Some(&(end, c)) if predicate(c) => {
+                Some(&(_, c)) if predicate(c) => {
                     self.iter.next();
                     // Continue -- we'll use the *next* peek or EOF to get the end
-                    let _ = end;
                 }
                 Some(&(end, _)) => return end,
                 None => return self.expr.len(),

@@ -122,7 +122,7 @@ fn json_to_python(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
 // Module-level functions (backed by global Runtime)
 // =============================================================================
 
-/// Search JSON data using a JMESPath expression with 400+ functions.
+/// Search JSON data using a JMESPath expression with 490+ functions.
 ///
 /// Args:
 ///     expression: A JMESPath expression string
@@ -805,7 +805,7 @@ impl JpxEngine {
 // Module definition
 // =============================================================================
 
-/// jpx Python module - JMESPath query engine with 400+ functions.
+/// jpx Python module - JMESPath query engine with 490+ functions.
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Module-level convenience functions

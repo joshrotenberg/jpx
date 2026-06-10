@@ -1,6 +1,6 @@
 //! # jpx-engine
 //!
-//! Protocol-agnostic JMESPath query engine with 400+ functions.
+//! Protocol-agnostic JMESPath query engine with 490+ functions.
 //!
 //! This crate provides the core "brain" of jpx - everything you can do with JMESPath
 //! beyond basic compile and evaluate. It's designed to be transport-agnostic, allowing
@@ -75,7 +75,7 @@
 //!
 //! ## Function Introspection
 //!
-//! Discover and explore the 400+ available functions:
+//! Discover and explore the 490+ available functions:
 //!
 //! ```rust
 //! use jpx_engine::JpxEngine;
@@ -235,7 +235,7 @@
 //! ## Architecture
 //!
 //! ```text
-//!    jpx-core           (parser, runtime, 400+ functions, registry)
+//!    jpx-core           (parser, runtime, 490+ functions, registry)
 //!         |
 //!    jpx-engine         (this crate - evaluation, search, discovery, config)
 //!         |
@@ -296,7 +296,7 @@ pub use jpx_core::{Category, Expression, FunctionInfo, FunctionRegistry, Runtime
 ///
 /// `JpxEngine` is the main entry point for all jpx functionality. It combines:
 ///
-/// - **JMESPath runtime** with 400+ extension functions
+/// - **JMESPath runtime** with 490+ extension functions
 /// - **Function registry** for introspection and search
 /// - **Discovery registry** for cross-server tool indexing
 /// - **Query store** for named query management
@@ -351,7 +351,7 @@ impl JpxEngine {
     /// Creates a new engine with all extension functions enabled.
     ///
     /// This is the standard way to create an engine with full functionality,
-    /// including all 400+ extension functions.
+    /// including all 490+ extension functions.
     ///
     /// # Example
     ///
