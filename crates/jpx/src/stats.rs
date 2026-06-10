@@ -155,11 +155,15 @@ pub(crate) fn show_stats(file_path: &Option<String>, color_mode: &ColorMode) -> 
             }
         }
         serde_json::Value::String(s) => {
-            println!("{} {} chars", label("Length:"), number(s.len()));
-            if s.len() <= 100 {
+            println!("{} {} chars", label("Length:"), number(s.chars().count()));
+            if s.chars().count() <= 100 {
                 println!("{} \"{}\"", label("Value:"), s);
             } else {
-                println!("{} \"{}...\"", label("Preview:"), &s[..100]);
+                println!(
+                    "{} \"{}\"",
+                    label("Preview:"),
+                    crate::util::truncate_str(s, 100)
+                );
             }
         }
         serde_json::Value::Number(n) => {
@@ -310,11 +314,7 @@ fn analyze_object_keys(arr: &[serde_json::Value]) -> Vec<(String, FieldStats)> {
 fn get_value_preview(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => {
-            if s.len() <= 30 {
-                format!("\"{}\"", s)
-            } else {
-                format!("\"{}...\"", &s[..27])
-            }
+            format!("\"{}\"", crate::util::truncate_str(s, 30))
         }
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::Bool(b) => b.to_string(),
@@ -455,11 +455,7 @@ fn collect_paths(
             }
         }
         serde_json::Value::String(s) => {
-            let preview = if s.len() <= 40 {
-                format!("\"{}\"", s)
-            } else {
-                format!("\"{}...\"", &s[..37])
-            };
+            let preview = format!("\"{}\"", crate::util::truncate_str(s, 40));
             paths.push((display_path, "string".to_string(), Some(preview)));
         }
         serde_json::Value::Number(n) => {

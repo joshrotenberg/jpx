@@ -1921,12 +1921,16 @@ impl Function for MaskFn {
             4
         };
 
-        let len = s.len();
+        // Count and slice by characters so "show the last N characters" is
+        // correct for multibyte input and never slices mid-code-point.
+        let chars: Vec<char> = s.chars().collect();
+        let len = chars.len();
         let masked = if len <= show_last {
             "*".repeat(len)
         } else {
             let mask_count = len - show_last;
-            format!("{}{}", "*".repeat(mask_count), &s[mask_count..])
+            let visible: String = chars[mask_count..].iter().collect();
+            format!("{}{}", "*".repeat(mask_count), visible)
         };
 
         Ok(Value::String(masked))

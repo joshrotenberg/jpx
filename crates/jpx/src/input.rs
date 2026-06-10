@@ -7,11 +7,7 @@ use std::path::Path;
 /// Create a helpful error message for JSON parse failures.
 pub(crate) fn json_parse_error(input: &str, err: impl std::fmt::Display) -> anyhow::Error {
     let trimmed = input.trim();
-    let preview = if trimmed.len() > 60 {
-        format!("{}...", &trimmed[..60])
-    } else {
-        trimmed.to_string()
-    };
+    let preview = crate::util::truncate_str(trimmed, 60);
 
     // Detect common issues and provide specific suggestions
     let suggestion = if trimmed.is_empty() {

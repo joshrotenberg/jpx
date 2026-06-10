@@ -366,7 +366,10 @@ impl Function for IndexOfFn {
             .as_str()
             .ok_or_else(|| custom_error(ctx, "Expected search string"))?;
 
-        let len = s.len();
+        // Operate on character indices so multibyte input is handled correctly
+        // and never slices through a UTF-8 code point boundary.
+        let chars: Vec<char> = s.chars().collect();
+        let len = chars.len();
 
         // Get optional start parameter (default: 0)
         let start = if args.len() > 2 {
@@ -390,14 +393,17 @@ impl Function for IndexOfFn {
             len
         };
 
-        // Search within the slice [start, end)
+        // Search within the [start, end) character window.
         if start >= end || start >= len {
             return Ok(Value::Null);
         }
 
-        let slice = &s[start..end.min(len)];
-        match slice.find(search) {
-            Some(idx) => Ok(Value::Number(Number::from((start + idx) as i64))),
+        let window: String = chars[start..end].iter().collect();
+        match window.find(search) {
+            Some(byte_idx) => {
+                let char_idx = window[..byte_idx].chars().count();
+                Ok(Value::Number(Number::from((start + char_idx) as i64)))
+            }
             None => Ok(Value::Null),
         }
     }
@@ -423,7 +429,10 @@ impl Function for LastIndexOfFn {
             .as_str()
             .ok_or_else(|| custom_error(ctx, "Expected search string"))?;
 
-        let len = s.len();
+        // Operate on character indices so multibyte input is handled correctly
+        // and never slices through a UTF-8 code point boundary.
+        let chars: Vec<char> = s.chars().collect();
+        let len = chars.len();
 
         // Get optional start parameter (default: 0)
         let start = if args.len() > 2 {
@@ -447,14 +456,17 @@ impl Function for LastIndexOfFn {
             len
         };
 
-        // Search within the slice [start, end)
+        // Search within the [start, end) character window.
         if start >= end || start >= len {
             return Ok(Value::Null);
         }
 
-        let slice = &s[start..end.min(len)];
-        match slice.rfind(search) {
-            Some(idx) => Ok(Value::Number(Number::from((start + idx) as i64))),
+        let window: String = chars[start..end].iter().collect();
+        match window.rfind(search) {
+            Some(byte_idx) => {
+                let char_idx = window[..byte_idx].chars().count();
+                Ok(Value::Number(Number::from((start + char_idx) as i64)))
+            }
             None => Ok(Value::Null),
         }
     }
@@ -2197,6 +2209,38 @@ mod tests {
         // When show_last >= length, object mask returns all stars
         let result = expr.search(&json!("short")).unwrap();
         assert_eq!(result.as_str().unwrap(), "*****");
+    }
+
+    #[test]
+    fn test_mask_multibyte() {
+        let runtime = setup_runtime();
+        // "héllo" is 5 chars / 6 bytes. show_last=4 -> mask 1 char. A byte-based
+        // slice at byte 2 would land inside "é" and panic; char-based is safe.
+        let expr = runtime.compile("mask(@, `4`)").unwrap();
+        let result = expr.search(&json!("héllo")).unwrap();
+        assert_eq!(result.as_str().unwrap(), "*éllo");
+    }
+
+    #[test]
+    fn test_find_first_multibyte() {
+        // IndexOfFn is registered as `find_first`.
+        let runtime = setup_runtime();
+        // Character indices: h=0, é=1, l=2, l=3, o=4.
+        let expr = runtime.compile("find_first('héllo', 'l')").unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(2));
+        // start/end window that previously sliced mid-"é" and panicked.
+        let expr = runtime
+            .compile("find_first('héllo', 'l', `1`, `5`)")
+            .unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(2));
+    }
+
+    #[test]
+    fn test_find_last_multibyte() {
+        // LastIndexOfFn is registered as `find_last`.
+        let runtime = setup_runtime();
+        let expr = runtime.compile("find_last('héllo', 'l')").unwrap();
+        assert_eq!(expr.search(&json!(null)).unwrap(), json!(3));
     }
 
     // =========================================================================
