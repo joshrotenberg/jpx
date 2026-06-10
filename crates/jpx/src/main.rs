@@ -23,6 +23,21 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 fn main() {
+    // Restore the default SIGPIPE disposition. Rust installs SIG_IGN at
+    // startup, which turns writes to a closed pipe (e.g. `jpx ... | head`)
+    // into EPIPE errors -- the non-streaming path then panics on `println!`
+    // and the streaming path exits with a spurious error. Resetting to SIG_DFL
+    // lets the OS terminate jpx normally (exit 141) on a closed pipe, the
+    // conventional behaviour for a streaming CLI, consistently across both
+    // output paths.
+    //
+    // Safety: a single `libc::signal` call with no preconditions, run before
+    // any other work or threads are spawned.
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+
     match run() {
         Ok(code) => std::process::exit(code),
         Err(err) => {

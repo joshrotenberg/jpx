@@ -1536,6 +1536,7 @@ dependencies = [
  "dirs",
  "jpx-engine",
  "json-patch",
+ "libc",
  "parquet",
  "predicates",
  "rustyline",
