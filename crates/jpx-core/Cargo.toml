@@ -9,6 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Complete JMESPath implementation with 490+ extension functions"
 documentation = "https://docs.rs/jpx-core"
+readme = "README.md"
 keywords = ["jmespath", "json", "query", "parser"]
 categories = ["data-structures", "parsing"]
 

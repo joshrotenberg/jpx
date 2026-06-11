@@ -9,6 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "JMESPath query engine with introspection, discovery, and advanced features"
 documentation = "https://docs.rs/jpx-engine"
+readme = "README.md"
 keywords = ["jmespath", "json", "query", "engine"]
 categories = ["data-structures", "parsing"]
 

@@ -25,6 +25,16 @@ Query engine with introspection, function discovery, configuration, and query st
 
 [crates.io](https://crates.io/crates/jpx-engine) | [docs.rs](https://docs.rs/jpx-engine)
 
+## jpx-mcp
+
+Model Context Protocol server exposing 31 JMESPath tools to AI assistants, built on jpx-engine. Run it as a binary or embed the router in your own transport.
+
+- 31 tools across evaluation, introspection, JSON utilities, query store, and discovery
+- Install with `cargo install jpx-mcp`, or run the `ghcr.io/joshrotenberg/jpx-mcp` image
+- See the [MCP Server](mcp/overview.md) section for setup and the full tool list
+
+[crates.io](https://crates.io/crates/jpx-mcp) | [docs.rs](https://docs.rs/jpx-mcp)
+
 ## Python Bindings
 
 Use jpx functions in Python via the `jpx` package on PyPI.
