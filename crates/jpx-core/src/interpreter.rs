@@ -27,8 +27,8 @@ const MAX_EVAL_DEPTH: usize = 128;
 
 /// Interprets the given data using an AST node.
 ///
-/// Thin wrapper that bounds recursion depth via [`Context::eval_depth`];
-/// the actual interpretation happens in [`interpret_inner`].
+/// Thin wrapper that bounds recursion depth via `Context::eval_depth`;
+/// the actual interpretation happens in `interpret_inner`.
 pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
     ctx.eval_depth += 1;
     if ctx.eval_depth > MAX_EVAL_DEPTH {
