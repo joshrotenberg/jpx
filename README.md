@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/jpx.svg)](https://crates.io/crates/jpx)
 [![License](https://img.shields.io/crates/l/jpx.svg)](https://github.com/joshrotenberg/jpx#license)
 
-JMESPath CLI and tools with 400+ extended functions - a powerful jq alternative.
+JMESPath CLI and tools with 490+ extended functions - a powerful jq alternative.
 
 This repository contains the jpx ecosystem:
 
@@ -56,11 +56,11 @@ Give Claude (or any MCP client) the ability to query and transform JSON:
 }
 ```
 
-**Tools:** `evaluate`, `batch_evaluate`, `validate`, `functions`, `describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, `paths`, `keys`
+**Tools** (31 total): `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, `paths`, `keys`, plus a session query store. See the [MCP docs](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
 
 ## Function Categories
 
-The library provides 400+ functions across these categories:
+The library provides 490+ functions across these categories:
 
 | Category | Examples |
 |----------|----------|
@@ -83,7 +83,7 @@ See the [documentation](https://joshrotenberg.github.io/jpx/) for the full funct
 
 - **[JMESPath](https://jmespath.org/)** - The query language specification
 - **[jmespath.rs](https://crates.io/crates/jmespath)** - Rust implementation by [@mtdowling](https://github.com/mtdowling)
-- **[jpx-core](crates/jpx-core/)** - JMESPath implementation with 400+ extension functions
+- **[jpx-core](crates/jpx-core/)** - JMESPath implementation with 490+ extension functions
 
 ## License
 

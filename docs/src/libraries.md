@@ -4,10 +4,10 @@ jpx is built on a stack of Rust crates that can be used independently in your ow
 
 ## jpx-core
 
-Self-contained JMESPath implementation with 400+ extension functions. Provides the parser, runtime, and function registry used by all other jpx crates. This is a from-scratch implementation with no upstream dependency on the unmaintained `jmespath` crate.
+Self-contained JMESPath implementation with 490+ extension functions. Provides the parser, runtime, and function registry used by all other jpx crates. This is a from-scratch implementation with no upstream dependency on the unmaintained `jmespath` crate.
 
 - Uses `serde_json::Value` natively -- no type conversion overhead
-- 26 standard JMESPath built-in functions + 400+ extensions across 31 categories
+- 26 standard JMESPath built-in functions + 490+ extensions across 32 categories
 - `functions.toml` is the single source of truth for function metadata
 - Optional `let-expr` feature for JMESPath `let` expressions
 

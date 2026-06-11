@@ -8,7 +8,7 @@ MCP is an open protocol that enables AI assistants to interact with external too
 
 - Query JSON data using JMESPath expressions
 - Transform and manipulate JSON structures
-- Use all 400+ extension functions
+- Use all 490+ extension functions
 - Explore available functions and their documentation
 
 ## Why Use jpx with Claude?
@@ -22,7 +22,7 @@ When working with JSON data in Claude, jpx provides:
 
 ## Available Tools
 
-The MCP server exposes **29 tools** organized by purpose:
+The MCP server exposes **31 tools** organized by purpose:
 
 ### Query Execution
 

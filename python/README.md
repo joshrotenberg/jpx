@@ -1,7 +1,7 @@
 # jpx
 
 Python bindings for [jpx](https://github.com/joshrotenberg/jpx), a JMESPath query
-engine with 460+ extended functions on top of the standard JMESPath specification.
+engine with 490+ extended functions on top of the standard JMESPath specification.
 
 The bindings are built in Rust with [PyO3](https://pyo3.rs) and ship as
 abi3 wheels, so a single wheel per platform works on CPython 3.9 and newer.

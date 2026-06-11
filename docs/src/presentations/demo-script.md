@@ -46,7 +46,7 @@ jpx --search "distance"
 jpx --describe geo_distance_km
 ```
 
-> 400+ functions, all searchable and documented from the CLI.
+> 490+ functions, all searchable and documented from the CLI.
 
 ---
 
@@ -250,7 +250,7 @@ The AI will make a series of MCP tool calls — talk over them:
 
 ### Talk track
 
-> "This is jpx as an MCP server — 29 tools that let any AI assistant
+> "This is jpx as an MCP server — 31 tools that let any AI assistant
 > query JSON, discover functions, and build reusable query libraries.
 > I gave it one prompt and it explored the data, found the right
 > functions, built the queries, and saved them. No code. No scripts."

@@ -104,7 +104,7 @@ The jpx version is often more readable because it expresses intent directly.
 Same syntax across:
 - CLI (`jpx 'query'`)
 - MCP server (for AI assistants)
-- Python bindings (`jmespath_extensions.search('query', data)`)
+- Python bindings (`jpx.search('query', data)`)
 - Rust library
 
 Learn once, use everywhere.
@@ -178,13 +178,13 @@ jpx is for **ad-hoc JSON exploration and transformation**:
 The sweet spot: **use jpx for the JSON transformation step** inside larger Python/JS applications:
 
 ```python
-import jmespath_extensions
+import jpx
 
 # Complex Python logic here...
 data = fetch_from_api()
 
 # Let jpx handle the transformation
-result = jmespath_extensions.search('items[?active].{id: id, name: upper(name)}', data)
+result = jpx.search('items[?active].{id: id, name: upper(name)}', data)
 
 # More Python logic...
 save_to_database(result)
@@ -229,7 +229,7 @@ Both tools query and transform JSON from the command line. Here's how they compa
 
 ### What jpx Does Better
 
-- **More built-in functions**: 400+ vs ~50 in jq
+- **More built-in functions**: 490+ vs ~50 in jq
 - **Domain-specific functions**: NLP, geo, fuzzy matching, phonetic, etc.
 - **Function discovery**: `--search`, `--describe`, `--similar`
 - **Readable filters**: `[?age > \`30\`]` reads like SQL WHERE
@@ -296,7 +296,7 @@ jq and jpx aren't really competing - they have different sweet spots.
 curl api.example.com | jq '.data | recurse | select(.type == "user")' | jpx '[*].{name: name, similarity: jaro_winkler(name, `"target"`)}'
 ```
 
-The choice often comes down to: "Do I need jq's algorithmic power, or jpx's 400 functions?"
+The choice often comes down to: "Do I need jq's algorithmic power, or jpx's 490+ functions?"
 
 ## Summary
 
