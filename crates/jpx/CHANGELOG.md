@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.4...jpx-v0.5.0) - 2026-06-11
+
+### Added
+
+- add --cheatsheet flag for a one-page quick reference ([#212](https://github.com/joshrotenberg/jpx/pull/212))
+- register 37 implemented-but-unlisted extension functions ([#190](https://github.com/joshrotenberg/jpx/pull/190)) ([#201](https://github.com/joshrotenberg/jpx/pull/201))
+
+### Fixed
+
+- deduplicate flatten/mask name collisions ([#209](https://github.com/joshrotenberg/jpx/pull/209))
+- replace unmaintained atty with std::io::IsTerminal ([#205](https://github.com/joshrotenberg/jpx/pull/205))
+- [**breaking**] config strict-merge now honors later layers in both directions ([#202](https://github.com/joshrotenberg/jpx/pull/202))
+- correct streaming pipeline error handling and CLI cleanups ([#200](https://github.com/joshrotenberg/jpx/pull/200))
+- terminate cleanly on a broken pipe (SIGPIPE) ([#199](https://github.com/joshrotenberg/jpx/pull/199))
+- eliminate UTF-8 byte-slice panics in CLI and extensions ([#198](https://github.com/joshrotenberg/jpx/pull/198))
+
+### Other
+
+- release prep -- refresh counts, fix Python module, add library crate READMEs ([#215](https://github.com/joshrotenberg/jpx/pull/215))
+- refresh stale function counts, wire config color, drop dead code ([#206](https://github.com/joshrotenberg/jpx/pull/206))
+- Prepare jpx Python package for first PyPI release ([#185](https://github.com/joshrotenberg/jpx/pull/185))
+
 ## [0.4.4](https://github.com/joshrotenberg/jpx/compare/jpx-v0.4.3...jpx-v0.4.4) - 2026-03-16
 
 ### Added

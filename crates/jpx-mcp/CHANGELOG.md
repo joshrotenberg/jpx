@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/joshrotenberg/jpx/compare/jpx-mcp-v0.4.4...jpx-mcp-v0.5.0) - 2026-06-11
+
+### Added
+
+- add batch introspection (describe_functions + batch_describe MCP tool) ([#213](https://github.com/joshrotenberg/jpx/pull/213))
+
+### Fixed
+
+- bound MCP resource usage on untrusted input ([#204](https://github.com/joshrotenberg/jpx/pull/204))
+- [**breaking**] config strict-merge now honors later layers in both directions ([#202](https://github.com/joshrotenberg/jpx/pull/202))
+
+### Other
+
+- release prep -- refresh counts, fix Python module, add library crate READMEs ([#215](https://github.com/joshrotenberg/jpx/pull/215))
+- refresh stale function counts, wire config color, drop dead code ([#206](https://github.com/joshrotenberg/jpx/pull/206))
+
 ## [0.4.4](https://github.com/joshrotenberg/jpx/compare/jpx-mcp-v0.4.3...jpx-mcp-v0.4.4) - 2026-03-16
 
 ### Added

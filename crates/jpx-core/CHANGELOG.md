@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.2...jpx-core-v0.3.0) - 2026-06-11
+
+### Added
+
+- register 37 implemented-but-unlisted extension functions ([#190](https://github.com/joshrotenberg/jpx/pull/190)) ([#201](https://github.com/joshrotenberg/jpx/pull/201))
+
+### Fixed
+
+- resolve jpx-core name collisions and from_epoch_ms pre-epoch handling ([#189](https://github.com/joshrotenberg/jpx/pull/189)) ([#211](https://github.com/joshrotenberg/jpx/pull/211))
+- report error column in characters and bound slice length cast ([#210](https://github.com/joshrotenberg/jpx/pull/210))
+- stop datetime panics and bound allocation in extensions ([#208](https://github.com/joshrotenberg/jpx/pull/208))
+- deduplicate flatten/mask name collisions ([#209](https://github.com/joshrotenberg/jpx/pull/209))
+- prevent user data from colliding with expref sentinels ([#207](https://github.com/joshrotenberg/jpx/pull/207))
+- eliminate UTF-8 byte-slice panics in CLI and extensions ([#198](https://github.com/joshrotenberg/jpx/pull/198))
+- bound parser and interpreter recursion depth (stack-overflow DoS) ([#197](https://github.com/joshrotenberg/jpx/pull/197))
+
+### Other
+
+- release-readiness audit -- refresh stale counts, add crate READMEs, fix doc warnings ([#216](https://github.com/joshrotenberg/jpx/pull/216))
+- release prep -- refresh counts, fix Python module, add library crate READMEs ([#215](https://github.com/joshrotenberg/jpx/pull/215))
+- mark extensible public enums non_exhaustive; thiserror for ErrorReason ([#214](https://github.com/joshrotenberg/jpx/pull/214))
+- refresh stale function counts, wire config color, drop dead code ([#206](https://github.com/joshrotenberg/jpx/pull/206))
+- Prepare jpx Python package for first PyPI release ([#185](https://github.com/joshrotenberg/jpx/pull/185))
+
 ## [0.2.2](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.1...jpx-core-v0.2.2) - 2026-03-16
 
 ### Added
