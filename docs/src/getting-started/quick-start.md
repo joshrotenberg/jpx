@@ -1,6 +1,6 @@
 # Quick Start
 
-jpx is a command-line JSON processor with 400+ built-in functions. Pipe JSON in, get transformed JSON out.
+jpx is a command-line JSON processor with 490+ built-in functions. Pipe JSON in, get transformed JSON out.
 
 Five things to know to start using it:
 
@@ -40,7 +40,7 @@ Note: literal values use backticks (`` `28` ``).
 
 ## 4. Call a function
 
-jpx has 400+ functions. Pass data with `@` (current value):
+jpx has 490+ functions. Pass data with `@` (current value):
 
 ```bash
 echo '[3, 1, 4, 1, 5]' | jpx 'sort(@)'
@@ -68,7 +68,7 @@ That's it. You can do a lot with just these five patterns.
 
 ## Finding Functions
 
-Don't memorize 400 functions. Search for what you need:
+Don't memorize 490+ functions. Search for what you need:
 
 ```bash
 jpx --search unique

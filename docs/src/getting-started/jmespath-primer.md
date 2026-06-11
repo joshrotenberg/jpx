@@ -60,7 +60,7 @@ echo '[{"name": "Alice", "active": true}, {"name": "Bob", "active": false}]' | \
 
 ## Functions
 
-JMESPath has built-in functions. jpx extends these with 400+ more.
+JMESPath has built-in functions. jpx extends these with 490+ more.
 
 ### Standard Functions (26)
 
@@ -164,7 +164,7 @@ echo '{"user": {}}' | jpx 'user.name || `"unknown"`'
 
 ## Finding Functions
 
-Don't memorize 400 functions. Search for what you need:
+Don't memorize 490+ functions. Search for what you need:
 
 ```bash
 # Search by keyword
@@ -180,7 +180,7 @@ jpx --list-category string
 ## Next Steps
 
 - [Basic Usage](../cli/basic-usage.md) - CLI options and features
-- [Function Overview](../functions/overview.md) - All 400+ functions
+- [Function Overview](../functions/overview.md) - All 490+ functions
 - [Examples](../cli/examples.md) - Common recipes
 - [JMESPath Specification](https://jmespath.org/specification.html) - Official language spec
 - [JMESPath Tutorial](https://jmespath.org/tutorial.html) - Interactive tutorial

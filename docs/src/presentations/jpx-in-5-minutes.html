@@ -47,7 +47,7 @@
 <!-- Slide 1: Title -->
 <section>
   <h1><span class="accent">jpx</span></h1>
-  <h3>JMESPath + 400 functions.<br>
+  <h3>JMESPath + 490+ functions.<br>
   <span class="dim">A jq alternative you can actually remember.</span></h3>
   <p class="dim">Josh Rotenberg</p>
   <aside class="notes">
@@ -55,7 +55,7 @@
     jpx is built on JMESPath — an RFC-spec query language for JSON.
     It's already in the AWS CLI, Ansible, Boto3.
     Same idea as jq, but the syntax reads like English.
-    And jpx adds 400+ functions on top.
+    And jpx adds 490+ functions on top.
   </aside>
 </section>
 
@@ -132,7 +132,7 @@
   <p class="fragment small" style="margin-top: 0.8em;">
     <span class="dim">JMESPath is an</span> RFC spec<span class="dim">.</span>
     <span class="accent">jpx</span> adds
-    <span class="accent">400+ functions</span> on top &mdash;
+    <span class="accent">490+ functions</span> on top &mdash;
     <span class="dim">dates, hashing, geo, fuzzy matching, and more.</span>
   </p>
   <aside class="notes">
@@ -140,14 +140,14 @@
     No special syntax to learn — it reads like "give me login uppercased, created_at
     formatted as month-year, and the repo count."
     JMESPath is a spec — it's not a custom language someone invented for a CLI tool.
-    jpx takes that spec and adds 400+ functions across 32 categories.
+    jpx takes that spec and adds 490+ functions across 32 categories.
   </aside>
 </section>
 
 <!-- Slide 3: The function arsenal -->
 <section>
   <h2><span class="accent">32</span> categories.
-  <span class="accent">400+</span> functions.</h2>
+  <span class="accent">490+</span> functions.</h2>
   <div class="chip-grid">
     <span class="chip">string</span>
     <span class="chip">array</span>
@@ -200,7 +200,7 @@
     </tr>
     <tr>
       <td class="accent" style="white-space:nowrap">jpx-mcp</td>
-      <td>MCP server &mdash; 29 tools for AI assistants</td>
+      <td>MCP server &mdash; 31 tools for AI assistants</td>
     </tr>
     <tr>
       <td class="accent" style="white-space:nowrap">jpx-core</td>
@@ -217,14 +217,14 @@
   </table>
   <br>
   <p class="fragment small">
-    <span class="green">MCP server</span>: 29 tools &mdash; AI agents can
+    <span class="green">MCP server</span>: 31 tools &mdash; AI agents can
     query JSON, discover functions, and build query libraries
     without the data ever entering the context window.
   </p>
   <aside class="notes">
     Everything is Rust, from the parser to the MCP server.
     jpx-core is a ground-up JMESPath implementation — not a wrapper.
-    The MCP server exposes 29 tools to AI assistants.
+    The MCP server exposes 31 tools to AI assistants.
     It also has a BM25 discovery index for cross-server tool search.
     Python bindings let you use the same engine from scripts.
     MIT/Apache-2.0 dual licensed.
@@ -369,7 +369,7 @@ jpx -Q earthquakes.jpx:mag-stats -f data.json</code></pre>
   </p>
   <aside class="notes">
     Homebrew on Mac, cargo install, Docker, or shell installer.
-    --search does BM25 full-text search across all 400+ functions.
+    --search does BM25 full-text search across all 490+ functions.
     The REPL has tab completion and history.
     Query files (.jpx) let you build reusable expression libraries.
     Check it out, star the repo, PRs welcome.

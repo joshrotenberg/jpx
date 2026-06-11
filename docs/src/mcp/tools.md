@@ -1,6 +1,6 @@
 # Available Tools
 
-The jpx MCP server provides **29 tools** organized into seven categories.
+The jpx MCP server provides **31 tools** organized into seven categories.
 
 ## Server Info
 
@@ -31,7 +31,7 @@ Set `include_schema` to get the discovery registration JSON schema, or `include_
 
 ## Function Discovery
 
-Tools for exploring the 400+ JMESPath extension functions.
+Tools for exploring the 490+ JMESPath extension functions.
 
 ### search
 

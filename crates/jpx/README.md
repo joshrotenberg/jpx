@@ -4,7 +4,7 @@
 [![Downloads](https://img.shields.io/crates/d/jpx.svg)](https://crates.io/crates/jpx)
 [![License](https://img.shields.io/crates/l/jpx.svg)](https://github.com/joshrotenberg/jpx#license)
 
-A command-line tool for querying JSON data using JMESPath expressions with 400+ additional functions beyond the standard JMESPath specification.
+A command-line tool for querying JSON data using JMESPath expressions with 490+ additional functions beyond the standard JMESPath specification.
 
 ## Acknowledgments
 
@@ -23,7 +23,7 @@ Coming from [jq](https://jqlang.org/)? Here's a quick comparison:
 | | jq | jpx |
 |---|-----|-----|
 | **Language** | Custom DSL | JMESPath (standardized) |
-| **Functions** | ~70 built-in | 400+ extensions |
+| **Functions** | ~70 built-in | 490+ extensions |
 | **Ecosystem** | Standalone | Works with AWS CLI, Ansible |
 | **Streaming** | ✅ | ❌ |
 
@@ -200,7 +200,7 @@ jpx 'upper(name)' data.json  # Extension functions work
 
 ```bash
 # List all available functions grouped by category
-# Shows 26 standard JMESPath functions and 400+ extension functions
+# Shows 26 standard JMESPath functions and 490+ extension functions
 jpx --list-functions
 
 # List functions in a specific category

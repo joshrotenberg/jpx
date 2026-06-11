@@ -335,7 +335,7 @@ Array fields:
 
 ### Find functions you need
 
-Don't memorize 400 functions - search for them:
+Don't memorize 490+ functions - search for them:
 
 ```bash
 jpx --search "date"

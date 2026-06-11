@@ -1,6 +1,6 @@
 # jpx
 
-**jpx** is a command-line tool for querying and transforming JSON using [JMESPath](https://jmespath.org/) with 400+ extension functions.
+**jpx** is a command-line tool for querying and transforming JSON using [JMESPath](https://jmespath.org/) with 490+ extension functions.
 
 ## Components
 
@@ -16,7 +16,7 @@
 
 ## Why jpx?
 
-Standard JMESPath has only 26 built-in functions. jpx adds 400+ more:
+Standard JMESPath has only 26 built-in functions. jpx adds 490+ more:
 
 - **String manipulation**: `upper`, `lower`, `split`, `replace`, `camel_case`, `snake_case`, and more
 - **Array operations**: `unique`, `chunk`, `flatten`, `group_by`, `zip`, and more
@@ -29,7 +29,7 @@ Standard JMESPath has only 26 built-in functions. jpx adds 400+ more:
 
 ## Features
 
-- **400+ functions**: String, math, dates, NLP, geo, fuzzy matching, and more
+- **490+ functions**: String, math, dates, NLP, geo, fuzzy matching, and more
 - **Multiple interfaces**: CLI, MCP server for AI assistants, Python bindings
 - **Function discovery**: Search, describe, and explore functions from the command line
 - **Strict mode**: Limit to standard JMESPath for portable queries
