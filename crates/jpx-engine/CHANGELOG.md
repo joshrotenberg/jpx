@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.3.5...jpx-engine-v0.4.0) - 2026-06-11
+
+### Added
+
+- add batch introspection (describe_functions + batch_describe MCP tool) ([#213](https://github.com/joshrotenberg/jpx/pull/213))
+
+### Fixed
+
+- [**breaking**] config strict-merge now honors later layers in both directions ([#202](https://github.com/joshrotenberg/jpx/pull/202))
+
+### Other
+
+- release prep -- refresh counts, fix Python module, add library crate READMEs ([#215](https://github.com/joshrotenberg/jpx/pull/215))
+- mark extensible public enums non_exhaustive; thiserror for ErrorReason ([#214](https://github.com/joshrotenberg/jpx/pull/214))
+- refresh stale function counts, wire config color, drop dead code ([#206](https://github.com/joshrotenberg/jpx/pull/206))
+- Prepare jpx Python package for first PyPI release ([#185](https://github.com/joshrotenberg/jpx/pull/185))
+
 ## [0.3.5](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.3.4...jpx-engine-v0.3.5) - 2026-03-16
 
 ### Other
