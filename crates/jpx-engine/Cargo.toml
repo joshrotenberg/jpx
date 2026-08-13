@@ -26,7 +26,7 @@ strsim = { workspace = true }
 json-patch = { workspace = true }
 
 # Configuration
-toml = "0.9"
+toml = "1.1"
 dirs = "6.0.0"
 
 # Error handling
