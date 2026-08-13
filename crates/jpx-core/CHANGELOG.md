@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.3.0...jpx-core-v0.3.1) - 2026-08-13
+
+### Fixed
+
+- prepare the 0.5.1 point release ([#225](https://github.com/joshrotenberg/jpx/pull/225))
+
 ## [0.3.0](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.2.2...jpx-core-v0.3.0) - 2026-06-11
 
 ### Added
