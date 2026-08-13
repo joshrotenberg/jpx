@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.4.0...jpx-engine-v0.4.1) - 2026-08-13
+
+### Fixed
+
+- prepare the 0.5.1 point release ([#225](https://github.com/joshrotenberg/jpx/pull/225))
+
 ## [0.4.0](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.3.5...jpx-engine-v0.4.0) - 2026-06-11
 
 ### Added
