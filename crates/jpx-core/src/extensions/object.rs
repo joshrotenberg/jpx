@@ -778,42 +778,21 @@ fn get_at_path(value: &Value, path: &str) -> Option<Value> {
     for part in parts {
         if let Some(idx) = part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
             if let Ok(index) = idx.parse::<usize>() {
-                if let Some(arr) = current.as_array() {
-                    if index < arr.len() {
-                        current = arr[index].clone();
-                    } else {
-                        return None;
-                    }
-                } else {
-                    return None;
-                }
+                let arr = current.as_array()?;
+                current = arr.get(index)?.clone();
             } else {
                 return None;
             }
         } else if let Ok(index) = part.parse::<usize>() {
             if let Some(arr) = current.as_array() {
-                if index < arr.len() {
-                    current = arr[index].clone();
-                } else {
-                    return None;
-                }
-            } else if let Some(obj) = current.as_object() {
-                if let Some(val) = obj.get(&part) {
-                    current = val.clone();
-                } else {
-                    return None;
-                }
+                current = arr.get(index)?.clone();
             } else {
-                return None;
-            }
-        } else if let Some(obj) = current.as_object() {
-            if let Some(val) = obj.get(&part) {
-                current = val.clone();
-            } else {
-                return None;
+                let obj = current.as_object()?;
+                current = obj.get(&part)?.clone();
             }
         } else {
-            return None;
+            let obj = current.as_object()?;
+            current = obj.get(&part)?.clone();
         }
     }
 
@@ -2666,15 +2645,8 @@ fn get_template_value(data: &Value, path: &str) -> Option<Value> {
             return None;
         }
 
-        if let Some(obj) = current.as_object() {
-            if let Some(val) = obj.get(part) {
-                current = val.clone();
-            } else {
-                return None;
-            }
-        } else {
-            return None;
-        }
+        let obj = current.as_object()?;
+        current = obj.get(part)?.clone();
     }
 
     if current.is_null() {

@@ -395,6 +395,43 @@ mod query_library {
     }
 
     #[test]
+    fn query_file_accepts_trailing_positional_input_file() {
+        let mut query_file = NamedTempFile::with_suffix(".jpx").unwrap();
+        writeln!(query_file, "-- :name row").unwrap();
+        writeln!(query_file, "{{n: length(@)}}").unwrap();
+
+        let mut input_file = NamedTempFile::with_suffix(".json").unwrap();
+        writeln!(input_file, "[1, 2, 3]").unwrap();
+
+        let path_with_query = format!("{}:row", query_file.path().display());
+        jpx()
+            .args(["-Q", &path_with_query])
+            .arg(input_file.path())
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(r#""n": 3"#));
+    }
+
+    #[test]
+    fn query_file_rejects_non_file_positional_with_recovery_hint() {
+        let mut query_file = NamedTempFile::with_suffix(".jpx").unwrap();
+        writeln!(query_file, "-- :name row").unwrap();
+        writeln!(query_file, "length(@)").unwrap();
+
+        jpx()
+            .arg("-Q")
+            .arg(query_file.path())
+            .arg("not-an-input-file")
+            .assert()
+            .failure()
+            .code(1)
+            .stderr(
+                predicate::str::contains("must be an existing input file")
+                    .and(predicate::str::contains("-f/--file")),
+            );
+    }
+
+    #[test]
     fn query_file_jpx_query_flag() {
         let mut file = NamedTempFile::with_suffix(".jpx").unwrap();
         writeln!(file, "-- :name get-len").unwrap();
@@ -428,6 +465,26 @@ mod query_library {
             .failure()
             .code(1)
             .stderr(predicate::str::contains("alpha").and(predicate::str::contains("beta")));
+    }
+
+    #[test]
+    fn unknown_named_query_lists_available_queries() {
+        let mut file = NamedTempFile::with_suffix(".jpx").unwrap();
+        writeln!(file, "-- :name alpha").unwrap();
+        writeln!(file, "length(@)").unwrap();
+
+        jpx()
+            .arg("-Q")
+            .arg(file.path())
+            .args(["--query", "missing"])
+            .write_stdin("[]")
+            .assert()
+            .failure()
+            .code(1)
+            .stderr(
+                predicate::str::contains("Query 'missing' not found")
+                    .and(predicate::str::contains("Available queries: alpha")),
+            );
     }
 
     #[test]

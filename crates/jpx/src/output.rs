@@ -203,6 +203,9 @@ fn output_objects_as_delimited(
             collect_flattened_keys(obj, "", &mut all_keys, &mut seen_keys);
         }
     }
+    // Keep the established CLI order deterministic even when another workspace
+    // crate enables serde_json's `preserve_order` feature through feature unification.
+    all_keys.sort_unstable();
 
     // Create CSV writer
     let mut wtr = csv::WriterBuilder::new()
@@ -363,6 +366,9 @@ fn output_objects_as_table(
             collect_flattened_keys(obj, "", &mut all_keys, &mut seen_keys);
         }
     }
+    // See the delimited-output path above: column order must not depend on
+    // which optional workspace features happened to be enabled at build time.
+    all_keys.sort_unstable();
 
     if all_keys.is_empty() {
         return write_output("(no columns)", output_path);

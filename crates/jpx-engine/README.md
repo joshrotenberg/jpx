@@ -33,7 +33,7 @@ assert_eq!(result, json!(["alice", "bob"]));
 - **Evaluation** -- single, batch, and string-based evaluation with validation
 - **Introspection** -- list, search (BM25), describe, and find-similar over the function registry
 - **Discovery** -- cross-server tool discovery with a searchable index
-- **Query store** -- named, session-scoped queries
+- **Query store** -- named queries scoped to an engine instance
 - **Configuration** -- layered `jpx.toml` discovery (cwd, home, XDG) with merge
 - **JSON utilities** -- format, diff (RFC 6902), patch, merge (RFC 7396), stats, paths, keys
 

@@ -1,6 +1,6 @@
 # Quick Start
 
-jpx is a command-line JSON processor with 490+ built-in functions. Pipe JSON in, get transformed JSON out.
+jpx is a command-line JSON processor with 490+ available functions. Pipe JSON in, get transformed JSON out.
 
 Five things to know to start using it:
 

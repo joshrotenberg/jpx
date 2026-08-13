@@ -17,7 +17,7 @@ jobs:
     name: Run benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -28,17 +28,32 @@ jobs:
       - name: Run benchmarks
         run: cargo bench -p jpx-core --bench vs_jmespath -- --output-format bencher | tee bench-output.txt
 
-      - name: Store benchmark result
+      - name: Restore benchmark history
+        uses: actions/cache/restore@v6
+        with:
+          path: .benchmark-cache
+          key: benchmark-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            benchmark-${{ runner.os }}-
+
+      - name: Analyze benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: jpx-core benchmarks
           tool: cargo
           output-file-path: bench-output.txt
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: benchmarks/jpx-core
+          external-data-json-path: .benchmark-cache/data.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
           alert-threshold: "150%"
           fail-threshold: "200%"
+          fail-on-alert: true
           comment-on-alert: true
           alert-comment-cc-users: "@joshrotenberg"
+          summary-always: true
+          max-items-in-chart: 100
+
+      - name: Save benchmark history
+        uses: actions/cache/save@v6
+        with:
+          path: .benchmark-cache
+          key: benchmark-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}

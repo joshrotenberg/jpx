@@ -10,7 +10,7 @@ allowed-tools: Bash(jpx:*)
 
 # jpx CLI Usage Guide
 
-jpx is a JMESPath CLI with 460+ extended functions. It reads JSON, applies expressions, and outputs results in multiple formats.
+jpx is a JMESPath CLI with 470+ extension functions. It reads JSON, applies expressions, and outputs results in multiple formats.
 
 ## Basic Usage
 
@@ -166,7 +166,7 @@ See [references/query-files.md](references/query-files.md) for the `.jpx` file f
 ## Function Discovery
 
 ```bash
-jpx --list-functions                     # all 460+ functions
+jpx --list-functions                     # all 490+ functions
 jpx --list-category String              # functions in a category
 jpx --describe format_date              # detailed function info
 jpx --search "date format"             # fuzzy search
@@ -231,5 +231,5 @@ jpx 'dependencies | keys(@) | sort(@)' package.json
 ## Related Skills
 
 - [jmespath-query](../jmespath-query/SKILL.md) -- JMESPath expression syntax
-- [jpx-functions](../jpx-functions/SKILL.md) -- 460+ extension functions
+- [jpx-functions](../jpx-functions/SKILL.md) -- 470+ extension functions
 - [jpx-mcp](../jpx-mcp/SKILL.md) -- MCP server for AI agent integration

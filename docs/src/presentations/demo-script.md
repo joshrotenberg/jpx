@@ -80,7 +80,7 @@ jpx 'features[*].{place: properties.place, mag: properties.mag} | sort_by(@, &ma
 ### 2.3 — Add timestamps (epoch → human-readable)
 
 ```bash
-jpx 'features[*].{place: properties.place, mag: properties.mag, when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)} | sort_by(@, &mag) | reverse(@) | [:5]' \
+jpx "features[*].{place: properties.place, mag: properties.mag, when: format_date(divide(properties.time, `1000`), '%b %d %H:%M')} | sort_by(@, &mag) | reverse(@) | [:5]" \
   -f /tmp/quakes_week.json -t
 ```
 
@@ -109,7 +109,7 @@ features[*].{
   mag: properties.mag,
   km: round(geo_distance_km($lat, $lon,
     geometry.coordinates[1], geometry.coordinates[0])),
-  when: format_date(divide(properties.time, `1000`), `"%b %d %H:%M"`)
+  when: format_date(divide(properties.time, `1000`), '%b %d %H:%M')
 } | sort_by(@, &km) | [:5]
 ```
 
@@ -391,5 +391,5 @@ Then type:
 ```
 upper('hello madrid')
 now()
-format_date(now(), `"%A, %B %d %Y"`)
+format_date(now(), '%A, %B %d %Y')
 ```

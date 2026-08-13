@@ -471,5 +471,5 @@ See [Query Files](../cli/query-files.md) for more on creating and using query li
 - [`sort_by`](../functions/standard.md#sort_by), [`reverse`](../functions/standard.md#reverse) - Sorting and ordering
 - [`to_number`](../functions/standard.md#to_number) - Convert string numbers
 - [`round`](../functions/math.md#round), [`divide`](../functions/math.md#divide), [`multiply`](../functions/math.md#multiply) - Math operations
-- [`avg`](../functions/math.md#avg), [`min`](../functions/standard.md#min), [`max`](../functions/standard.md#max) - Statistics
+- [`avg`](../functions/standard.md#avg), [`min`](../functions/standard.md#min), [`max`](../functions/standard.md#max) - Statistics
 - [`flatten`](../functions/array.md#flatten) - Flatten nested arrays

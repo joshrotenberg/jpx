@@ -182,11 +182,26 @@ fn run() -> Result<i32> {
         return Ok(0);
     }
 
-    // jq-style: if the last positional arg is an existing file and no -f was given, use it as input
-    if args.file.is_none() && !args.null_input && args.positional_expressions.len() > 1 {
-        let last = args.positional_expressions.last().unwrap();
+    // jq-style: if the last positional arg is an existing file and no -f was given, use it as input.
+    // With -Q the expression already comes from the query file, so a single positional is input.
+    if args.query_file.is_some() {
+        if args.file.is_none() && !args.null_input && args.positional_expressions.len() == 1 {
+            let last = args.positional_expressions.last().expect("length checked");
+            if std::path::Path::new(last).is_file() {
+                let file_arg = args.positional_expressions.pop().expect("length checked");
+                args.file = Some(file_arg);
+            }
+        }
+        if !args.positional_expressions.is_empty() {
+            return Err(anyhow::anyhow!(
+                "With -Q/--query-file, a positional argument must be an existing input file.\n\
+                 Check the path or pass it explicitly with -f/--file."
+            ));
+        }
+    } else if args.file.is_none() && !args.null_input && args.positional_expressions.len() > 1 {
+        let last = args.positional_expressions.last().expect("length checked");
         if std::path::Path::new(last).is_file() {
-            let file_arg = args.positional_expressions.pop().unwrap();
+            let file_arg = args.positional_expressions.pop().expect("length checked");
             args.file = Some(file_arg);
         }
     }
@@ -414,7 +429,12 @@ fn run() -> Result<i32> {
         return Ok(exit_code);
     }
     if args.table {
-        output::output_as_table(&json_value, &args.output, &args.table_style, &args.color)?;
+        output::output_as_table(
+            &json_value,
+            &args.output,
+            args.table_style.as_str(),
+            &args.color,
+        )?;
         return Ok(exit_code);
     }
 

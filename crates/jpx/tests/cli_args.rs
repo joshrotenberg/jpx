@@ -354,6 +354,30 @@ mod flag_conflicts {
     }
 
     #[test]
+    fn table_style_rejects_unknown_values() {
+        jpx()
+            .args(["--table", "--table-style", "typo", "@"])
+            .write_stdin("[]")
+            .assert()
+            .failure()
+            .code(2)
+            .stderr(predicate::str::contains("invalid value 'typo'"));
+    }
+
+    #[test]
+    fn table_style_accepts_every_documented_value() {
+        for style in [
+            "unicode", "ascii", "markdown", "plain", "rounded", "sharp", "modern",
+        ] {
+            jpx()
+                .args(["--table", "--table-style", style, "@"])
+                .write_stdin("[]")
+                .assert()
+                .success();
+        }
+    }
+
+    #[test]
     fn types_requires_paths() {
         jpx()
             .args(["--types", "@"])

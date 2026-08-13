@@ -155,10 +155,44 @@ pub(crate) enum ColorMode {
     Never,
 }
 
+/// Table output style.
+#[derive(Debug, Clone, Copy, ValueEnum, Default)]
+pub(crate) enum TableStyle {
+    /// Rounded Unicode box-drawing characters.
+    #[default]
+    Unicode,
+    /// ASCII characters only.
+    Ascii,
+    /// GitHub-flavored Markdown table.
+    Markdown,
+    /// No borders.
+    Plain,
+    /// Rounded Unicode corners.
+    Rounded,
+    /// Sharp Unicode corners.
+    Sharp,
+    /// Modern Unicode style.
+    Modern,
+}
+
+impl TableStyle {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unicode => "unicode",
+            Self::Ascii => "ascii",
+            Self::Markdown => "markdown",
+            Self::Plain => "plain",
+            Self::Rounded => "rounded",
+            Self::Sharp => "sharp",
+            Self::Modern => "modern",
+        }
+    }
+}
+
 /// JMESPath CLI with extended functions
 ///
 /// A command-line tool for querying JSON data using JMESPath expressions
-/// with 150+ additional functions beyond the standard specification.
+/// with 470+ additional functions beyond the standard specification.
 #[derive(Parser, Debug)]
 #[command(name = "jpx")]
 #[command(version, about, long_about = None)]
@@ -192,7 +226,7 @@ pub(crate) enum ColorMode {
     "\n",
     "  Using extension functions:\n",
     "    echo '[1, 2, 3]' | jpx 'sum(@)'\n",
-    "    echo '{\"ts\": \"2024-01-15\"}' | jpx 'format_date(ts, \"%B %d, %Y\")'\n",
+    "    echo '{\"ts\": \"2024-01-15\"}' | jpx \"format_date(parse_date(ts), '%B %d, %Y')\"\n",
     "    jpx -n 'now()'\n",
     "\n",
     "  Pipeline (multiple expressions chained):\n",
@@ -244,24 +278,34 @@ pub(crate) struct Args {
     pub(crate) expressions: Vec<String>,
 
     /// Expression(s) as positional args
-    #[arg(conflicts_with_all = ["query_file", "expressions"])]
+    #[arg(conflicts_with = "expressions")]
     pub(crate) positional_expressions: Vec<String>,
 
     /// Read expression from file
-    #[arg(short = 'Q', long = "query-file", conflicts_with_all = ["positional_expressions", "expressions"],
-          help = "Read expression from file or query library (.jpx)",
-          long_help = "Read JMESPath expression from a file. Supports:\n\
+    #[arg(
+        short = 'Q',
+        long = "query-file",
+        conflicts_with = "expressions",
+        help = "Read expression from file or query library (.jpx)",
+        long_help = "Read JMESPath expression from a file. Supports:\n\
             - Plain text files with a single expression\n\
             - Query libraries (.jpx) with named queries\n\n\
             For .jpx files, use colon syntax or --query:\n  \
             jpx -Q queries.jpx:my-query data.json\n  \
-            jpx -Q queries.jpx --query my-query data.json")]
+            jpx -Q queries.jpx --query my-query data.json\n\n\
+            Query library format:\n  \
+            -- :name active-users\n  \
+            -- :desc Optional description\n  \
+            users[?active].{name: name, email: email}\n\n\
+            Expressions may span multiple lines; the next -- :name starts a new query."
+    )]
     pub(crate) query_file: Option<String>,
 
     /// Named query to run from a .jpx query library
     #[arg(
         long = "query",
         value_name = "NAME",
+        requires = "query_file",
         help = "Named query to run from .jpx file",
         long_help = "Specify which named query to run from a .jpx query library.\n\
             Can also use colon syntax: -Q file.jpx:query-name"
@@ -405,7 +449,7 @@ pub(crate) struct Args {
     /// Output as formatted table
     #[arg(short = 't', long, conflicts_with_all = ["yaml", "toml_output", "csv_output", "tsv_output", "lines_output"],
           help = "Output as formatted table",
-          long_help = "Output as a formatted table. Best for arrays of objects.\nUse --table-style to change appearance (unicode, ascii, markdown, plain).")]
+          long_help = "Output as a formatted table. Best for arrays of objects.\nUse --table-style to change its appearance.")]
     pub(crate) table: bool,
 
     /// Table style
@@ -413,11 +457,12 @@ pub(crate) struct Args {
         long,
         value_name = "STYLE",
         default_value = "unicode",
+        value_enum,
         requires = "table",
-        help = "Table style: unicode, ascii, markdown, plain",
-        long_help = "Table style for --table output:\n  unicode   Box-drawing characters (default)\n  ascii     ASCII characters only\n  markdown  GitHub-flavored markdown\n  plain     No borders"
+        help = "Table style",
+        long_help = "Table style for --table output:\n  unicode   Rounded box-drawing characters (default)\n  ascii     ASCII characters only\n  markdown  GitHub-flavored markdown\n  plain     No borders\n  rounded   Rounded Unicode corners\n  sharp     Sharp Unicode corners\n  modern    Modern Unicode style"
     )]
-    pub(crate) table_style: String,
+    pub(crate) table_style: TableStyle,
 
     /// Output as Parquet file (requires --output)
     #[cfg(feature = "parquet")]

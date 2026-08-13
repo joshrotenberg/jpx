@@ -1,8 +1,8 @@
 """Tests for jpx Python bindings."""
 
 import jpx
+import pytest
 from jpx import CompiledExpression, JpxEngine
-
 
 # =============================================================================
 # Module-level convenience functions
@@ -46,11 +46,8 @@ class TestSearch:
         assert result == ["alice", "bob"]
 
     def test_invalid_expression(self):
-        try:
+        with pytest.raises(ValueError, match="Invalid expression"):
             jpx.search("invalid[", {"a": 1})
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_types(self):
         data = {
@@ -96,11 +93,8 @@ class TestCompile:
         assert str(expr) == "name"
 
     def test_invalid(self):
-        try:
+        with pytest.raises(ValueError, match="Invalid expression"):
             jpx.compile("invalid[")
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_isinstance(self):
         expr = jpx.compile("name")
@@ -207,11 +201,8 @@ class TestJpxEngineEvaluation:
 
     def test_evaluate_str_invalid_json(self):
         engine = JpxEngine()
-        try:
+        with pytest.raises(ValueError, match="Invalid JSON"):
             engine.evaluate_str("@", "not json")
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_batch_evaluate(self):
         engine = JpxEngine()
@@ -253,19 +244,13 @@ class TestJpxEngineEvaluation:
 
     def test_explain_invalid(self):
         engine = JpxEngine()
-        try:
+        with pytest.raises(ValueError, match="Invalid expression"):
             engine.explain("invalid[")
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_strict_rejects_extensions(self):
         engine = JpxEngine(strict=True)
-        try:
+        with pytest.raises(ValueError, match="Unknown function: upper"):
             engine.evaluate("upper(name)", {"name": "alice"})
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
 
 class TestJpxEngineIntrospection:
@@ -331,11 +316,8 @@ class TestJpxEngineJsonUtils:
 
     def test_format_json_invalid(self):
         engine = JpxEngine()
-        try:
+        with pytest.raises(ValueError, match="Invalid JSON"):
             engine.format_json("not json")
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_diff(self):
         engine = JpxEngine()
@@ -435,11 +417,8 @@ class TestJpxEngineQueryStore:
 
     def test_run_query_not_found(self):
         engine = JpxEngine()
-        try:
+        with pytest.raises(ValueError, match="Query not found: nonexistent"):
             engine.run_query("nonexistent", [1, 2, 3])
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_list_queries(self):
         engine = JpxEngine()
@@ -465,11 +444,8 @@ class TestJpxEngineQueryStore:
 
     def test_define_invalid_expression(self):
         engine = JpxEngine()
-        try:
+        with pytest.raises(ValueError, match="Invalid expression"):
             engine.define_query("bad", "invalid[")
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
 
 # =============================================================================
@@ -495,11 +471,8 @@ class TestNumericFidelity:
 
     def test_int_beyond_u64_raises(self):
         # Too large for 64-bit JSON integers: error rather than silently lossy.
-        try:
+        with pytest.raises(ValueError, match="exceeds 64-bit range"):
             jpx.search("@", 2**64)
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            pass
 
     def test_regular_int_and_float_unaffected(self):
         assert jpx.search("@", 42) == 42

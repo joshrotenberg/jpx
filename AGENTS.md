@@ -9,15 +9,15 @@ This project includes [Agent Skills](https://agentskills.io/) in the `skills/` d
 | Skill | When to use |
 |-------|-------------|
 | [`jmespath-query`](skills/jmespath-query/SKILL.md) | Writing JMESPath expressions (syntax, patterns, built-in functions) |
-| [`jpx-functions`](skills/jpx-functions/SKILL.md) | Using the 460+ extension functions (signatures, categories, examples) |
+| [`jpx-functions`](skills/jpx-functions/SKILL.md) | Using the 470+ extension functions (signatures, categories, examples) |
 | [`jpx-cli`](skills/jpx-cli/SKILL.md) | Using the jpx CLI (output formats, streaming, pipelines, REPL) |
-| [`jpx-mcp`](skills/jpx-mcp/SKILL.md) | Using the jpx MCP server (30 tools, discovery, query store) |
+| [`jpx-mcp`](skills/jpx-mcp/SKILL.md) | Using the jpx MCP server (31 tools, discovery, query store) |
 
 Each skill has a SKILL.md overview and a `references/` directory with detailed docs loaded on demand.
 
 ## Project overview
 
-jpx is a JMESPath CLI and toolchain with 460+ extension functions — a `jq` alternative.
+jpx is a JMESPath CLI and toolchain with 470+ extension functions.
 Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
 
 ### Workspace crates
@@ -25,10 +25,10 @@ Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
 | Crate | Path | Description |
 |---|---|---|
 | `jpx` | `crates/jpx/` | CLI with REPL, streaming, multiple output formats (JSON, YAML, CSV, TSV, table) |
-| `jpx-core` | `crates/jpx-core/` | From-scratch JMESPath parser and interpreter, 462 functions across 33 categories |
+| `jpx-core` | `crates/jpx-core/` | From-scratch JMESPath parser and interpreter, 490+ functions across 33 categories |
 | `jpx-engine` | `crates/jpx-engine/` | Query engine, introspection, BM25 discovery index, config |
-| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (30 tools) built on `tower-mcp` |
-| `python` | `python/` | Python bindings via PyO3 (`jmespath-extensions` on PyPI) |
+| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (31 tools) built on `tower-mcp` |
+| `python` | `python/` | Python bindings via PyO3 (`jpx` on PyPI) |
 
 ## Build and test
 
@@ -50,7 +50,7 @@ cargo build -p jpx --features parquet
 ### Feature flags
 
 - `let-expr` — JEP-18 let expressions (`let $var = expr in body`)
-- `extensions` — all 460+ extension functions (default on for jpx-core)
+- `extensions` — all 470+ extension functions (default on for jpx-core)
 - `parquet` — Parquet file input support (CLI only)
 - `arrow` — Arrow array support (jpx-engine)
 - `schema` — JSON Schema generation via schemars (jpx-engine, for MCP)
@@ -143,7 +143,7 @@ group_by(arr, 'region') | items(@) | [*].{region: [0], count: length([1])}
 
 ## Function discovery
 
-jpx has 460+ functions across 33 categories. Never guess function names -- discover them:
+jpx has 490+ functions across 33 categories. Never guess function names -- discover them:
 
 ```bash
 # Search by keyword (BM25 full-text search)
@@ -155,10 +155,7 @@ jpx --describe geo_distance_km
 jpx --describe format_date
 
 # List all functions in a category
-jpx --list-functions --category datetime
-
-# List all categories
-jpx --list-categories
+jpx --list-category datetime
 ```
 
 ### MCP equivalents
@@ -168,21 +165,21 @@ When using the jpx MCP server, the same discovery is available via tools:
 - `search` — find functions by keyword
 - `describe` — get function signature, description, and example
 - `functions` — list functions, optionally filtered by category
-- `categories` — list all 32 categories
+- `categories` — list all 33 categories
 - `similar` — find functions related to a given function
 
 Always use `describe` to check a function's exact signature before using it.
 
 ## MCP server tools
 
-The MCP server exposes 30 tools. Key patterns:
+The MCP server exposes 31 tools. Key patterns:
 
 - **`evaluate`** / **`evaluate_file`** — run a JMESPath expression against JSON input or a file
 - **`batch_evaluate`** — run multiple expressions against the same input
 - **`validate`** — check expression syntax without executing
 - **`explain`** — break down an expression into steps
 - **`stats`** / **`paths`** / **`keys`** — analyze JSON structure before querying
-- **`define_query`** / **`run_query`** / **`list_queries`** — session-scoped named query store
+- **`define_query`** / **`run_query`** / **`list_queries`** — ephemeral, process-scoped named query store shared by connected clients
 - **`diff`** / **`patch`** / **`merge`** — JSON Patch (RFC 6902) and Merge Patch (RFC 7396)
 
 ### Workflow for exploring unfamiliar JSON
@@ -217,8 +214,17 @@ List queries: `jpx -Q file.jpx --list-queries`
 - Commit messages: concise, imperative, focused on "why" not "what"
 - PRs: short title (under 70 chars), bulleted summary + test plan in body
 - Tests: add tests for new functions and bug fixes; run full suite before PRing
-- Docs: MkDocs site in `docs/src/`; function reference is auto-generated from code metadata
+- Docs: MkDocs site in `docs/src/`; regenerate the function reference with `python3 docs/generate_function_docs.py`
 - CI skips Rust/Python jobs for docs-only changes (paths filter on `.md`, `docs/**`)
+
+### User-facing errors are an interface
+
+Errors should identify the failure and give the caller a concrete recovery
+action whenever one is known. Preserve important wording with exact or focused
+assertions, especially for CLI argument conflicts, malformed query libraries,
+unknown named queries, unknown functions, and expression type errors. Avoid
+turning a prescriptive error into a generic one without treating that as a
+user-visible behavior change.
 
 ## CLI output formats
 

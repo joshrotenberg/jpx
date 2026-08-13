@@ -428,7 +428,10 @@ keys(@)
         let content = "-- just a comment\nlength(@)";
         let result = QueryLibrary::parse(content);
         assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("No queries found"));
+        assert_eq!(
+            result.unwrap_err().message,
+            "No queries found. Use '-- :name <query-name>' to define queries."
+        );
     }
 
     #[test]

@@ -379,7 +379,7 @@ class JpxEngine:
 
 def search(expression: str, data: Any) -> Any:
     """
-    Search JSON data using a JMESPath expression with 400+ functions.
+    Search JSON data using a JMESPath expression with 490+ functions.
 
     Args:
         expression: A JMESPath expression string

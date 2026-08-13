@@ -57,13 +57,13 @@ fn python_to_json(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
             .unwrap_or(Value::Null))
     } else if let Ok(s) = obj.extract::<String>() {
         Ok(Value::String(s))
-    } else if let Ok(list) = obj.downcast::<pyo3::types::PyList>() {
+    } else if let Ok(list) = obj.cast::<pyo3::types::PyList>() {
         let arr: Result<Vec<Value>, _> = list.iter().map(|item| python_to_json(&item)).collect();
         Ok(Value::Array(arr?))
-    } else if let Ok(tuple) = obj.downcast::<pyo3::types::PyTuple>() {
+    } else if let Ok(tuple) = obj.cast::<pyo3::types::PyTuple>() {
         let arr: Result<Vec<Value>, _> = tuple.iter().map(|item| python_to_json(&item)).collect();
         Ok(Value::Array(arr?))
-    } else if let Ok(dict) = obj.downcast::<pyo3::types::PyDict>() {
+    } else if let Ok(dict) = obj.cast::<pyo3::types::PyDict>() {
         let mut map = serde_json::Map::new();
         for (key, value) in dict.iter() {
             let key_str = key
@@ -148,7 +148,7 @@ fn search(expression: &str, data: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         .search(&json_value)
         .map_err(|e| PyValueError::new_err(format!("Evaluation error: {}", e)))?;
 
-    Python::with_gil(|py| json_to_python(py, &result))
+    Python::attach(|py| json_to_python(py, &result))
 }
 
 /// Compile a JMESPath expression for repeated use.
@@ -269,7 +269,7 @@ fn describe(py: Python<'_>, name: &str) -> PyResult<Option<Py<PyAny>>> {
 // =============================================================================
 
 /// A compiled JMESPath expression for efficient repeated searches.
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 struct CompiledExpression {
     expression: String,
@@ -349,7 +349,7 @@ impl JpxEngine {
             .inner
             .evaluate(expression, &json_value)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Python::with_gil(|py| json_to_python(py, &result))
+        Python::attach(|py| json_to_python(py, &result))
     }
 
     /// Evaluate a JMESPath expression against a JSON string.
@@ -366,7 +366,7 @@ impl JpxEngine {
             .inner
             .evaluate_str(expression, json_str)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Python::with_gil(|py| json_to_python(py, &result))
+        Python::attach(|py| json_to_python(py, &result))
     }
 
     /// Evaluate multiple expressions against the same data.
@@ -736,7 +736,7 @@ impl JpxEngine {
             .inner
             .run_query(name, &json_value)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Python::with_gil(|py| json_to_python(py, &result))
+        Python::attach(|py| json_to_python(py, &result))
     }
 
     /// List all stored queries.

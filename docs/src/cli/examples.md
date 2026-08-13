@@ -200,23 +200,23 @@ Working with timestamps - get current time, format for display, or calculate dur
 jpx -n 'now()'
 # 1705312200 (Unix timestamp)
 
-jpx -n 'format_date(now(), `"%Y-%m-%dT%H:%M:%SZ"`)'
+jpx -n "format_date(now(), '%Y-%m-%dT%H:%M:%SZ')"
 # "2024-01-15T10:30:00Z"
 ```
 
 ### Format a timestamp
 ```bash
-jpx -n 'format_date(now(), `"%B %d, %Y"`)'
+jpx -n "format_date(now(), '%B %d, %Y')"
 # "January 15, 2024"
 
 # From a Unix timestamp
-echo '1705312200' | jpx 'format_date(@, `"%Y-%m-%d"`)'
+echo '1705312200' | jpx "format_date(@, '%Y-%m-%d')"
 # "2024-01-15"
 ```
 
 ### Add time to a timestamp
 ```bash
-jpx -n 'date_add(now(), `7`, `"days"`) | format_date(@, `"%Y-%m-%d"`)'
+jpx -n "date_add(now(), `7`, 'days') | format_date(@, '%Y-%m-%d')"
 # "2024-01-22" (7 days from now)
 ```
 

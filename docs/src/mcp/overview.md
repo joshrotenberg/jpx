@@ -8,7 +8,7 @@ MCP is an open protocol that enables AI assistants to interact with external too
 
 - Query JSON data using JMESPath expressions
 - Transform and manipulate JSON structures
-- Use all 490+ extension functions
+- Use all 470+ extension functions
 - Explore available functions and their documentation
 
 ## Why Use jpx with Claude?
@@ -40,6 +40,7 @@ The MCP server exposes **31 tools** organized by purpose:
 |------|-------------|
 | `search` | Fuzzy search for functions by name, description, category, or signature |
 | `similar` | Find functions related to a specified function |
+| `suggest_function` | Describe a task in natural language and get ranked function suggestions |
 | `functions` | List available functions (optionally filter by category) |
 | `describe` | Get detailed info for a specific function |
 | `batch_describe` | Get details for several functions in one call |
@@ -61,7 +62,7 @@ Tools for JSON manipulation (RFC 6902/7396):
 
 ### Query Store
 
-Session-scoped named queries for iterative development:
+Ephemeral, process-scoped named queries for iterative development:
 
 | Tool | Description |
 |------|-------------|

@@ -305,7 +305,7 @@ jpx --let now='now()' 'features[?properties.time > multiply(subtract($now, `8640
 
 ```bash
 jpx 'features[*].{
-  day: format_datetime(from_unixtime(floor(divide(properties.time, `1000`))), `%Y-%m-%d`),
+  day: format_datetime(from_unixtime(floor(divide(properties.time, `1000`))), '%Y-%m-%d'),
   mag: properties.mag,
   place: properties.place
 }' earthquakes.json
@@ -444,6 +444,6 @@ See [Query Files](../cli/query-files.md) for more on creating and using query li
 ## Related Functions
 
 - [`geo_distance_km`](../functions/geo.md#geo_distance_km) - Calculate distance between coordinates
-- [`avg`](../functions/math.md#avg), [`median`](../functions/math.md#median), [`stddev`](../functions/math.md#stddev) - Statistical functions
-- [`from_unixtime`](../functions/datetime.md#from_unixtime) - Convert timestamps
+- [`avg`](../functions/standard.md#avg), [`median`](../functions/math.md#median), [`stddev`](../functions/math.md#stddev) - Statistical functions
+- [`from_epoch`](../functions/datetime.md#from_epoch) - Convert timestamps
 - [`sort_by`](../functions/standard.md#sort_by), [`min_by`](../functions/standard.md#min_by), [`max_by`](../functions/standard.md#max_by) - Sorting functions

@@ -1,7 +1,7 @@
 # jpx
 
 Python bindings for [jpx](https://github.com/joshrotenberg/jpx), a JMESPath query
-engine with 490+ extended functions on top of the standard JMESPath specification.
+engine with 470+ extension functions on top of the standard JMESPath specification.
 
 The bindings are built in Rust with [PyO3](https://pyo3.rs) and ship as
 abi3 wheels, so a single wheel per platform works on CPython 3.9 and newer.
@@ -44,8 +44,8 @@ jpx.describe("group_by")        # metadata for a single function
 ## Full engine
 
 `JpxEngine` exposes the complete engine: batch evaluation, function
-introspection, JSON utilities (diff, patch, merge, stats, paths), and a
-session-scoped named query store.
+introspection, JSON utilities (diff, patch, merge, stats, paths), and a named
+query store scoped to that `JpxEngine` instance.
 
 ```python
 from jpx import JpxEngine

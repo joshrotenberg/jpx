@@ -6,7 +6,7 @@ The jpx MCP server provides **31 tools** organized into seven categories.
 
 ### engine_info
 
-Get information about the jpx engine including version, mode, function count, and session state.
+Get information about the jpx engine including version, mode, function count, and ephemeral process state.
 
 ```json
 {
@@ -19,10 +19,10 @@ Returns:
 ```json
 {
   "name": "jpx-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "strict_mode": false,
-  "function_count": 395,
-  "category_count": 31,
+  "function_count": 498,
+  "category_count": 33,
   "categories": ["Array", "Color", "Computing", ...]
 }
 ```
@@ -31,7 +31,7 @@ Set `include_schema` to get the discovery registration JSON schema, or `include_
 
 ## Function Discovery
 
-Tools for exploring the 490+ JMESPath extension functions.
+Tools for exploring the 470+ JMESPath extension functions.
 
 ### search
 
@@ -55,6 +55,17 @@ Find functions related to a specified function.
 ```
 
 Returns functions with similar purpose (e.g., `lower`, `capitalize`, `title_case`).
+
+### suggest_function
+
+Describe a task in natural language and get ranked function suggestions with relevance notes.
+
+```json
+{
+  "task": "remove duplicate values from an array",
+  "limit": 5
+}
+```
 
 ### functions
 
@@ -113,7 +124,7 @@ Returns: `["Alice"]`
 
 ### evaluate_file
 
-Query a JSON file directly from disk. More efficient than passing large JSON content through the protocol.
+Query a JSON file directly from disk. More efficient than passing large JSON content through the protocol. The path must be absolute and at most 50 MiB. The server can read any path permitted to its operating-system user, so only expose this tool to trusted clients.
 
 ```json
 {
@@ -248,7 +259,7 @@ Returns: `{"a": 1, "c": 3}` (null removes keys)
 
 ## Query Store
 
-Session-scoped named queries for iterative development. Queries persist for the duration of the MCP session.
+Named queries for iterative development. They live in memory for the server process, are shared by every connected client, and disappear when the process exits.
 
 ### define_query
 
@@ -285,7 +296,7 @@ Execute a stored query by name against JSON input.
 
 ### list_queries
 
-List all named queries stored in this session.
+List all named queries stored in this server process.
 
 ```json
 {}

@@ -1,10 +1,10 @@
 site_name: jpx - JMESPath Extended
-site_description: JMESPath CLI and libraries with 490+ extension functions
+site_description: JMESPath CLI and libraries with 490+ functions
 site_author: Josh Rotenberg
 site_url: https://joshrotenberg.github.io/jpx/
 repo_name: joshrotenberg/jpx
 repo_url: https://github.com/joshrotenberg/jpx
-edit_uri: edit/main/docs/
+edit_uri: edit/main/docs/src/
 
 theme:
   name: material
@@ -129,6 +129,7 @@ nav:
     - Color: functions/color.md
     - Computing: functions/computing.md
     - Utility: functions/utility.md
+    - Units: functions/units.md
   - Guides:
     - Overview: guides/index.md
     - Let Expressions: guides/let-expressions.md
