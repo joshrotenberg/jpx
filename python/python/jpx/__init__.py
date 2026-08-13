@@ -1,5 +1,5 @@
 """
-jpx - JMESPath query engine with 400+ functions.
+jpx - JMESPath query engine with 490+ functions.
 
 Provides both module-level convenience functions and a full-featured JpxEngine class.
 

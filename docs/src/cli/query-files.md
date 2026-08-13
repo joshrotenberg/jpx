@@ -297,8 +297,8 @@ group_by(@, &status) | map(&{ status: [0].status, count: length(@) }, @)
 -- :name enrich-timestamps
 -- :desc Add formatted date fields
 [*] | map(&merge(@, {
-  created_date: format_datetime(created_at, `%Y-%m-%d`),
-  created_time: format_datetime(created_at, `%H:%M:%S`)
+  created_date: format_datetime(created_at, '%Y-%m-%d'),
+  created_time: format_datetime(created_at, '%H:%M:%S')
 }), @)
 ```
 

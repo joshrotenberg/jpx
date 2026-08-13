@@ -32,6 +32,9 @@ impl DelimitedState {
                     // Derive headers from first object
                     let mut seen = std::collections::HashSet::new();
                     collect_flattened_keys(obj, "", &mut self.headers, &mut seen);
+                    // Match non-streaming CSV/TSV and table output regardless of
+                    // serde_json `preserve_order` feature unification.
+                    self.headers.sort_unstable();
 
                     // Write header row
                     let mut wtr = csv::WriterBuilder::new()

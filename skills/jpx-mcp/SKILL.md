@@ -10,7 +10,7 @@ compatibility: Requires jpx-mcp server (stdio or HTTP transport)
 
 # jpx MCP Server Guide
 
-The jpx MCP server exposes 30 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 460+ extended functions beyond the JMESPath specification.
+The jpx MCP server exposes 31 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 470+ extension functions beyond the JMESPath specification.
 
 ## Tool Groups
 
@@ -33,12 +33,13 @@ The jpx MCP server exposes 30 tools for JMESPath evaluation, function discovery,
 
 **`explain`** returns a structured breakdown with node types, functions used, and complexity rating. Works on invalid expressions too (returns parse error details).
 
-### Function Discovery (6 tools)
+### Function Discovery (7 tools)
 
 | Tool | Use when... |
 |------|-------------|
 | `functions` | Listing available functions, optionally filtered by category |
 | `describe` | Getting detailed info on a specific function (signature, examples) |
+| `batch_describe` | Getting details for several functions in one call |
 | `categories` | Listing all function categories |
 | `search` | Finding functions by keyword (fuzzy matching across names, descriptions) |
 | `similar` | Finding functions related to a known function |
@@ -73,7 +74,7 @@ The jpx MCP server exposes 30 tools for JMESPath evaluation, function discovery,
 
 | Tool | Use when... |
 |------|-------------|
-| `define_query` | Saving a named query for reuse in the current session |
+| `define_query` | Saving a named query for reuse while this server process runs |
 | `get_query` | Retrieving a stored query's expression |
 | `delete_query` | Removing a stored query |
 | `list_queries` | Showing all stored queries |
@@ -108,7 +109,7 @@ Queries are validated on definition -- invalid expressions are rejected.
 
 | Tool | Use when... |
 |------|-------------|
-| `engine_info` | Checking server version, mode, function count, session state |
+| `engine_info` | Checking server version, mode, function count, and process state |
 
 Optionally include the discovery JSON schema (`include_schema: true`) or index statistics (`include_index_stats: true`).
 
@@ -150,5 +151,5 @@ The server discovers `jpx.toml` configuration (cwd -> home -> XDG) for function 
 ## Related Skills
 
 - [jmespath-query](../jmespath-query/SKILL.md) -- JMESPath expression syntax
-- [jpx-functions](../jpx-functions/SKILL.md) -- 460+ extension functions
+- [jpx-functions](../jpx-functions/SKILL.md) -- 470+ extension functions
 - [jpx-cli](../jpx-cli/SKILL.md) -- Command-line usage

@@ -1,6 +1,6 @@
 # jpx MCP Tool Reference
 
-Complete parameter reference for all 30 tools.
+Complete parameter reference for all 31 tools.
 
 ## Evaluation Tools
 
@@ -12,7 +12,7 @@ Evaluate a JMESPath expression against JSON input.
 ### evaluate_file
 Evaluate a JMESPath expression against a JSON file on disk.
 - `expression` (string, required): JMESPath expression
-- `file_path` (string, required): Absolute path to JSON file (max 50MB)
+- `file_path` (string, required): Absolute path to a JSON file readable by the server process (max 50 MiB)
 
 ### batch_evaluate
 Evaluate multiple expressions against the same JSON input.
@@ -46,6 +46,12 @@ Get detailed information about a specific function.
 - `name` (string, required): Function name or alias
 
 Returns `{name, signature, description, category, examples, aliases}` or error if unknown.
+
+### batch_describe
+Get detailed information about several functions in one call.
+- `names` (array of strings, required): Function names to describe
+
+Returns one `{name, detail}` entry per requested name, in order. Unknown names have a `null` detail.
 
 ### categories
 List all function categories. No parameters.
@@ -116,7 +122,7 @@ Extract all paths from JSON in dot notation.
 ## Query Store Tools
 
 ### define_query
-Store a named query for the session.
+Store a named query in ephemeral process memory. The store is shared across clients and cleared on restart.
 - `name` (string, required): Unique query name
 - `expression` (string, required): JMESPath expression
 - `description` (string, optional): What the query does

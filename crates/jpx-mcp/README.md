@@ -26,7 +26,7 @@ Register it with an MCP client (for example, Claude):
 
 ## Tools
 
-31 tools spanning evaluation, introspection, JSON utilities, a session query store, and tool discovery, including `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, and `paths`. See the [MCP documentation](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
+31 tools spanning evaluation, introspection, JSON utilities, an ephemeral process-scoped query store, and tool discovery, including `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, and `paths`. See the [MCP documentation](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
 
 ## Library use
 

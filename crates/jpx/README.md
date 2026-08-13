@@ -4,7 +4,7 @@
 [![Downloads](https://img.shields.io/crates/d/jpx.svg)](https://crates.io/crates/jpx)
 [![License](https://img.shields.io/crates/l/jpx.svg)](https://github.com/joshrotenberg/jpx#license)
 
-A command-line tool for querying JSON data using JMESPath expressions with 490+ additional functions beyond the standard JMESPath specification.
+A command-line tool for querying JSON data using JMESPath expressions with 470+ additional functions beyond the standard JMESPath specification.
 
 ## Acknowledgments
 
@@ -23,7 +23,7 @@ Coming from [jq](https://jqlang.org/)? Here's a quick comparison:
 | | jq | jpx |
 |---|-----|-----|
 | **Language** | Custom DSL | JMESPath (standardized) |
-| **Functions** | ~70 built-in | 490+ extensions |
+| **Functions** | ~70 built-in | 470+ extensions |
 | **Ecosystem** | Standalone | Works with AWS CLI, Ansible |
 | **Streaming** | ✅ | ❌ |
 
@@ -132,7 +132,7 @@ Output Formats:
       --tsv                   Output as TSV (for arrays of objects)
   -l, --lines                 Output one JSON value per line (for arrays)
   -t, --table                 Output as a formatted table (for arrays of objects)
-      --table-style <STYLE>   Table style: unicode, ascii, markdown, plain
+      --table-style <STYLE>   Table style: unicode, ascii, markdown, plain, rounded, sharp, modern
       --color <MODE>          Colorize output (auto, always, never)
 
 JSON Patch Operations:
@@ -200,7 +200,7 @@ jpx 'upper(name)' data.json  # Extension functions work
 
 ```bash
 # List all available functions grouped by category
-# Shows 26 standard JMESPath functions and 490+ extension functions
+# Shows 26 standard JMESPath functions and 470+ extension functions
 jpx --list-functions
 
 # List functions in a specific category
@@ -315,7 +315,7 @@ echo '{}' | jpx 'now()'
 # 1705312200.0
 
 # Format a Unix timestamp
-echo '{"ts": 1705276800}' | jpx -r 'format_date(ts, `"%Y-%m-%d"`)'
+echo '{"ts": 1705276800}' | jpx -r "format_date(ts, '%Y-%m-%d')"
 # 2024-01-15
 
 # Date arithmetic (add 7 days to timestamp)

@@ -14,7 +14,7 @@
 //! | **Evaluation** | Single, batch, and string-based evaluation with validation |
 //! | **Introspection** | List functions, search by keyword, describe, find similar |
 //! | **Discovery** | Cross-server tool discovery with BM25 search indexing |
-//! | **Query Store** | Named queries for session-scoped reuse |
+//! | **Query Store** | Named queries scoped to an engine instance |
 //! | **Configuration** | Declarative `jpx.toml` config with layered discovery and merge |
 //! | **JSON Utilities** | Format, diff, patch, merge, stats, paths, keys |
 //! | **Arrow** | Apache Arrow conversion (optional, via `arrow` feature) |
@@ -296,7 +296,7 @@ pub use jpx_core::{Category, Expression, FunctionInfo, FunctionRegistry, Runtime
 ///
 /// `JpxEngine` is the main entry point for all jpx functionality. It combines:
 ///
-/// - **JMESPath runtime** with 490+ extension functions
+/// - **JMESPath runtime** with 470+ extension functions
 /// - **Function registry** for introspection and search
 /// - **Discovery registry** for cross-server tool indexing
 /// - **Query store** for named query management
@@ -351,7 +351,7 @@ impl JpxEngine {
     /// Creates a new engine with all extension functions enabled.
     ///
     /// This is the standard way to create an engine with full functionality,
-    /// including all 490+ extension functions.
+    /// including all 470+ extension functions.
     ///
     /// # Example
     ///

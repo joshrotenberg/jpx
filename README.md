@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/jpx.svg)](https://crates.io/crates/jpx)
 [![License](https://img.shields.io/crates/l/jpx.svg)](https://github.com/joshrotenberg/jpx#license)
 
-JMESPath CLI and tools with 490+ extended functions - a powerful jq alternative.
+JMESPath CLI and tools with 490+ functions, including 470+ extensions.
 
 This repository contains the jpx ecosystem:
 
@@ -27,10 +27,46 @@ echo '{"name": "world"}' | jpx 'upper(name)'
 
 curl -s https://api.github.com/users/octocat | jpx '{
   login: login,
-  created: format_date(parse_date(created_at), `%B %Y`)
+  created: format_date(parse_date(created_at), '%B %Y')
 }'
 # {"login": "octocat", "created": "January 2011"}
 ```
+
+## Where jpx fits
+
+Use jpx for shell pipelines, JSONL/NDJSON streams, agent-driven JSON work, and
+cases where the extraction itself should be a small, reviewable artifact. A
+`.jpx` query library can hold named, multi-line queries and be validated in CI.
+
+Use jq when you already know it and the query is straightforward. Use a general
+programming language such as Python for control flow, joins across sources,
+retries, subprocess orchestration, or anything else that makes a query language
+fight the problem.
+
+## Query Libraries
+
+Store reusable queries in a `.jpx` file:
+
+```jmespath
+-- :name active-users
+-- :desc Return active user names
+users[?active].name | sort(@)
+
+-- :name summary
+{
+  total: length(users),
+  active: length(users[?active])
+}
+```
+
+```bash
+jpx -Q queries.jpx:active-users data.json
+jpx -Q queries.jpx --list-queries
+jpx -Q queries.jpx --check
+```
+
+See [Query Files](https://joshrotenberg.github.io/jpx/cli/query-files/) for the
+complete format and usage guide.
 
 ## Docker
 
@@ -56,7 +92,7 @@ Give Claude (or any MCP client) the ability to query and transform JSON:
 }
 ```
 
-**Tools** (31 total): `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, `paths`, `keys`, plus a session query store. See the [MCP docs](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
+**Tools** (31 total): `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, `paths`, `keys`, plus an ephemeral process-scoped query store. See the [MCP docs](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
 
 ## Function Categories
 
@@ -82,10 +118,9 @@ See the [documentation](https://joshrotenberg.github.io/jpx/) for the full funct
 ## Acknowledgments
 
 - **[JMESPath](https://jmespath.org/)** - The query language specification
-- **[jmespath.rs](https://crates.io/crates/jmespath)** - Rust implementation by [@mtdowling](https://github.com/mtdowling)
-- **[jpx-core](crates/jpx-core/)** - JMESPath implementation with 490+ extension functions
+- **[jmespath.rs](https://crates.io/crates/jmespath)** - the original Rust implementation and a compatibility/benchmark reference
+- **[jpx-core](crates/jpx-core/)** - jpx's independent JMESPath implementation with 470+ extension functions
 
 ## License
 
 MIT or Apache-2.0
-

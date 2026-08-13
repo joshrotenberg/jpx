@@ -182,7 +182,7 @@ Returns tools with similar descriptions/tags - useful for finding alternatives o
 
 ### Manual Registration
 
-At session start, register each server:
+At the start of an orchestration run, register each server:
 
 ```
 1. Get tool list from redisctl (agent already has this via MCP)
@@ -198,7 +198,7 @@ Add to your agent's system prompt or CLAUDE.md:
 ```markdown
 ## MCP Tool Discovery
 
-At session start, if jpx and other MCP servers are available:
+At the start of an orchestration run, if jpx and other MCP servers are available:
 
 1. For each non-jpx MCP server, register its tools with jpx:
    - Extract tool name, description, and input schema
@@ -254,12 +254,12 @@ The search uses BM25, a proven ranking algorithm that:
 
 This means "backup database" finds tools mentioning "snapshot", "export", "persist" if those terms appear in similar contexts across the corpus.
 
-## Session Scope
+## Process Scope
 
-The registry is **session-scoped** (in-memory):
+The registry is **process-scoped** (in-memory):
 
-- Fresh index each agent session
-- No persistence across sessions
+- Shared across clients connected to the same server process
+- No persistence across server restarts
 - Cheap to rebuild from source
 
 This is intentional - tool metadata changes, and re-registration ensures the index matches current reality.

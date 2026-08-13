@@ -1,6 +1,6 @@
 ---
 name: jpx-functions
-description: "Look up and call the 460+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when a task needs functions beyond the 26 standard JMESPath built-ins."
+description: "Look up and call the 470+ extension functions in jpx beyond standard JMESPath. Covers array, string, math, datetime, hash, encoding, regex, object, expression (higher-order), geo, text, validation, and 20+ more categories. Use when a task needs functions beyond the 26 standard JMESPath built-ins."
 license: MIT OR Apache-2.0
 metadata:
   author: joshrotenberg
@@ -10,7 +10,7 @@ compatibility: Requires jpx, jpx-core, jpx-engine, or jpx-python
 
 # jpx Extension Functions
 
-jpx extends JMESPath with 460+ functions across 33 categories. This skill covers function discovery, the most commonly used functions, and key conventions.
+jpx provides 490+ functions across 33 categories, including 470+ extensions. This skill covers function discovery, the most commonly used functions, and key conventions.
 
 ## Discovering Functions
 
@@ -56,10 +56,10 @@ In expression function callbacks, `@` is the current element and `@@` is the acc
 
 | Category | Count | Key Functions |
 |----------|-------|---------------|
-| [Array](references/array-functions.md) | 36 | `unique`, `chunk`, `group_by`, `index_by`, `zip`, `flatten_deep`, ... |
-| [String](references/string-functions.md) | 36 | `split`, `upper`, `lower`, `trim`, `replace`, `pad_left`, `template`, ... |
-| [Math](references/math-functions.md) | 42 | `sum`, `avg`, `median`, `round`, `clamp`, `range`, `std_dev`, ... |
-| [Object](references/object-functions.md) | 51 | `omit`, `pick`, `deep_merge`, `defaults`, `rename_keys`, `flatten_keys`, ... |
+| [Array](references/array-functions.md) | 46 | `unique`, `chunk`, `group_by`, `index_by`, `zip`, `flatten_deep`, ... |
+| [String](references/string-functions.md) | 52 | `split`, `upper`, `lower`, `trim`, `replace`, `pad_left`, `template`, ... |
+| [Math](references/math-functions.md) | 49 | `sum`, `avg`, `median`, `round`, `clamp`, `range`, `std_dev`, ... |
+| [Object](references/object-functions.md) | 54 | `omit`, `pick`, `deep_merge`, `defaults`, `rename_keys`, `flatten_keys`, ... |
 | [Expression](references/expression-functions.md) | 41 | `map_expr`, `filter_expr`, `reduce_expr`, `sort_by_expr`, `group_by_expr`, ... |
 | [Datetime](references/datetime-functions.md) | 28 | `now`, `format_date`, `parse_date`, `date_add`, `date_diff`, ... |
 | [Text](references/text-functions.md) | 21 | `word_count`, `sentences`, `slug`, `truncate_words`, `ngrams`, ... |

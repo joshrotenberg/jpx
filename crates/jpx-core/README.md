@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/jpx-core.svg)](https://crates.io/crates/jpx-core)
 [![docs.rs](https://img.shields.io/docsrs/jpx-core)](https://docs.rs/jpx-core)
 
-A complete JMESPath implementation for Rust, built directly on `serde_json::Value`, with 490+ extension functions beyond the standard specification.
+A complete JMESPath implementation for Rust, built directly on `serde_json::Value`, with 470+ extension functions beyond the standard specification.
 
 This is a from-scratch implementation with no dependency on the unmaintained `jmespath` crate. It provides the parser, interpreter, runtime, and function registry used across the [jpx](https://github.com/joshrotenberg/jpx) ecosystem.
 
@@ -29,13 +29,13 @@ assert_eq!(expr.search(&data).unwrap(), json!(true));
 ## Highlights
 
 - Works natively with `serde_json::Value` -- no `Variable` type or conversion overhead
-- 26 standard JMESPath built-ins plus 490+ extensions across 32 categories
+- 26 standard JMESPath built-ins plus 470+ extensions across 32 extension categories
 - `functions.toml` is the single source of truth for function metadata; the registry, documentation, and compliance tests are generated from it at build time
 - JEP-18 `let` expressions (`let $x = expr in body`)
 
 ## Features
 
-- `extensions` (default) -- the 490+ extension functions
+- `extensions` (default) -- the 470+ extension functions
 - `let-expr` (default) -- JEP-18 `let` expression support
 
 Build with `default-features = false` for a lean, spec-only JMESPath engine.

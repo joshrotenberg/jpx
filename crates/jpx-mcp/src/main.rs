@@ -1,6 +1,6 @@
 //! JMESPath MCP Server
 //!
-//! An MCP server providing JMESPath functionality with 490+ extended functions.
+//! An MCP server providing JMESPath functionality with 490+ functions.
 
 mod tools;
 
@@ -20,7 +20,7 @@ enum Transport {
 
 #[derive(Parser, Debug)]
 #[command(name = "jpx-mcp")]
-#[command(about = "JMESPath MCP server with 490+ extended functions", long_about = None)]
+#[command(about = "JMESPath MCP server with 490+ functions", long_about = None)]
 #[command(version)]
 struct Args {
     /// Transport to use
@@ -87,16 +87,14 @@ async fn main() -> anyhow::Result<()> {
             let addr = format!("{}:{}", args.host, args.port);
             tracing::info!(%addr, "Serving over HTTP");
 
-            let transport = HttpTransport::new(router)
-                .disable_origin_validation()
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(TimeoutLayer::new(Duration::from_secs(
-                            args.request_timeout_secs,
-                        )))
-                        .layer(McpTracingLayer::new())
-                        .into_inner(),
-                );
+            let transport = HttpTransport::new(router).layer(
+                ServiceBuilder::new()
+                    .layer(TimeoutLayer::new(Duration::from_secs(
+                        args.request_timeout_secs,
+                    )))
+                    .layer(McpTracingLayer::new())
+                    .into_inner(),
+            );
 
             transport.serve(&addr).await?;
         }

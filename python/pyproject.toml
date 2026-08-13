@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "jpx"
 version = "0.1.0"
-description = "JMESPath query engine with 460+ functions - Python bindings for jpx-core and jpx-engine"
+description = "JMESPath query engine with 490+ functions - Python bindings for jpx-core and jpx-engine"
 license = { text = "MIT OR Apache-2.0" }
 authors = [{ name = "Josh Rotenberg", email = "joshrotenberg@gmail.com" }]
 readme = "README.md"

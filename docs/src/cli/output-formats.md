@@ -264,6 +264,9 @@ Use `--table-style` to choose different table formats:
 | `ascii` | ASCII characters only (`+`, `-`, `|`) |
 | `markdown` | GitHub-flavored markdown tables |
 | `plain` | No borders, space-separated |
+| `rounded` | Rounded Unicode corners |
+| `sharp` | Sharp Unicode corners |
+| `modern` | Modern Unicode style |
 
 ```bash
 # ASCII style (for older terminals)

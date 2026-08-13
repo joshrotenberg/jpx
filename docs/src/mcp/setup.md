@@ -109,6 +109,11 @@ jpx-mcp --transport http --host 0.0.0.0 --port 8080
 jpx-mcp --transport http --request-timeout-secs 60
 ```
 
+!!! warning
+    HTTP has no built-in authentication or TLS. The default loopback bind is intended
+    for local use. Put the server behind an authenticating TLS reverse proxy before
+    exposing it to another machine. Origin validation remains enabled.
+
 ### CLI Options
 
 ```
@@ -167,4 +172,13 @@ Make sure jpx-mcp is in your PATH, or use the full path in the config.
 
 ### Permission errors on file access
 
-The `evaluate_file` tool has security restrictions. It only allows access to files in safe directories (not system paths).
+`evaluate_file` accepts an absolute path up to 50 MiB and can read any file the
+server process can read. jpx-mcp does not provide a filesystem sandbox. Run it
+as a least-privileged user and only expose it to trusted clients. For Docker,
+mount only the required data read-only:
+
+```bash
+docker run -i --rm \
+  -v /absolute/host/data:/data:ro \
+  ghcr.io/joshrotenberg/jpx-mcp
+```

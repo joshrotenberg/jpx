@@ -60,7 +60,7 @@ echo '[{"name": "Alice", "active": true}, {"name": "Bob", "active": false}]' | \
 
 ## Functions
 
-JMESPath has built-in functions. jpx extends these with 490+ more.
+JMESPath has built-in functions. jpx extends these with 470+ more.
 
 ### Standard Functions (26)
 

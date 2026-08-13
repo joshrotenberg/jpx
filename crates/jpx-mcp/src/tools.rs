@@ -392,7 +392,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let evaluate = ToolBuilder::new("evaluate")
         .title("Evaluate Expression")
-        .description("Evaluate a JMESPath expression against JSON input. Returns the result of applying the expression to the input data. Supports 490+ extended functions beyond standard JMESPath.")
+        .description("Evaluate a JMESPath expression against JSON input. Returns the result of applying the expression to the input data. Supports 470+ extension functions beyond standard JMESPath.")
         .read_only()
         .handler(move |params: EvaluateParams| {
             let engine = e.clone();
@@ -629,7 +629,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let evaluate_file = ToolBuilder::new("evaluate_file")
         .title("Evaluate File")
-        .description("Read a JSON file from disk and evaluate a JMESPath expression against it. More efficient than passing large JSON content through the protocol. The file must exist and contain valid JSON.")
+        .description("Read a JSON file from disk and evaluate a JMESPath expression against it. More efficient than passing large JSON content through the protocol. The path must be absolute and the file must be at most 50 MiB.")
         .read_only()
         .handler(move |params: EvaluateFileParams| {
             let engine = e.clone();
@@ -1063,7 +1063,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let e = engine.clone();
     let engine_info = ToolBuilder::new("engine_info")
         .title("Engine Info")
-        .description("Get information about the jpx engine including version, mode, function count, and current session state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
+        .description("Get information about the jpx engine including version, mode, function count, and ephemeral process state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
         .read_only()
         .handler(move |params: EngineInfoParams| {
             let engine = e.clone();
@@ -1108,7 +1108,7 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
     let router = McpRouter::new()
         .server_info("jpx-mcp", env!("CARGO_PKG_VERSION"))
         .instructions(
-            "JMESPath query tool with 490+ extended functions. \
+            "JMESPath query tool with 490+ functions. \
             \n\nDISCOVERY: Use 'search' to find functions by keyword, 'similar' to find related functions, \
             'functions' to list all (optionally by category), 'describe' for function details, 'categories' to list categories. \
             \n\nDATA ANALYSIS: Use 'stats' to analyze JSON structure before querying, 'paths' to list all paths in dot notation, \

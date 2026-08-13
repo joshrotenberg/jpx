@@ -25,4 +25,5 @@ python/.venv/
 python/**/__pycache__/
 python/**/*.so
 python/**/*.pyd
+python/dist/
 .pytest_cache/

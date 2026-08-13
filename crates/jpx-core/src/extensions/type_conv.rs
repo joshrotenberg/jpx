@@ -572,7 +572,11 @@ mod tests {
         let expr = runtime.compile("to_number(@)").unwrap();
 
         assert_eq!(expr.search(&json!("42")).unwrap().as_f64().unwrap(), 42.0);
-        assert_eq!(expr.search(&json!("3.14")).unwrap().as_f64().unwrap(), 3.14);
+        let expected: f64 = "3.14".parse().unwrap();
+        assert_eq!(
+            expr.search(&json!("3.14")).unwrap().as_f64().unwrap(),
+            expected
+        );
     }
 
     #[test]

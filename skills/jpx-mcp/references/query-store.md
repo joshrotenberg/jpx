@@ -1,6 +1,6 @@
 # Query Store
 
-The query store lets you save, retrieve, and execute named JMESPath queries within a session.
+The query store lets you save, retrieve, and execute named JMESPath queries while one server process is running.
 
 ## Workflow
 
@@ -33,7 +33,7 @@ delete_query("old-query")
 
 ## Notes
 
-- Queries are session-scoped -- they don't persist across server restarts
+- Queries are process-scoped, shared across connected clients, and don't persist across server restarts
 - Expressions are validated on `define_query` -- invalid syntax is rejected
 - `define_query` with an existing name overwrites the previous query
 - `run_query` parses the input JSON and applies the stored expression
