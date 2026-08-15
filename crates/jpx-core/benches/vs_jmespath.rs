@@ -85,10 +85,10 @@ fn bench_pair(c: &mut Criterion, group_name: &str, expr: &str, data: &Value) {
     let jmespath_data = to_variable(data);
 
     group.bench_function("jpx", |b| {
-        b.iter(|| black_box(jpx_expr.search(black_box(data)).unwrap()));
+        b.iter(|| jpx_expr.search(black_box(data)).unwrap());
     });
     group.bench_function("jmespath", |b| {
-        b.iter(|| black_box(jmespath_expr.search(black_box(&jmespath_data)).unwrap()));
+        b.iter(|| jmespath_expr.search(black_box(&jmespath_data)).unwrap());
     });
 
     group.finish();
@@ -190,10 +190,10 @@ fn bench_functions(c: &mut Criterion) {
         let jmespath_expr = jmespath::compile(expr).unwrap();
 
         group.bench_function(format!("jpx/{name}"), |b| {
-            b.iter(|| black_box(jpx_expr.search(black_box(&data)).unwrap()));
+            b.iter(|| jpx_expr.search(black_box(&data)).unwrap());
         });
         group.bench_function(format!("jmespath/{name}"), |b| {
-            b.iter(|| black_box(jmespath_expr.search(black_box(&jmespath_data)).unwrap()));
+            b.iter(|| jmespath_expr.search(black_box(&jmespath_data)).unwrap());
         });
     }
 
@@ -219,13 +219,13 @@ fn bench_end_to_end(c: &mut Criterion) {
         group.bench_function(format!("jpx/{name}"), |b| {
             b.iter(|| {
                 let expression = jpx_core::compile(black_box(expr)).unwrap();
-                black_box(expression.search(black_box(&data)).unwrap())
+                expression.search(black_box(&data)).unwrap()
             });
         });
         group.bench_function(format!("jmespath/{name}"), |b| {
             b.iter(|| {
                 let expression = jmespath::compile(black_box(expr)).unwrap();
-                black_box(expression.search(black_box(&jmespath_data)).unwrap())
+                expression.search(black_box(&jmespath_data)).unwrap()
             });
         });
     }
