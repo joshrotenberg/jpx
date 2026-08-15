@@ -1,7 +1,21 @@
 //! Head-to-head benchmarks: jpx-core (Value-native) vs jmespath.rs (Rcvar/Variable).
 //!
-//! Each benchmark group runs the same expression and data through both implementations
-//! so we can compare like-for-like.
+//! # Measurement contract
+//!
+//! Each engine is timed doing its own work on its own native types, and nothing else.
+//!
+//! - Input is converted to each engine's native representation **outside** the timed
+//!   closure. jpx-core searches `serde_json::Value`; jmespath.rs searches
+//!   `jmespath::Variable`. Building the `Variable` inside `b.iter` would charge
+//!   jmespath.rs a full `Value` -> `String` -> `Variable` round-trip per iteration,
+//!   which is setup cost, not search cost.
+//! - Results are **not** converted. jpx-core returns `Value`, jmespath.rs returns
+//!   `Rcvar`. Converting one side and not the other is the same asymmetry in reverse;
+//!   converting neither leaves each engine producing its own native output.
+//!
+//! Both rules exist because violating them inflates the reported gap. Route new search
+//! benchmarks through `bench_pair` rather than hand-rolling a group, so the conversion
+//! stays outside the closure by construction.
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::{Value, json};
@@ -46,35 +60,38 @@ fn nested_object() -> Value {
 }
 
 // ---------------------------------------------------------------------------
-// jpx-core helpers
+// Conversion (setup only -- never call this inside a timed closure)
 // ---------------------------------------------------------------------------
 
-fn jpx_compile_and_search(expr: &str, data: &Value) -> Value {
-    let expression = jpx_core::compile(expr).unwrap();
-    expression.search(data).unwrap()
-}
-
-fn jpx_search_precompiled(expression: &jpx_core::Expression<'_>, data: &Value) -> Value {
-    expression.search(data).unwrap()
+/// Converts a `Value` into jmespath.rs's native `Variable`.
+///
+/// This is setup. Calling it inside `b.iter` charges jmespath.rs a serialise and
+/// reparse of the entire input on every iteration.
+fn to_variable(data: &Value) -> jmespath::Variable {
+    jmespath::Variable::from_json(&data.to_string()).unwrap()
 }
 
 // ---------------------------------------------------------------------------
-// jmespath.rs helpers
+// Shared harness
 // ---------------------------------------------------------------------------
 
-fn jmespath_compile_and_search(expr: &str, data: &Value) -> Value {
-    let expression = jmespath::compile(expr).unwrap();
-    // jmespath.rs requires Variable, so we need to convert
-    let var = jmespath::Variable::from_json(&data.to_string()).unwrap();
-    let result = expression.search(&var).unwrap();
-    // Convert back to Value for fair comparison
-    serde_json::to_value(result.as_ref()).unwrap()
-}
+/// Benchmarks one expression against both engines, precompiled, with input already
+/// in each engine's native form.
+fn bench_pair(c: &mut Criterion, group_name: &str, expr: &str, data: &Value) {
+    let mut group = c.benchmark_group(group_name);
 
-fn jmespath_search_precompiled(expression: &jmespath::Expression<'_>, data: &Value) -> Value {
-    let var = jmespath::Variable::from_json(&data.to_string()).unwrap();
-    let result = expression.search(&var).unwrap();
-    serde_json::to_value(result.as_ref()).unwrap()
+    let jpx_expr = jpx_core::compile(expr).unwrap();
+    let jmespath_expr = jmespath::compile(expr).unwrap();
+    let jmespath_data = to_variable(data);
+
+    group.bench_function("jpx", |b| {
+        b.iter(|| jpx_expr.search(black_box(data)).unwrap());
+    });
+    group.bench_function("jmespath", |b| {
+        b.iter(|| jmespath_expr.search(black_box(&jmespath_data)).unwrap());
+    });
+
+    group.finish();
 }
 
 // ---------------------------------------------------------------------------
@@ -113,152 +130,51 @@ fn bench_parse(c: &mut Criterion) {
 }
 
 fn bench_simple_field(c: &mut Criterion) {
-    let mut group = c.benchmark_group("simple_field");
-    let data = small_object();
-    let expr = "foo.bar.baz";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "simple_field", "foo.bar.baz", &small_object());
 }
 
 fn bench_wildcard_projection(c: &mut Criterion) {
-    let mut group = c.benchmark_group("wildcard_projection");
-    let data = medium_array();
-    let expr = "people[*].name";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "wildcard_projection", "people[*].name", &medium_array());
 }
 
 fn bench_filter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("filter");
-    let data = medium_array();
-    let expr = "people[?age > `30`].name";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "filter", "people[?age > `30`].name", &medium_array());
 }
 
 fn bench_sort(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sort");
-    let data = medium_array();
-    let expr = "sort_by(people, &age)";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "sort", "sort_by(people, &age)", &medium_array());
 }
 
 fn bench_multiselect(c: &mut Criterion) {
-    let mut group = c.benchmark_group("multiselect");
-    let data = medium_array();
-    let expr = "people[*].{name: name, city: city}";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(
+        c,
+        "multiselect",
+        "people[*].{name: name, city: city}",
+        &medium_array(),
+    );
 }
 
 fn bench_large_array_wildcard(c: &mut Criterion) {
-    let mut group = c.benchmark_group("large_array_wildcard");
-    let data = large_array();
-    let expr = "items[*].value";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "large_array_wildcard", "items[*].value", &large_array());
 }
 
 fn bench_large_array_filter(c: &mut Criterion) {
-    let mut group = c.benchmark_group("large_array_filter");
-    let data = large_array();
-    let expr = "items[?score > `750`].id";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(
+        c,
+        "large_array_filter",
+        "items[?score > `750`].id",
+        &large_array(),
+    );
 }
 
 fn bench_deep_nesting(c: &mut Criterion) {
-    let mut group = c.benchmark_group("deep_nesting");
-    let data = nested_object();
-    let expr = "a.b.c.d.e.f.g";
-
-    let jpx_expr = jpx_core::compile(expr).unwrap();
-    let jmespath_expr = jmespath::compile(expr).unwrap();
-
-    group.bench_function("jpx", |b| {
-        b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
-    });
-    group.bench_function("jmespath", |b| {
-        b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
-    });
-
-    group.finish();
+    bench_pair(c, "deep_nesting", "a.b.c.d.e.f.g", &nested_object());
 }
 
 fn bench_functions(c: &mut Criterion) {
     let mut group = c.benchmark_group("functions");
     let data = medium_array();
+    let jmespath_data = to_variable(&data);
 
     let cases = [
         ("length", "length(people)"),
@@ -274,19 +190,22 @@ fn bench_functions(c: &mut Criterion) {
         let jmespath_expr = jmespath::compile(expr).unwrap();
 
         group.bench_function(format!("jpx/{name}"), |b| {
-            b.iter(|| jpx_search_precompiled(&jpx_expr, black_box(&data)));
+            b.iter(|| jpx_expr.search(black_box(&data)).unwrap());
         });
         group.bench_function(format!("jmespath/{name}"), |b| {
-            b.iter(|| jmespath_search_precompiled(&jmespath_expr, black_box(&data)));
+            b.iter(|| jmespath_expr.search(black_box(&jmespath_data)).unwrap());
         });
     }
 
     group.finish();
 }
 
+/// Compile plus search. Each engine pays its own parse cost and searches its own
+/// native input; neither pays a cross-format conversion.
 fn bench_end_to_end(c: &mut Criterion) {
     let mut group = c.benchmark_group("end_to_end");
     let data = medium_array();
+    let jmespath_data = to_variable(&data);
 
     let cases = [
         ("simple", "people[0].name"),
@@ -298,10 +217,16 @@ fn bench_end_to_end(c: &mut Criterion) {
 
     for (name, expr) in &cases {
         group.bench_function(format!("jpx/{name}"), |b| {
-            b.iter(|| jpx_compile_and_search(black_box(expr), black_box(&data)));
+            b.iter(|| {
+                let expression = jpx_core::compile(black_box(expr)).unwrap();
+                expression.search(black_box(&data)).unwrap()
+            });
         });
         group.bench_function(format!("jmespath/{name}"), |b| {
-            b.iter(|| jmespath_compile_and_search(black_box(expr), black_box(&data)));
+            b.iter(|| {
+                let expression = jmespath::compile(black_box(expr)).unwrap();
+                expression.search(black_box(&jmespath_data)).unwrap()
+            });
         });
     }
 
