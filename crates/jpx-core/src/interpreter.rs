@@ -1,5 +1,6 @@
 //! Interprets JMESPath expressions.
 
+use std::borrow::Cow;
 #[cfg(feature = "let-expr")]
 use std::collections::HashMap;
 
@@ -13,6 +14,19 @@ use crate::{ErrorReason, JmespathError, RuntimeError, make_expref_sentinel};
 /// Result of searching data using a JMESPath Expression.
 pub type SearchResult = Result<Value, JmespathError>;
 
+/// Interpreter-internal result: borrowed from the input where possible.
+///
+/// Interpreting to `Cow` is what keeps search cost proportional to the size of
+/// the result rather than the size of the input traversed. A field access, an
+/// index, `@` and a literal all borrow; only nodes that genuinely construct a
+/// new value (projections, slices, multiselects, function results) allocate.
+/// The single copy happens at the boundary, in [`crate::Expression::search`].
+pub(crate) type EvalResult<'a> = Result<Cow<'a, Value>, JmespathError>;
+
+/// Borrowed `null`, so that a missing field or an out-of-range index does not
+/// have to construct an owned value to say "absent".
+static NULL: Value = Value::Null;
+
 /// Maximum interpreter recursion depth.
 ///
 /// Bounds evaluation nesting so that a deeply nested AST (e.g. a long
@@ -25,11 +39,25 @@ pub type SearchResult = Result<Value, JmespathError>;
 /// expression, whose AST nesting is in the low tens.
 const MAX_EVAL_DEPTH: usize = 128;
 
-/// Interprets the given data using an AST node.
+/// Interprets the given data using an AST node, returning an owned value.
+///
+/// Materialises whatever [`interpret_cow`] produced. Callers that evaluate an
+/// expref against many elements (`map`, `sort_by`, the filter functions) go
+/// through here and pay one copy per element, as they did before.
+pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
+    interpret_cow(data, node, ctx).map(Cow::into_owned)
+}
+
+/// Interprets the given data using an AST node, borrowing from `data` and
+/// `node` wherever the result is a value that already exists in one of them.
 ///
 /// Thin wrapper that bounds recursion depth via `Context::eval_depth`;
-/// the actual interpretation happens in `interpret_inner`.
-pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
+/// the actual interpretation happens in `interpret_cow_inner`.
+pub(crate) fn interpret_cow<'a>(
+    data: &'a Value,
+    node: &'a Ast,
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
     ctx.eval_depth += 1;
     if ctx.eval_depth > MAX_EVAL_DEPTH {
         ctx.eval_depth -= 1;
@@ -38,55 +66,65 @@ pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResul
         });
         return Err(JmespathError::from_ctx(ctx, reason));
     }
-    let result = interpret_inner(data, node, ctx);
+    let result = interpret_cow_inner(data, node, ctx);
     ctx.eval_depth -= 1;
     result
 }
 
-fn interpret_inner(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {
+fn interpret_cow_inner<'a>(
+    data: &'a Value,
+    node: &'a Ast,
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
     match node {
-        Ast::Field { name, .. } => Ok(data.get_field(name)),
-        Ast::Subexpr { lhs, rhs, .. } => {
-            let left_result = interpret(data, lhs, ctx)?;
-            interpret(&left_result, rhs, ctx)
-        }
-        Ast::Identity { .. } => Ok(data.clone()),
-        Ast::Literal { value, .. } => Ok(value.clone()),
+        Ast::Field { name, .. } => Ok(Cow::Borrowed(data.get_field_ref(name).unwrap_or(&NULL))),
+        // A borrowed left side keeps the whole chain borrowed, so `a.b.c.d`
+        // costs nothing until the boundary. An owned left side (a function
+        // result, a projection) can only be borrowed from locally, so its
+        // result is materialised here; that copy is result-sized, not
+        // input-sized.
+        Ast::Subexpr { lhs, rhs, .. } => match interpret_cow(data, lhs, ctx)? {
+            Cow::Borrowed(left) => interpret_cow(left, rhs, ctx),
+            Cow::Owned(left) => Ok(Cow::Owned(interpret_cow(&left, rhs, ctx)?.into_owned())),
+        },
+        Ast::Identity { .. } => Ok(Cow::Borrowed(data)),
+        Ast::Literal { value, .. } => Ok(Cow::Borrowed(value)),
         Ast::Index { idx, .. } => {
-            if *idx >= 0 {
-                Ok(data.get_index(*idx as usize))
+            let element = if *idx >= 0 {
+                data.get_index_ref(*idx as usize)
             } else {
-                Ok(data.get_negative_index((-idx) as usize))
-            }
+                data.get_negative_index_ref((-idx) as usize)
+            };
+            Ok(Cow::Borrowed(element.unwrap_or(&NULL)))
         }
         Ast::Or { lhs, rhs, .. } => {
-            let left = interpret(data, lhs, ctx)?;
+            let left = interpret_cow(data, lhs, ctx)?;
             if left.is_truthy() {
                 Ok(left)
             } else {
-                interpret(data, rhs, ctx)
+                interpret_cow(data, rhs, ctx)
             }
         }
         Ast::And { lhs, rhs, .. } => {
-            let left = interpret(data, lhs, ctx)?;
+            let left = interpret_cow(data, lhs, ctx)?;
             if !left.is_truthy() {
                 Ok(left)
             } else {
-                interpret(data, rhs, ctx)
+                interpret_cow(data, rhs, ctx)
             }
         }
         Ast::Not { node, .. } => {
-            let result = interpret(data, node, ctx)?;
-            Ok(Value::Bool(!result.is_truthy()))
+            let result = interpret_cow(data, node, ctx)?;
+            Ok(Cow::Owned(Value::Bool(!result.is_truthy())))
         }
         Ast::Condition {
             predicate, then, ..
         } => {
-            let cond_result = interpret(data, predicate, ctx)?;
+            let cond_result = interpret_cow(data, predicate, ctx)?;
             if cond_result.is_truthy() {
-                interpret(data, then, ctx)
+                interpret_cow(data, then, ctx)
             } else {
-                Ok(Value::Null)
+                Ok(Cow::Borrowed(&NULL))
             }
         }
         Ast::Comparison {
@@ -95,92 +133,22 @@ fn interpret_inner(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchRes
             rhs,
             ..
         } => {
-            let left = interpret(data, lhs, ctx)?;
-            let right = interpret(data, rhs, ctx)?;
-            Ok(left
-                .compare(comparator, &right)
-                .map_or(Value::Null, Value::Bool))
+            let left = interpret_cow(data, lhs, ctx)?;
+            let right = interpret_cow(data, rhs, ctx)?;
+            Ok(Cow::Owned(
+                left.compare(comparator, right.as_ref())
+                    .map_or(Value::Null, Value::Bool),
+            ))
         }
-        Ast::ObjectValues { node, .. } => {
-            let subject = interpret(data, node, ctx)?;
-            match subject {
-                Value::Object(map) => Ok(Value::Array(map.into_values().collect())),
-                _ => Ok(Value::Null),
-            }
-        }
-        Ast::Projection { lhs, rhs, .. } => {
-            let left = interpret(data, lhs, ctx)?;
-            match left.as_array() {
-                None => Ok(Value::Null),
-                Some(arr) => {
-                    let mut collected = vec![];
-                    for element in arr {
-                        let current = interpret(element, rhs, ctx)?;
-                        if !current.is_null() {
-                            collected.push(current);
-                        }
-                    }
-                    Ok(Value::Array(collected))
-                }
-            }
-        }
-        Ast::Flatten { node, .. } => {
-            let result = interpret(data, node, ctx)?;
-            match result.as_array() {
-                None => Ok(Value::Null),
-                Some(arr) => {
-                    let mut collected: Vec<Value> = vec![];
-                    for element in arr {
-                        match element.as_array() {
-                            Some(inner) => collected.extend(inner.iter().cloned()),
-                            _ => collected.push(element.clone()),
-                        }
-                    }
-                    Ok(Value::Array(collected))
-                }
-            }
-        }
-        Ast::MultiList { elements, .. } => {
-            if data.is_null() {
-                Ok(Value::Null)
-            } else {
-                let mut collected = vec![];
-                for node in elements {
-                    collected.push(interpret(data, node, ctx)?);
-                }
-                Ok(Value::Array(collected))
-            }
-        }
-        Ast::MultiHash { elements, .. } => {
-            if data.is_null() {
-                Ok(Value::Null)
-            } else {
-                let mut collected = serde_json::Map::new();
-                for kvp in elements {
-                    let value = interpret(data, &kvp.value, ctx)?;
-                    collected.insert(kvp.key.clone(), value);
-                }
-                Ok(Value::Object(collected))
-            }
-        }
-        Ast::Function { name, args, offset } => {
-            let mut fn_args: Vec<Value> = vec![];
-            for arg in args {
-                fn_args.push(interpret(data, arg, ctx)?);
-            }
-            ctx.offset = *offset;
-            match ctx.runtime.get_function(name) {
-                Some(f) => f.evaluate(&fn_args, ctx),
-                None => {
-                    let reason =
-                        ErrorReason::Runtime(RuntimeError::UnknownFunction(name.to_owned()));
-                    Err(JmespathError::from_ctx(ctx, reason))
-                }
-            }
-        }
+        Ast::ObjectValues { node, .. } => eval_object_values(data, node, ctx),
+        Ast::Projection { lhs, rhs, .. } => eval_projection(data, lhs, rhs, ctx),
+        Ast::Flatten { node, .. } => eval_flatten(data, node, ctx),
+        Ast::MultiList { elements, .. } => eval_multi_list(data, elements, ctx),
+        Ast::MultiHash { elements, .. } => eval_multi_hash(data, elements, ctx),
+        Ast::Function { name, args, offset } => eval_function(data, name, args, *offset, ctx),
         Ast::Expref { ast, .. } => {
             let id = ctx.store_expref(*ast.clone());
-            Ok(make_expref_sentinel(id))
+            Ok(Cow::Owned(make_expref_sentinel(id)))
         }
         Ast::Slice {
             start,
@@ -194,14 +162,14 @@ fn interpret_inner(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchRes
                 Err(JmespathError::from_ctx(ctx, reason))
             } else {
                 match data.slice(*start, *stop, *step) {
-                    Some(array) => Ok(Value::Array(array)),
-                    None => Ok(Value::Null),
+                    Some(array) => Ok(Cow::Owned(Value::Array(array))),
+                    None => Ok(Cow::Borrowed(&NULL)),
                 }
             }
         }
         #[cfg(feature = "let-expr")]
         Ast::VariableRef { name, offset } => match ctx.get_variable(name) {
-            Some(value) => Ok(value),
+            Some(value) => Ok(Cow::Owned(value)),
             None => {
                 ctx.offset = *offset;
                 let reason = ErrorReason::Runtime(RuntimeError::UnknownFunction(format!(
@@ -211,18 +179,150 @@ fn interpret_inner(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchRes
             }
         },
         #[cfg(feature = "let-expr")]
-        Ast::Let { bindings, expr, .. } => {
-            let mut scope = HashMap::new();
-            for (name, binding_expr) in bindings {
-                let value = interpret(data, binding_expr, ctx)?;
-                scope.insert(name.clone(), value);
+        Ast::Let { bindings, expr, .. } => eval_let(data, bindings, expr, ctx),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Value-constructing nodes
+//
+// These live in their own `#[inline(never)]` frames rather than inline in
+// `interpret_cow_inner`. In a debug build every arm's locals contribute to the
+// enclosing frame, and `interpret_cow_inner` is the function that recurses up
+// to `MAX_EVAL_DEPTH` times on a `Subexpr` chain. Keeping the recursive frame
+// down to the small arms is what leaves headroom for 128 nested evaluations on
+// a 2 MiB stack, which `deep_ast_eval_errors_gracefully` pins down.
+// ---------------------------------------------------------------------------
+
+#[inline(never)]
+fn eval_object_values<'a>(data: &'a Value, node: &'a Ast, ctx: &mut Context<'_>) -> EvalResult<'a> {
+    let subject = interpret_cow(data, node, ctx)?;
+    // Consume the map when we own it; copy its values when we do not.
+    if let Cow::Owned(Value::Object(map)) = subject {
+        return Ok(Cow::Owned(Value::Array(map.into_values().collect())));
+    }
+    match subject.as_ref() {
+        Value::Object(map) => Ok(Cow::Owned(Value::Array(map.values().cloned().collect()))),
+        _ => Ok(Cow::Borrowed(&NULL)),
+    }
+}
+
+#[inline(never)]
+fn eval_projection<'a>(
+    data: &'a Value,
+    lhs: &'a Ast,
+    rhs: &'a Ast,
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
+    let left = interpret_cow(data, lhs, ctx)?;
+    match left.as_ref().as_array() {
+        None => Ok(Cow::Borrowed(&NULL)),
+        Some(arr) => {
+            let mut collected = vec![];
+            for element in arr {
+                let current = interpret_cow(element, rhs, ctx)?;
+                if !current.is_null() {
+                    collected.push(current.into_owned());
+                }
             }
-            ctx.push_scope(scope);
-            let result = interpret(data, expr, ctx);
-            ctx.pop_scope();
-            result
+            Ok(Cow::Owned(Value::Array(collected)))
         }
     }
+}
+
+#[inline(never)]
+fn eval_flatten<'a>(data: &'a Value, node: &'a Ast, ctx: &mut Context<'_>) -> EvalResult<'a> {
+    let result = interpret_cow(data, node, ctx)?;
+    match result.as_ref().as_array() {
+        None => Ok(Cow::Borrowed(&NULL)),
+        Some(arr) => {
+            let mut collected: Vec<Value> = vec![];
+            for element in arr {
+                match element.as_array() {
+                    Some(inner) => collected.extend(inner.iter().cloned()),
+                    _ => collected.push(element.clone()),
+                }
+            }
+            Ok(Cow::Owned(Value::Array(collected)))
+        }
+    }
+}
+
+#[inline(never)]
+fn eval_multi_list<'a>(
+    data: &'a Value,
+    elements: &'a [Ast],
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
+    if data.is_null() {
+        return Ok(Cow::Borrowed(&NULL));
+    }
+    let mut collected = vec![];
+    for node in elements {
+        collected.push(interpret_cow(data, node, ctx)?.into_owned());
+    }
+    Ok(Cow::Owned(Value::Array(collected)))
+}
+
+#[inline(never)]
+fn eval_multi_hash<'a>(
+    data: &'a Value,
+    elements: &'a [crate::ast::KeyValuePair],
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
+    if data.is_null() {
+        return Ok(Cow::Borrowed(&NULL));
+    }
+    let mut collected = serde_json::Map::new();
+    for kvp in elements {
+        let value = interpret_cow(data, &kvp.value, ctx)?.into_owned();
+        collected.insert(kvp.key.clone(), value);
+    }
+    Ok(Cow::Owned(Value::Object(collected)))
+}
+
+/// Arguments are materialised because `Function::evaluate` takes `&[Value]`.
+/// Moving that boundary onto borrowed arguments is a separate change; it would
+/// touch every function implementation.
+#[inline(never)]
+fn eval_function<'a>(
+    data: &'a Value,
+    name: &str,
+    args: &'a [Ast],
+    offset: usize,
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
+    let mut fn_args: Vec<Value> = Vec::with_capacity(args.len());
+    for arg in args {
+        fn_args.push(interpret_cow(data, arg, ctx)?.into_owned());
+    }
+    ctx.offset = offset;
+    match ctx.runtime.get_function(name) {
+        Some(f) => f.evaluate(&fn_args, ctx).map(Cow::Owned),
+        None => {
+            let reason = ErrorReason::Runtime(RuntimeError::UnknownFunction(name.to_owned()));
+            Err(JmespathError::from_ctx(ctx, reason))
+        }
+    }
+}
+
+#[cfg(feature = "let-expr")]
+#[inline(never)]
+fn eval_let<'a>(
+    data: &'a Value,
+    bindings: &'a [(String, Ast)],
+    expr: &'a Ast,
+    ctx: &mut Context<'_>,
+) -> EvalResult<'a> {
+    let mut scope = HashMap::new();
+    for (name, binding_expr) in bindings {
+        let value = interpret_cow(data, binding_expr, ctx)?.into_owned();
+        scope.insert(name.clone(), value);
+    }
+    ctx.push_scope(scope);
+    let result = interpret_cow(data, expr, ctx);
+    ctx.pop_scope();
+    result
 }
 
 #[cfg(test)]
