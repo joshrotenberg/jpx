@@ -1533,7 +1533,7 @@ name = "jpx-core"
 version = "0.3.1"
 dependencies = [
  "aho-corasick",
- "base64 0.22.1",
+ "base64 0.23.1",
  "chrono",
  "chrono-tz",
  "crc32fast",
