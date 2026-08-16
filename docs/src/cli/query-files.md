@@ -175,10 +175,14 @@ The parser reports errors with line numbers for easy debugging:
 
 | Error | Example | Message |
 |-------|---------|---------|
-| Empty name | `-- :name ` | `Empty query name at line 3` |
-| No expression | `-- :name foo` followed by `-- :name bar` | `Query 'foo' has no expression at line 1` |
-| Duplicate name | Two `-- :name stats` | `Duplicate query name 'stats' at line 7` |
+| Empty name | `-- :name ` | `Empty query name. Give the query a name, as in '-- :name my-query'. at line 3` |
+| No expression | `-- :name foo` followed by `-- :name bar` | `Query 'foo' has no expression. Add the expression on the line after '-- :name foo', or remove the entry. at line 1` |
+| Duplicate name | Two `-- :name stats` | `Duplicate query name 'stats'. Query names must be unique within a file; rename one of them. at line 7` |
 | No queries | File with only comments | `No queries found. Use '-- :name <query-name>' to define queries.` |
+
+Each message names the corrective action, not just the diagnosis. That is a
+deliberate contract, described in [AGENTS.md](https://github.com/joshrotenberg/jpx/blob/main/AGENTS.md)
+and enforced by `crates/jpx/tests/error_contract.rs`.
 
 ### Detection Logic
 
