@@ -33,7 +33,11 @@ pub use crate::value_ext::{JmespathType, ValueExt};
 
 mod error;
 pub mod interpreter;
-mod lexer;
+// Doc-hidden, not public API: exposed so external benchmark rigs (the
+// jmespath-zig spike's, today) can measure the lexer head-to-head. No
+// stability promise; hide it again if that rig retires.
+#[doc(hidden)]
+pub mod lexer;
 mod parser;
 mod runtime;
 
