@@ -68,6 +68,10 @@ proptest = "1.6"
 name = "vs_jmespath"
 harness = false
 
+[[bench]]
+name = "result_size"
+harness = false
+
 [features]
 default = ["extensions", "let-expr"]
 extensions = [
