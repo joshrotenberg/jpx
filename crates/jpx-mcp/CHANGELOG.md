@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-mcp-v0.5.1...jpx-mcp-v0.5.2) - 2026-08-24
+
+### Added
+
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
 ### Security
 
 - disable `evaluate_file` over HTTP by default and add repeatable canonical
