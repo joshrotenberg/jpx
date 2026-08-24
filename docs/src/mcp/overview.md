@@ -29,7 +29,7 @@ The MCP server exposes **31 tools** organized by purpose:
 | Tool | Description |
 |------|-------------|
 | `evaluate` | Run a JMESPath expression against JSON input |
-| `evaluate_file` | Query JSON files directly from disk |
+| `evaluate_file` | Query permitted JSON files directly from disk (disabled by default over HTTP) |
 | `batch_evaluate` | Run multiple expressions against the same input |
 | `validate` | Check expression syntax without executing |
 | `explain` | Break down an expression into steps with complexity rating |

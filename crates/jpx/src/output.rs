@@ -49,11 +49,7 @@ pub(crate) fn output_json(
         std::borrow::Cow::Borrowed(value)
     };
 
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     if compact {
         println!("{}", serde_json::to_string(&*value)?);
@@ -132,13 +128,21 @@ pub(crate) fn output_as_lines(
 }
 
 /// Output as CSV
-pub(crate) fn output_as_csv(value: &serde_json::Value, output_path: &Option<String>) -> Result<()> {
-    output_as_delimited(value, output_path, b',')
+pub(crate) fn output_as_csv(
+    value: &serde_json::Value,
+    output_path: &Option<String>,
+    columns: Option<&[String]>,
+) -> Result<()> {
+    output_as_delimited(value, output_path, b',', columns)
 }
 
 /// Output as TSV
-pub(crate) fn output_as_tsv(value: &serde_json::Value, output_path: &Option<String>) -> Result<()> {
-    output_as_delimited(value, output_path, b'\t')
+pub(crate) fn output_as_tsv(
+    value: &serde_json::Value,
+    output_path: &Option<String>,
+    columns: Option<&[String]>,
+) -> Result<()> {
+    output_as_delimited(value, output_path, b'\t', columns)
 }
 
 /// Output as delimited format (CSV or TSV)
@@ -146,12 +150,21 @@ fn output_as_delimited(
     value: &serde_json::Value,
     output_path: &Option<String>,
     delimiter: u8,
+    columns: Option<&[String]>,
 ) -> Result<()> {
     let format_name = if delimiter == b',' { "CSV" } else { "TSV" };
 
     match value {
         serde_json::Value::Array(arr) => {
             if arr.is_empty() {
+                if let Some(columns) = columns {
+                    let mut writer = csv::WriterBuilder::new()
+                        .delimiter(delimiter)
+                        .from_writer(vec![]);
+                    writer.write_record(columns)?;
+                    let output = String::from_utf8(writer.into_inner()?)?;
+                    return write_output(output.trim_end(), output_path);
+                }
                 return write_output("", output_path);
             }
 
@@ -160,8 +173,11 @@ fn output_as_delimited(
 
             if all_objects {
                 // Array of objects - flatten and output as table
-                output_objects_as_delimited(arr, output_path, delimiter)
+                output_objects_as_delimited(arr, output_path, delimiter, columns)
             } else {
+                if columns.is_some() {
+                    return Err(columns_require_objects_error());
+                }
                 // Array of primitives or mixed - output as single column
                 let mut wtr = csv::WriterBuilder::new()
                     .delimiter(delimiter)
@@ -178,7 +194,12 @@ fn output_as_delimited(
         }
         serde_json::Value::Object(_) => {
             // Single object - output as two columns (key, value)
-            output_objects_as_delimited(std::slice::from_ref(value), output_path, delimiter)
+            output_objects_as_delimited(
+                std::slice::from_ref(value),
+                output_path,
+                delimiter,
+                columns,
+            )
         }
         _ => Err(anyhow::anyhow!(
             "{} output requires an array or object, got {}",
@@ -193,19 +214,24 @@ fn output_objects_as_delimited(
     arr: &[serde_json::Value],
     output_path: &Option<String>,
     delimiter: u8,
+    columns: Option<&[String]>,
 ) -> Result<()> {
-    // Collect all unique keys from all objects, flattening nested structures
-    let mut all_keys: Vec<String> = Vec::new();
-    let mut seen_keys = std::collections::HashSet::new();
-
-    for item in arr {
-        if let serde_json::Value::Object(obj) = item {
-            collect_flattened_keys(obj, "", &mut all_keys, &mut seen_keys);
+    let all_keys = if let Some(columns) = columns {
+        columns.to_vec()
+    } else {
+        // Collect all unique keys from all objects, flattening nested structures.
+        let mut keys = Vec::new();
+        let mut seen_keys = std::collections::HashSet::new();
+        for item in arr {
+            if let serde_json::Value::Object(obj) = item {
+                collect_flattened_keys(obj, "", &mut keys, &mut seen_keys);
+            }
         }
-    }
-    // Keep the established CLI order deterministic even when another workspace
-    // crate enables serde_json's `preserve_order` feature through feature unification.
-    all_keys.sort_unstable();
+        // Keep the established default deterministic even when another workspace
+        // crate enables serde_json's `preserve_order` feature through unification.
+        keys.sort_unstable();
+        keys
+    };
 
     // Create CSV writer
     let mut wtr = csv::WriterBuilder::new()
@@ -314,16 +340,16 @@ pub(crate) fn output_as_table(
     output_path: &Option<String>,
     style: &str,
     color_mode: &ColorMode,
+    columns: Option<&[String]>,
 ) -> Result<()> {
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => output_path.is_none() && crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(
+        color_mode,
+        output_path.is_none() && crate::util::stdout_is_terminal(),
+    );
 
     match value {
         serde_json::Value::Array(arr) => {
-            if arr.is_empty() {
+            if arr.is_empty() && columns.is_none() {
                 return write_output("(empty array)", output_path);
             }
 
@@ -331,15 +357,24 @@ pub(crate) fn output_as_table(
             let all_objects = arr.iter().all(|v| v.is_object());
 
             if all_objects {
-                output_objects_as_table(arr, output_path, style, use_color)
+                output_objects_as_table(arr, output_path, style, use_color, columns)
             } else {
+                if columns.is_some() {
+                    return Err(columns_require_objects_error());
+                }
                 // Array of primitives or mixed - single column table
                 output_primitives_as_table(arr, output_path, style)
             }
         }
         serde_json::Value::Object(_) => {
             // Single object - output as key/value table
-            output_objects_as_table(std::slice::from_ref(value), output_path, style, use_color)
+            output_objects_as_table(
+                std::slice::from_ref(value),
+                output_path,
+                style,
+                use_color,
+                columns,
+            )
         }
         _ => Err(anyhow::anyhow!(
             "Table output requires an array or object, got {}",
@@ -354,21 +389,26 @@ fn output_objects_as_table(
     output_path: &Option<String>,
     style: &str,
     use_color: bool,
+    columns: Option<&[String]>,
 ) -> Result<()> {
     use tabled::Table;
 
-    // Collect all unique keys from all objects (flattened)
-    let mut all_keys: Vec<String> = Vec::new();
-    let mut seen_keys = std::collections::HashSet::new();
-
-    for item in arr {
-        if let serde_json::Value::Object(obj) = item {
-            collect_flattened_keys(obj, "", &mut all_keys, &mut seen_keys);
+    let all_keys = if let Some(columns) = columns {
+        columns.to_vec()
+    } else {
+        // Collect all unique keys from all objects (flattened).
+        let mut keys = Vec::new();
+        let mut seen_keys = std::collections::HashSet::new();
+        for item in arr {
+            if let serde_json::Value::Object(obj) = item {
+                collect_flattened_keys(obj, "", &mut keys, &mut seen_keys);
+            }
         }
-    }
-    // See the delimited-output path above: column order must not depend on
-    // which optional workspace features happened to be enabled at build time.
-    all_keys.sort_unstable();
+        // See the delimited-output path above: default order must not depend on
+        // which optional workspace features happened to be enabled.
+        keys.sort_unstable();
+        keys
+    };
 
     if all_keys.is_empty() {
         return write_output("(no columns)", output_path);
@@ -407,6 +447,13 @@ fn output_objects_as_table(
     apply_table_style(&mut table, style);
 
     write_output(&table.to_string(), output_path)
+}
+
+fn columns_require_objects_error() -> anyhow::Error {
+    anyhow::anyhow!(
+        "--columns requires object rows for table, CSV, or TSV output.\n\
+         Select an expression that returns objects, or remove --columns."
+    )
 }
 
 /// Output array of primitives as a single-column table

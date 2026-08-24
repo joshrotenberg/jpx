@@ -236,7 +236,7 @@ impl<'a> Lexer<'a> {
     #[inline]
     fn consume_negative_number(&mut self, pos: usize) -> Result<Token<'a>, JmespathError> {
         match self.iter.next() {
-            Some((_, c)) if c.is_numeric() && c != '0' => Ok(self.consume_number(pos, c, true)?),
+            Some((_, c @ '1'..='9')) => Ok(self.consume_number(pos, c, true)?),
             _ => {
                 let reason = ErrorReason::Parse("'-' must be followed by numbers 1-9".to_owned());
                 Err(JmespathError::new(self.expr, pos, reason))
@@ -519,6 +519,23 @@ mod tests {
     #[test]
     fn tokenize_negative_number_test_failure() {
         assert!(tokenize("-01").unwrap_err().to_string().contains("'-'"));
+    }
+
+    #[test]
+    fn tokenize_rejects_non_ascii_numeric_after_minus() {
+        for expr in ["-٣", "-３", "-²", "-Ⅲ"] {
+            let error = tokenize(expr).unwrap_err().to_string();
+            assert!(
+                error.contains("'-' must be followed by numbers 1-9"),
+                "unexpected error for {expr:?}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn tokenize_rejects_arabic_indic_negative_slice_index() {
+        let error = tokenize("[-٣:]").unwrap_err().to_string();
+        assert!(error.contains("'-' must be followed by numbers 1-9"));
     }
 
     #[test]

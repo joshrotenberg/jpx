@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- add `--per-file` corpus evaluation with repeated inputs and a `$file` path binding ([#220](https://github.com/joshrotenberg/jpx/issues/220))
+- add explicit `--columns` selection and ordering for table, CSV, and TSV output ([#217](https://github.com/joshrotenberg/jpx/issues/217))
+- add `--no-history` and explicit `-f/--file` startup data to the REPL ([#233](https://github.com/joshrotenberg/jpx/issues/233))
+
+### Fixed
+
+- make REPL exits run normal history teardown, honor color policy, derive demo help from the registry, and parse quoted load paths robustly ([#233](https://github.com/joshrotenberg/jpx/issues/233))
+
 ## [0.5.1](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.0...jpx-v0.5.1) - 2026-08-13
 
 ### Fixed

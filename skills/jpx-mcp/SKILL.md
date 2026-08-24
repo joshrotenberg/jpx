@@ -142,6 +142,14 @@ diff(source, target) -> review patch ops -> patch(document, ops)
 - **stdio** (default): For local MCP client integration
 - **HTTP**: For remote access (`--transport http --host 0.0.0.0 --port 3000`)
 
+### Filesystem access
+`evaluate_file` is unrestricted on stdio by default for backward compatibility
+and disabled on HTTP by default. Pass `--allow-root <DIRECTORY>` repeatedly to
+restrict either transport to canonicalized directory trees. Symlinks cannot
+escape those roots during canonical-path validation. Treat allowed roots as a
+trust boundary: use read-only mounts or directories that untrusted users cannot
+rewrite concurrently. Use `engine_info` to inspect the effective policy.
+
 ### Strict mode
 `--strict` disables all extension functions, limiting to the 26 standard JMESPath functions.
 

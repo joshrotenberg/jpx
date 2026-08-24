@@ -39,6 +39,25 @@ use jpx_mcp::build_router;
 let router = build_router(false).expect("failed to build router");
 ```
 
+`build_router` preserves unrestricted file access for backward compatibility
+with trusted local/stdio clients. Embedders serving remote clients should choose
+an explicit policy:
+
+```rust
+use jpx_mcp::{FileAccessPolicy, build_router_with_file_access};
+
+let policy = FileAccessPolicy::restricted(["/srv/json-data"])
+    .expect("allowed root must be an accessible directory");
+let router = build_router_with_file_access(false, policy)
+    .expect("failed to build router");
+```
+
+The `jpx-mcp` binary disables `evaluate_file` over HTTP unless at least one
+repeatable `--allow-root <DIRECTORY>` option is supplied. Stdio retains the
+historical unrestricted default when no roots are configured. The effective
+policy is returned by `engine_info`. Allowed roots should be read-only or
+otherwise protected from concurrent mutation by untrusted users.
+
 ## License
 
 Licensed under either of MIT or Apache-2.0 at your option.

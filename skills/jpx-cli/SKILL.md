@@ -108,6 +108,15 @@ jpx -n 'range(`1`, `11`)'         # [1,2,...,10]
 jpx -n 'uuid()'                   # random UUID
 ```
 
+### Multiple files (`--per-file`)
+Evaluate once per shell-expanded input path without starting a new process:
+```bash
+jpx --per-file --lines '{file: $file, count: length(@)}' *.json
+jpx --per-file --slurp --lines -Q queries.jpx:summary *.jsonl
+```
+Results form one outer array; `--lines` emits one value per input file. `-s`
+slurps each file independently, and `$file` is the path exactly as passed.
+
 ## Streaming Mode
 
 Process NDJSON line by line with constant memory:
@@ -205,8 +214,9 @@ jpx --explain 'sort_by([*], &name) | [0]'
 jpx --bench 1000 'complex.expression' data.json
 
 # Interactive REPL
-jpx --repl -f data.json
+jpx --repl -f data.json                    # file is initial data; stdin stays commands
 jpx --repl --demo users                 # with demo dataset
+jpx --repl -f data.json --no-history       # private/ephemeral session
 
 # Exit status (for shell conditionals)
 jpx -x '[?critical]' data.json && echo "found critical items"

@@ -100,6 +100,19 @@ age,name
 25,bob
 ```
 
+Use `--columns` to select and order fields explicitly. Missing fields become
+empty cells, unlisted fields are omitted, and dotted names select flattened
+nested fields:
+
+```bash
+jpx --csv --columns name,address.city,age '@' users.json
+jpx --table --columns when,title,msgs,tools '@' sessions.json
+```
+
+Without `--columns`, table, CSV, and TSV headers remain alphabetical for stable
+backward-compatible output. Explicit column order takes precedence over
+`-S/--sort-keys` and also works with streaming CSV/TSV.
+
 ### Nested Object Flattening
 
 Nested objects are automatically flattened using dot notation:
@@ -247,10 +260,10 @@ echo '[{"name": "alice", "age": 30}, {"name": "bob", "age": 25}]' | jpx '@' --ta
 ```
 ```
 ┌───────┬─────┐
-│ name  │ age │
+│ age │ name  │
 ├───────┼─────┤
-│ alice │ 30  │
-│ bob   │ 25  │
+│ 30  │ alice │
+│ 25  │ bob   │
 └───────┴─────┘
 ```
 

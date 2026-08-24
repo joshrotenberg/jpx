@@ -1,5 +1,7 @@
 //! Small shared helpers for the CLI.
 
+use crate::args::ColorMode;
+
 /// Truncate `s` to at most `max_chars` characters for display, appending an
 /// ellipsis if it was longer.
 ///
@@ -21,6 +23,30 @@ pub(crate) fn truncate_str(s: &str, max_chars: usize) -> String {
 /// unmaintained, unsound `atty` crate.
 pub(crate) fn stdout_is_terminal() -> bool {
     std::io::IsTerminal::is_terminal(&std::io::stdout())
+}
+
+/// Apply the CLI color contract to a destination.
+///
+/// An explicit `always` or `never` wins. Automatic color requires a terminal
+/// and respects the conventional `NO_COLOR` environment variable.
+pub(crate) fn should_colorize(mode: &ColorMode, destination_is_terminal: bool) -> bool {
+    should_colorize_with_no_color(
+        mode,
+        destination_is_terminal,
+        std::env::var_os("NO_COLOR").is_some(),
+    )
+}
+
+fn should_colorize_with_no_color(
+    mode: &ColorMode,
+    destination_is_terminal: bool,
+    no_color: bool,
+) -> bool {
+    match mode {
+        ColorMode::Always => true,
+        ColorMode::Never => false,
+        ColorMode::Auto => destination_is_terminal && !no_color,
+    }
 }
 
 #[cfg(test)]
@@ -46,5 +72,30 @@ mod tests {
         assert_eq!(out, "éééé..."); // 4 chars + ellipsis
         // A 4-char string is under an 8-char limit -> unchanged.
         assert_eq!(truncate_str("é\u{1f600}本a", 8), "é\u{1f600}本a");
+    }
+
+    #[test]
+    fn automatic_color_requires_a_terminal_and_honors_no_color() {
+        assert!(should_colorize_with_no_color(&ColorMode::Auto, true, false));
+        assert!(!should_colorize_with_no_color(
+            &ColorMode::Auto,
+            false,
+            false
+        ));
+        assert!(!should_colorize_with_no_color(&ColorMode::Auto, true, true));
+    }
+
+    #[test]
+    fn explicit_color_modes_override_environment_and_terminal() {
+        assert!(should_colorize_with_no_color(
+            &ColorMode::Always,
+            false,
+            true
+        ));
+        assert!(!should_colorize_with_no_color(
+            &ColorMode::Never,
+            true,
+            false
+        ));
     }
 }

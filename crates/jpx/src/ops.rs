@@ -52,11 +52,7 @@ pub(crate) fn list_queries(query_path: &str, color_mode: &ColorMode) -> Result<(
     let library = jpx::query_library::QueryLibrary::parse(&content)
         .with_context(|| format!("Failed to parse query library: {}", file_path))?;
 
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     println!("Queries in {}:\n", file_path);
 
@@ -129,11 +125,7 @@ pub(crate) fn check_queries(
     let library = jpx::query_library::QueryLibrary::parse(&content)
         .with_context(|| format!("Failed to parse query library: {}", file_path))?;
 
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     let mut has_errors = false;
 
