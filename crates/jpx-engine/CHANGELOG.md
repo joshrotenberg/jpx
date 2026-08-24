@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.4.1...jpx-engine-v0.4.2) - 2026-08-24
+
+### Other
+
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+
 ## [0.4.1](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.4.0...jpx-engine-v0.4.1) - 2026-08-13
 
 ### Fixed

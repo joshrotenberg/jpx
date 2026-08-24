@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.1...jpx-v0.5.2) - 2026-08-24
+
+### Added
+
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Other
+
+- treat error messages as a contract, and enforce it ([#243](https://github.com/joshrotenberg/jpx/pull/243))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+
 ### Added
 
 - add `--per-file` corpus evaluation with repeated inputs and a `$file` path binding ([#220](https://github.com/joshrotenberg/jpx/issues/220))

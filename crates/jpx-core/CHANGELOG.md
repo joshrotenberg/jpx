@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.3.1...jpx-core-v0.3.2) - 2026-08-24
+
+### Added
+
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Other
+
+- interpret over borrowed values ([#242](https://github.com/joshrotenberg/jpx/pull/242))
+- *(deps)* bump stop-words from 0.9.0 to 0.10.0 ([#246](https://github.com/joshrotenberg/jpx/pull/246))
+- expose the lexer doc-hidden for cross-implementation benchmarking ([#247](https://github.com/joshrotenberg/jpx/pull/247))
+- treat error messages as a contract, and enforce it ([#243](https://github.com/joshrotenberg/jpx/pull/243))
+- re-vendor compliance suite from upstream at a pinned commit ([#241](https://github.com/joshrotenberg/jpx/pull/241))
+- *(deps)* bump dateparser from 0.2.1 to 0.3.1 ([#227](https://github.com/joshrotenberg/jpx/pull/227))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+- *(deps)* bump base64 from 0.22.1 to 0.23.1 ([#229](https://github.com/joshrotenberg/jpx/pull/229))
+- convert jmespath input outside the timed closure ([#239](https://github.com/joshrotenberg/jpx/pull/239))
+
 ### Fixed
 
 - reject non-ASCII numeric characters after `-` instead of panicking in the lexer ([#248](https://github.com/joshrotenberg/jpx/issues/248))
