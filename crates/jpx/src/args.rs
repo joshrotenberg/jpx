@@ -353,18 +353,45 @@ pub(crate) struct Args {
     )]
     pub(crate) argjson: Vec<String>,
 
-    /// Input JSON file
+    /// Input JSON file(s)
     #[arg(
         short,
         long,
+        action = clap::ArgAction::Append,
         help = "Input JSON file",
-        long_help = "Input file to read JSON from. If not provided, reads from stdin.\nSupports any valid JSON file.\n\n\
+        long_help = "Input file to read JSON from. Repeat with --per-file to process multiple files.\nIf not provided, reads from stdin. Supports any valid JSON file.\n\n\
             The file can also be passed as a trailing positional argument:\n  \
             jpx 'users[*].name' data.json\n\n\
             When the last positional argument is an existing file, it is used as input\n\
             instead of being treated as an expression."
     )]
-    pub(crate) file: Option<String>,
+    pub(crate) file: Vec<String>,
+
+    /// Evaluate once per input file
+    #[arg(
+        long = "per-file",
+        conflicts_with_all = [
+            "stream",
+            "null_input",
+            "repl",
+            "demo",
+            "diff",
+            "patch",
+            "merge",
+            "stats",
+            "paths",
+            "bench",
+            "explain",
+            "list_queries",
+            "check_queries"
+        ],
+        help = "Evaluate once per input file",
+        long_help = "Evaluate the expression independently for each input file. Repeat -f/--file,\n\
+            or use trailing file paths (unambiguous with -Q/--query-file). Shells expand globs.\n\
+            Results form one outer array; combine with -l/--lines for one result per file.\n\
+            Each evaluation can reference the input path through the $file binding."
+    )]
+    pub(crate) per_file: bool,
 
     /// Output raw strings without quotes
     #[arg(
@@ -451,6 +478,18 @@ pub(crate) struct Args {
           help = "Output as formatted table",
           long_help = "Output as a formatted table. Best for arrays of objects.\nUse --table-style to change its appearance.")]
     pub(crate) table: bool,
+
+    /// Select and order tabular output columns
+    #[arg(
+        long,
+        value_name = "NAMES",
+        help = "Select and order table/CSV/TSV columns",
+        long_help = "Comma-separated columns for --table, --csv, or --tsv output.\n\
+            Names use the same dot notation as flattened nested fields. Missing columns\n\
+            produce empty cells; fields not listed are omitted. Explicit order takes\n\
+            precedence over -S/--sort-keys."
+    )]
+    pub(crate) columns: Option<String>,
 
     /// Table style
     #[arg(
@@ -671,12 +710,20 @@ pub(crate) struct Args {
     )]
     pub(crate) repl: bool,
 
+    /// Disable persistent REPL history
+    #[arg(
+        long,
+        help = "Disable REPL history loading and saving",
+        long_help = "Run the REPL without loading, recording, or saving command history.\nUseful for ephemeral and automated sessions."
+    )]
+    pub(crate) no_history: bool,
+
     /// Load demo dataset
     #[arg(
         long,
         value_name = "NAME",
         help = "Load a demo dataset for REPL",
-        long_help = "Load a demo dataset when starting REPL mode.\nAvailable: users, products, github, mixed"
+        long_help = concat!("Load a demo dataset when starting REPL mode.\nAvailable: ", env!("JPX_DEMO_NAMES"))
     )]
     pub(crate) demo: Option<String>,
 

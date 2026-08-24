@@ -17,8 +17,9 @@
 //! benchmarks through `bench_pair` rather than hand-rolling a group, so the conversion
 //! stays outside the closure by construction.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::{Value, json};
+use std::hint::black_box;
 
 // ---------------------------------------------------------------------------
 // Test data

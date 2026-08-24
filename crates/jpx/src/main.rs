@@ -10,7 +10,7 @@ mod stats;
 mod streaming;
 mod util;
 
-use args::{Args, ColorMode, ConfigDefaults};
+use args::{Args, ConfigDefaults};
 use jpx::query_library::{self, LoadResult};
 
 use anyhow::{Context, Result};
@@ -69,13 +69,46 @@ fn run() -> Result<i32> {
         return Ok(0);
     }
 
+    if !args.per_file && args.file.len() > 1 {
+        return Err(anyhow::anyhow!(
+            "Multiple input files require --per-file.\n\
+             Add --per-file to evaluate each file independently, or pass a single -f/--file."
+        ));
+    }
+
+    let single_file = args.file.first().cloned();
+    let columns = parse_columns(&args)?;
+
+    let starts_repl = args.repl || args.demo.is_some();
+    if args.no_history && !starts_repl {
+        return Err(anyhow::anyhow!(
+            "--no-history only applies to the REPL.\n\
+             Add --repl (or --demo <NAME>), or remove --no-history."
+        ));
+    }
+    if starts_repl && args.demo.is_some() && single_file.is_some() {
+        return Err(anyhow::anyhow!(
+            "REPL startup accepts either --demo or -f/--file, not both.\n\
+             Remove one and use .demo or .load later to switch data."
+        ));
+    }
+
     // Load engine config (jpx.toml discovery) and create runtime/registry
     let engine_config = jpx_engine::config::EngineConfig::discover().unwrap_or_default();
     let (runtime, registry) = args::create_configured_runtime(&engine_config, args.strict);
 
     // Handle REPL mode
-    if args.repl || args.demo.is_some() {
-        repl::run(args.demo.as_deref(), runtime, registry)?;
+    if starts_repl {
+        repl::run(
+            repl::ReplOptions {
+                demo_name: args.demo.as_deref(),
+                initial_file: single_file.as_deref(),
+                color_mode: args.color,
+                history_enabled: !args.no_history,
+            },
+            runtime,
+            registry,
+        )?;
         return Ok(0);
     }
 
@@ -129,7 +162,7 @@ fn run() -> Result<i32> {
     // Handle --patch: apply JSON Patch to document
     if let Some(patch_file) = &args.patch {
         ops::apply_patch(
-            &args.file,
+            &single_file,
             patch_file,
             args.compact,
             &args.color,
@@ -141,7 +174,7 @@ fn run() -> Result<i32> {
     // Handle --merge: apply JSON Merge Patch to document
     if let Some(merge_file) = &args.merge {
         ops::apply_merge(
-            &args.file,
+            &single_file,
             merge_file,
             args.compact,
             &args.color,
@@ -152,13 +185,13 @@ fn run() -> Result<i32> {
 
     // Handle --stats: show data statistics
     if args.stats {
-        stats::show_stats(&args.file, &args.color)?;
+        stats::show_stats(&single_file, &args.color)?;
         return Ok(0);
     }
 
     // Handle --paths: list all paths in JSON
     if args.paths {
-        stats::show_paths(&args.file, &args.color, args.types, args.values)?;
+        stats::show_paths(&single_file, &args.color, args.types, args.values)?;
         return Ok(0);
     }
 
@@ -182,29 +215,7 @@ fn run() -> Result<i32> {
         return Ok(0);
     }
 
-    // jq-style: if the last positional arg is an existing file and no -f was given, use it as input.
-    // With -Q the expression already comes from the query file, so a single positional is input.
-    if args.query_file.is_some() {
-        if args.file.is_none() && !args.null_input && args.positional_expressions.len() == 1 {
-            let last = args.positional_expressions.last().expect("length checked");
-            if std::path::Path::new(last).is_file() {
-                let file_arg = args.positional_expressions.pop().expect("length checked");
-                args.file = Some(file_arg);
-            }
-        }
-        if !args.positional_expressions.is_empty() {
-            return Err(anyhow::anyhow!(
-                "With -Q/--query-file, a positional argument must be an existing input file.\n\
-                 Check the path or pass it explicitly with -f/--file."
-            ));
-        }
-    } else if args.file.is_none() && !args.null_input && args.positional_expressions.len() > 1 {
-        let last = args.positional_expressions.last().expect("length checked");
-        if std::path::Path::new(last).is_file() {
-            let file_arg = args.positional_expressions.pop().expect("length checked");
-            args.file = Some(file_arg);
-        }
-    }
+    resolve_positional_input_files(&mut args)?;
 
     // Get expressions from positional args, -e flags, or file
     let expressions: Vec<String> = if let Some(query_path) = &args.query_file {
@@ -244,114 +255,56 @@ fn run() -> Result<i32> {
         return Ok(0);
     }
 
-    // Handle --stream or --raw-input (without slurp): process line by line
-    if args.stream || (args.raw_input && !args.slurp) {
-        let had_truthy = streaming::run_streaming(&expressions, &args, &runtime)?;
+    // Handle --stream or --raw-input (without slurp): process line by line.
+    // Per-file raw input is read as one array of lines per file instead.
+    if args.stream || (args.raw_input && !args.slurp && !args.per_file) {
+        let had_truthy =
+            streaming::run_streaming(&expressions, &args, &runtime, columns.as_deref())?;
         if args.exit_status && !had_truthy {
             return Ok(1);
         }
         return Ok(0);
     }
 
-    // Get input data
-    let data: Value = if args.null_input {
-        // Null input mode - don't read anything
-        Value::Null
+    let start = Instant::now();
+    let (result, truthy_override) = if args.per_file {
+        let (result, had_truthy) = evaluate_per_file(&runtime, &registry, &expressions, &args)?;
+        (result, Some(had_truthy))
     } else {
-        // Check for parquet input
-        #[cfg(feature = "parquet")]
-        if let Some(path) = &args.file {
-            if path.ends_with(".parquet") || path.ends_with(".pq") {
-                jpx::parquet_support::read_parquet_to_json(std::path::Path::new(path))
-                    .with_context(|| format!("Failed to read parquet file: {}", path))?
-            } else {
-                input::read_input_as_value(&args)?
-            }
+        let data = if args.null_input {
+            Value::Null
         } else {
             input::read_input_as_value(&args)?
-        }
-
-        #[cfg(not(feature = "parquet"))]
-        input::read_input_as_value(&args)?
-    };
-
-    // Verbose mode: show input info
-    if args.verbose {
-        if args.strict {
-            eprintln!("Mode: strict (standard JMESPath only)");
-        }
-        eprintln!("Input: {}", explain::describe_value(&data));
-        if expressions.len() > 1 {
-            eprintln!("Expressions: {} (chained)", expressions.len());
-        }
-        eprintln!();
-    }
-
-    // Handle --bench: benchmark expression performance
-    if let Some(iterations) = args.bench {
-        bench::run_benchmark(
-            &runtime,
-            &expressions,
-            &data,
-            iterations,
-            args.warmup,
-            &args.color,
-        )?;
-        return Ok(0);
-    }
-
-    // Compile and execute expression(s)
-    let start = Instant::now();
-    let mut result: Value = data.clone();
-
-    for (i, expression) in expressions.iter().enumerate() {
-        if args.verbose {
-            eprintln!("[{}] Expression: {}", i + 1, expression);
-        }
-
-        let expr = runtime
-            .compile(expression)
-            .map_err(|e| input::expression_error(expression, e))?;
-
-        if args.strict && jpx_engine::has_let_nodes(expr.as_ast()) {
-            return Err(anyhow::anyhow!(
-                "Let expressions are not available in strict mode (standard JMESPath only).\n\
-                 Remove --strict or unset JPX_STRICT to use let expressions."
-            ));
-        }
-
-        let step_start = Instant::now();
-        result = match expr.search(&result) {
-            Ok(r) => r,
-            Err(e) => {
-                let err_msg = e.to_string();
-                if args.strict && err_msg.contains("undefined function") {
-                    return Err(anyhow::anyhow!(
-                        "{}\n\nHint: You are using --strict mode which only allows standard JMESPath functions.\nRemove --strict or unset JPX_STRICT to use extension functions.",
-                        err_msg
-                    ));
-                }
-                let suggestion = discovery::suggest_for_unknown_function(&registry, &err_msg, 3)
-                    .unwrap_or_default();
-                return Err(anyhow::anyhow!(
-                    "Failed to evaluate expression: {}{}",
-                    e,
-                    suggestion
-                ));
-            }
         };
-        let step_elapsed = step_start.elapsed();
 
         if args.verbose {
-            eprintln!("[{}] Result: {}", i + 1, explain::describe_value(&result));
-            eprintln!(
-                "[{}] Time: {:.3}ms",
-                i + 1,
-                step_elapsed.as_secs_f64() * 1000.0
-            );
+            if args.strict {
+                eprintln!("Mode: strict (standard JMESPath only)");
+            }
+            eprintln!("Input: {}", explain::describe_value(&data));
+            if expressions.len() > 1 {
+                eprintln!("Expressions: {} (chained)", expressions.len());
+            }
             eprintln!();
         }
-    }
+
+        if let Some(iterations) = args.bench {
+            bench::run_benchmark(
+                &runtime,
+                &expressions,
+                &data,
+                iterations,
+                args.warmup,
+                &args.color,
+            )?;
+            return Ok(0);
+        }
+
+        (
+            evaluate_expressions(&runtime, &registry, &expressions, data, &args)?,
+            None,
+        )
+    };
 
     let total_elapsed = start.elapsed();
     if args.verbose {
@@ -360,7 +313,8 @@ fn run() -> Result<i32> {
     }
 
     // Determine exit code for --exit-status before output
-    let exit_code = if args.exit_status && !is_truthy(&result) {
+    let is_success = truthy_override.unwrap_or_else(|| is_truthy(&result));
+    let exit_code = if args.exit_status && !is_success {
         1
     } else {
         0
@@ -407,11 +361,11 @@ fn run() -> Result<i32> {
         return Ok(exit_code);
     }
     if args.csv_output {
-        output::output_as_csv(&json_value, &args.output)?;
+        output::output_as_csv(&json_value, &args.output, columns.as_deref())?;
         return Ok(exit_code);
     }
     if args.tsv_output {
-        output::output_as_tsv(&json_value, &args.output)?;
+        output::output_as_tsv(&json_value, &args.output, columns.as_deref())?;
         return Ok(exit_code);
     }
     if args.lines_output {
@@ -434,16 +388,16 @@ fn run() -> Result<i32> {
             &args.output,
             args.table_style.as_str(),
             &args.color,
+            columns.as_deref(),
         )?;
         return Ok(exit_code);
     }
 
     // When writing to file, don't colorize unless explicitly requested
-    let should_colorize = match args.color {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => args.output.is_none() && crate::util::stdout_is_terminal(),
-    };
+    let should_colorize = crate::util::should_colorize(
+        &args.color,
+        args.output.is_none() && crate::util::stdout_is_terminal(),
+    );
 
     // Determine indent string
     let indent_str = if args.tab {
@@ -499,6 +453,271 @@ fn run() -> Result<i32> {
     Ok(exit_code)
 }
 
+fn parse_columns(args: &Args) -> Result<Option<Vec<String>>> {
+    let Some(spec) = args.columns.as_deref() else {
+        return Ok(None);
+    };
+
+    if !args.table && !args.csv_output && !args.tsv_output {
+        return Err(anyhow::anyhow!(
+            "--columns requires --table, --csv, or --tsv.\n\
+             Add a tabular output flag, or remove --columns."
+        ));
+    }
+
+    let mut columns = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for raw in spec.split(',') {
+        let column = raw.trim();
+        if column.is_empty() {
+            return Err(anyhow::anyhow!(
+                "--columns contains an empty column name.\n\
+                 Use a comma-separated list such as '--columns name,age'."
+            ));
+        }
+        if !seen.insert(column) {
+            return Err(anyhow::anyhow!(
+                "Duplicate column '{column}' in --columns.\n\
+                 List each column once in the desired output order."
+            ));
+        }
+        columns.push(column.to_string());
+    }
+
+    Ok(Some(columns))
+}
+
+fn evaluate_expressions(
+    runtime: &jpx_engine::Runtime,
+    registry: &FunctionRegistry,
+    expressions: &[String],
+    mut result: Value,
+    args: &Args,
+) -> Result<Value> {
+    for (i, expression) in expressions.iter().enumerate() {
+        if args.verbose {
+            eprintln!("[{}] Expression: {}", i + 1, expression);
+        }
+
+        let expr = runtime
+            .compile(expression)
+            .map_err(|e| input::expression_error(expression, e))?;
+
+        if args.strict && jpx_engine::has_let_nodes(expr.as_ast()) {
+            return Err(anyhow::anyhow!(
+                "Let expressions are not available in strict mode (standard JMESPath only).\n\
+                 Remove --strict or unset JPX_STRICT to use let expressions."
+            ));
+        }
+
+        let step_start = Instant::now();
+        result = match expr.search(&result) {
+            Ok(result) => result,
+            Err(error) => {
+                let error_message = error.to_string();
+                if args.strict && error_message.contains("undefined function") {
+                    return Err(anyhow::anyhow!(
+                        "{}\n\nHint: You are using --strict mode which only allows standard JMESPath functions.\nRemove --strict or unset JPX_STRICT to use extension functions.",
+                        error_message
+                    ));
+                }
+                let suggestion =
+                    discovery::suggest_for_unknown_function(registry, &error_message, 3)
+                        .unwrap_or_default();
+                return Err(anyhow::anyhow!(
+                    "Failed to evaluate expression: {}{}",
+                    error,
+                    suggestion
+                ));
+            }
+        };
+
+        if args.verbose {
+            eprintln!("[{}] Result: {}", i + 1, explain::describe_value(&result));
+            eprintln!(
+                "[{}] Time: {:.3}ms",
+                i + 1,
+                step_start.elapsed().as_secs_f64() * 1000.0
+            );
+            eprintln!();
+        }
+    }
+
+    Ok(result)
+}
+
+/// Evaluate the expression pipeline independently for every input file.
+/// Results are collected into one outer array so `--lines` emits exactly one
+/// JSON value per file, including nulls and nested-array results.
+fn evaluate_per_file(
+    runtime: &jpx_engine::Runtime,
+    registry: &FunctionRegistry,
+    expressions: &[String],
+    args: &Args,
+) -> Result<(Value, bool)> {
+    let uses_file_binding = expressions
+        .iter()
+        .any(|expression| expression_uses_file_binding(expression));
+    if args.strict && uses_file_binding {
+        return Err(anyhow::anyhow!(
+            "The $file binding is not available in --strict mode.\n\
+             Remove --strict or unset JPX_STRICT, or remove $file from the expression."
+        ));
+    }
+
+    let mut results = Vec::with_capacity(args.file.len());
+    let mut had_truthy = false;
+
+    for path in &args.file {
+        let data = input::read_input_path_as_value(args, Some(path)).with_context(|| {
+            format!(
+                "Failed to process input file '{path}'. Check the path and JSON format; use -s/--slurp for JSONL."
+            )
+        })?;
+
+        if args.verbose {
+            eprintln!("File: {path}");
+            eprintln!("Input: {}", explain::describe_value(&data));
+        }
+
+        let file_expressions;
+        let active_expressions = if uses_file_binding {
+            file_expressions = wrap_with_file_binding(expressions, path)?;
+            &file_expressions
+        } else {
+            expressions
+        };
+
+        let result = evaluate_expressions(runtime, registry, active_expressions, data, args)
+            .with_context(|| {
+                format!(
+                    "Evaluation failed for input file '{path}'. Fix the query or this input and retry."
+                )
+            })?;
+        had_truthy |= is_truthy(&result);
+        results.push(result);
+    }
+
+    Ok((Value::Array(results), had_truthy))
+}
+
+fn expression_uses_file_binding(expression: &str) -> bool {
+    let mut chars = expression.char_indices().peekable();
+
+    while let Some((offset, current)) = chars.next() {
+        match current {
+            '\'' | '"' | '`' => {
+                let delimiter = current;
+                while let Some((_, quoted)) = chars.next() {
+                    if quoted == '\\' {
+                        // All three JMESPath quoted forms treat the next
+                        // character as part of the quoted token.
+                        chars.next();
+                    } else if quoted == delimiter {
+                        break;
+                    }
+                }
+            }
+            '$' if expression[offset..].starts_with("$file") => {
+                let next = expression[offset + "$file".len()..].chars().next();
+                if next.is_none_or(|next| !next.is_ascii_alphanumeric() && next != '_') {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
+}
+
+fn wrap_with_file_binding(expressions: &[String], path: &str) -> Result<Vec<String>> {
+    let literal = jmespath_json_literal(&Value::String(path.to_string()))?;
+    Ok(expressions
+        .iter()
+        .map(|expression| {
+            if expression_uses_file_binding(expression) {
+                format!("let $file = `{literal}` in {expression}")
+            } else {
+                expression.clone()
+            }
+        })
+        .collect())
+}
+
+/// Encode a JSON value for a JMESPath backtick literal. A literal backtick is
+/// represented as a JSON Unicode escape so it cannot terminate the wrapper.
+fn jmespath_json_literal(value: &Value) -> Result<String> {
+    Ok(serde_json::to_string(value)?.replace('`', "\\u0060"))
+}
+
+/// Separate positional expressions from positional input paths.
+///
+/// Outside `--per-file`, this preserves the jq-style single trailing-file
+/// heuristic. In per-file mode, `-Q` makes every positional unambiguous; when
+/// an expression is positional, the first existing file starts the file list.
+fn resolve_positional_input_files(args: &mut Args) -> Result<()> {
+    if args.per_file {
+        if args.query_file.is_some() {
+            args.file.append(&mut args.positional_expressions);
+        } else if let Some(first_file) = args
+            .positional_expressions
+            .iter()
+            .position(|value| std::path::Path::new(value).is_file())
+        {
+            let positional_files = args.positional_expressions.split_off(first_file);
+            args.file.extend(positional_files);
+        }
+
+        if args.file.is_empty() {
+            return Err(anyhow::anyhow!(
+                "--per-file requires at least one input file.\n\
+                 Pass paths with repeated -f/--file, or as trailing paths after the expression."
+            ));
+        }
+
+        let reserves_file = args
+            .arg
+            .chunks_exact(2)
+            .chain(args.argjson.chunks_exact(2))
+            .any(|pair| pair[0] == "file");
+        if reserves_file {
+            return Err(anyhow::anyhow!(
+                "The $file variable is reserved by --per-file.\n\
+                 Remove '--arg file ...' or '--argjson file ...'; use $file for the current input path."
+            ));
+        }
+
+        return Ok(());
+    }
+
+    // With -Q the expression already comes from the query file, so a single
+    // positional value may be the input path.
+    if args.query_file.is_some() {
+        if args.file.is_empty() && !args.null_input && args.positional_expressions.len() == 1 {
+            let last = args.positional_expressions.last().expect("length checked");
+            if std::path::Path::new(last).is_file() {
+                let file_arg = args.positional_expressions.pop().expect("length checked");
+                args.file.push(file_arg);
+            }
+        }
+        if !args.positional_expressions.is_empty() {
+            return Err(anyhow::anyhow!(
+                "With -Q/--query-file, a positional argument must be an existing input file.\n\
+                 Check the path or pass it explicitly with -f/--file."
+            ));
+        }
+    } else if args.file.is_empty() && !args.null_input && args.positional_expressions.len() > 1 {
+        let last = args.positional_expressions.last().expect("length checked");
+        if std::path::Path::new(last).is_file() {
+            let file_arg = args.positional_expressions.pop().expect("length checked");
+            args.file.push(file_arg);
+        }
+    }
+
+    Ok(())
+}
+
 /// Parse --arg and --argjson flags and wrap each expression with let bindings.
 /// Returns the expressions unchanged if no variables are defined.
 fn wrap_with_variable_bindings(expressions: Vec<String>, args: &Args) -> Result<Vec<String>> {
@@ -514,7 +733,7 @@ fn wrap_with_variable_bindings(expressions: Vec<String>, args: &Args) -> Result<
         let name = &pair[0];
         let value = &pair[1];
         // Encode as JSON string and wrap in backticks for JMESPath literal
-        let json_literal = serde_json::to_string(value)?;
+        let json_literal = jmespath_json_literal(&Value::String(value.clone()))?;
         bindings.push((name.clone(), json_literal));
     }
 
@@ -525,7 +744,7 @@ fn wrap_with_variable_bindings(expressions: Vec<String>, args: &Args) -> Result<
         // Validate it's valid JSON
         serde_json::from_str::<serde_json::Value>(json_value)
             .with_context(|| format!("Invalid JSON for --argjson {}: {}", name, json_value))?;
-        bindings.push((name.clone(), json_value.clone()));
+        bindings.push((name.clone(), json_value.replace('`', "\\u0060")));
     }
 
     // Wrap each expression with let bindings
@@ -572,10 +791,11 @@ fn print_debug_info(args: &Args, registry: &FunctionRegistry) {
 
     // Show input source
     eprintln!("{}:", "Input".cyan());
-    match &args.file {
-        Some(path) => eprintln!("  source: file ({})", path),
-        None if args.null_input => eprintln!("  source: null (--null-input)"),
-        None => eprintln!("  source: stdin"),
+    match args.file.as_slice() {
+        [] if args.null_input => eprintln!("  source: null (--null-input)"),
+        [] => eprintln!("  source: stdin"),
+        [path] => eprintln!("  source: file ({})", path),
+        paths => eprintln!("  source: {} files (--per-file)", paths.len()),
     }
     if args.slurp {
         eprintln!("  mode: slurp (multiple JSON values)");

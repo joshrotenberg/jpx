@@ -119,7 +119,18 @@ pub(crate) fn file_read_error(path: &str, err: &io::Error) -> anyhow::Error {
 
 /// Read input (from file or stdin) and parse as Value
 pub(crate) fn read_input_as_value(args: &Args) -> Result<Value> {
-    let input = match &args.file {
+    read_input_path_as_value(args, args.file.first().map(String::as_str))
+}
+
+/// Read and parse one explicit input path using the CLI's selected input mode.
+pub(crate) fn read_input_path_as_value(args: &Args, path: Option<&str>) -> Result<Value> {
+    #[cfg(feature = "parquet")]
+    if let Some(path) = path.filter(|path| path.ends_with(".parquet") || path.ends_with(".pq")) {
+        return jpx::parquet_support::read_parquet_to_json(std::path::Path::new(path))
+            .with_context(|| format!("Failed to read Parquet input file: {path}"));
+    }
+
+    let input = match path {
         Some(path) => std::fs::read_to_string(path).map_err(|e| file_read_error(path, &e))?,
         None => {
             let mut buf = String::new();

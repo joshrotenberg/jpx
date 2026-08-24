@@ -39,6 +39,11 @@ echo '[{"name":"alice","age":30},{"name":"bob","age":25}]' | jpx --csv '@'
 
 **Nesting:** `{"user":{"name":"alice"}}` produces column `user.name`.
 
+**Column order:** Headers are alphabetical by default. Use a comma-separated
+`--columns name,user.name,age` list to select and order table, CSV, or TSV
+fields. Missing fields become empty cells and unlisted fields are omitted. The
+same option works with streaming CSV/TSV and takes precedence over `-S`.
+
 **Primitives:** Arrays of non-objects produce a single headerless column.
 
 **Single object:** Treated as a one-row table.

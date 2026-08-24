@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- reject non-ASCII numeric characters after `-` instead of panicking in the lexer ([#248](https://github.com/joshrotenberg/jpx/issues/248))
+
+### Other
+
+- broaden parser property tests with reusable grammar-directed and compliance-derived near-valid expression generators ([#250](https://github.com/joshrotenberg/jpx/issues/250))
+
 ## [0.3.1](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.3.0...jpx-core-v0.3.1) - 2026-08-13
 
 ### Fixed

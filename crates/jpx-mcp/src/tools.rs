@@ -2,6 +2,7 @@
 //!
 //! This module wraps jpx_engine functionality in MCP tool handlers.
 
+use crate::FileAccessPolicy;
 use jpx_engine::{
     Category, DiscoverySpec, EngineConfig, JpxEngine, ServerInfo as DiscoveryServerInfo, ToolSpec,
 };
@@ -372,18 +373,41 @@ fn relevance_note(match_type: &str) -> String {
 ///
 /// For simple use, pass `strict: true/false`. For full config support
 /// (function filtering, query libraries, etc.), use [`build_router_from_config`].
-#[allow(dead_code)]
+///
+/// This constructor preserves unrestricted `evaluate_file` access for backward
+/// compatibility and should only be used with trusted local/stdio clients. Use
+/// [`build_router_with_file_access`] with an explicit disabled or restricted
+/// policy for remote clients.
 pub fn build_router(strict: bool) -> Result<McpRouter, BoxError> {
+    build_router_with_file_access(strict, FileAccessPolicy::unrestricted())
+}
+
+/// Build the MCP router with an explicit filesystem policy.
+pub fn build_router_with_file_access(
+    strict: bool,
+    file_access: FileAccessPolicy,
+) -> Result<McpRouter, BoxError> {
     let mut config = EngineConfig::default();
     config.engine.strict = Some(strict);
-    build_router_from_config(config)
+    build_router_from_config_with_file_access(config, file_access)
 }
 
 /// Build the MCP router from an [`EngineConfig`].
 ///
 /// This applies function filtering, query libraries, and other settings
 /// from the config. Use [`EngineConfig::discover`] to load from `jpx.toml`.
+///
+/// This constructor preserves the historical unrestricted file behavior. Use
+/// [`build_router_from_config_with_file_access`] for remote transports.
 pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxError> {
+    build_router_from_config_with_file_access(config, FileAccessPolicy::unrestricted())
+}
+
+/// Build the MCP router from an [`EngineConfig`] and explicit filesystem policy.
+pub fn build_router_from_config_with_file_access(
+    config: EngineConfig,
+    file_access: FileAccessPolicy,
+) -> Result<McpRouter, BoxError> {
     let engine = JpxEngine::from_config(config)
         .map_err(|e| -> BoxError { format!("Failed to build engine: {}", e).into() })?;
     let engine = Arc::new(engine);
@@ -627,47 +651,72 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
 
     // -- evaluate_file
     let e = engine.clone();
+    let evaluate_file_access = file_access.clone();
     let evaluate_file = ToolBuilder::new("evaluate_file")
         .title("Evaluate File")
-        .description("Read a JSON file from disk and evaluate a JMESPath expression against it. More efficient than passing large JSON content through the protocol. The path must be absolute and the file must be at most 50 MiB.")
+        .description("Read a JSON file from disk and evaluate a JMESPath expression against it. More efficient than passing large JSON content through the protocol. The path must be absolute, permitted by the server's filesystem policy, and at most 50 MiB. Use engine_info to inspect the effective policy.")
         .read_only()
         .handler(move |params: EvaluateFileParams| {
             let engine = e.clone();
+            let file_access = evaluate_file_access.clone();
             async move {
+                use std::fs::File;
+                use std::io::Read;
                 use std::path::Path;
 
                 let path = Path::new(&params.file_path);
+                let canonical_path = file_access.resolve_file(path).map_err(Error::tool)?;
 
-                // Security validations
-                if !path.is_absolute() {
-                    return Err(Error::tool("File path must be absolute"));
-                }
-
-                let canonical_path = path
-                    .canonicalize()
-                    .map_err(|e| Error::tool(format!("Cannot resolve path: {}", e)))?;
-
-                if !canonical_path.is_file() {
+                let file = File::open(&canonical_path).map_err(|error| {
+                    Error::tool(format!(
+                        "Cannot open file '{}': {error}. Check that the server process has read permission.",
+                        canonical_path.display()
+                    ))
+                })?;
+                let metadata = file.metadata().map_err(|error| {
+                    Error::tool(format!(
+                        "Cannot read metadata for '{}': {error}. Check that the file remains accessible.",
+                        canonical_path.display()
+                    ))
+                })?;
+                if !metadata.file_type().is_file() {
                     return Err(Error::tool(format!(
-                        "Not a file: {}",
+                        "Path '{}' did not open as a regular file. Pass the absolute path to a regular JSON file permitted by the configured filesystem policy.",
                         canonical_path.display()
                     )));
                 }
 
-                let metadata = std::fs::metadata(&canonical_path)
-                    .map_err(|e| Error::tool(format!("Cannot read file metadata: {}", e)))?;
-
                 const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
                 if metadata.len() > MAX_FILE_SIZE {
                     return Err(Error::tool(format!(
-                        "File too large: {} bytes (max {} bytes)",
+                        "File is too large: {} bytes (maximum {} bytes). Use a file no larger than 50 MiB or split the input before calling evaluate_file.",
                         metadata.len(),
                         MAX_FILE_SIZE
                     )));
                 }
 
-                let content = std::fs::read_to_string(&canonical_path)
-                    .map_err(|e| Error::tool(format!("Cannot read file: {}", e)))?;
+                // Recheck the byte limit while reading so a concurrently growing file
+                // cannot bypass the metadata check and cause an unbounded allocation.
+                let mut content = Vec::with_capacity(metadata.len() as usize);
+                file.take(MAX_FILE_SIZE + 1)
+                    .read_to_end(&mut content)
+                    .map_err(|error| {
+                        Error::tool(format!(
+                            "Cannot read file '{}': {error}. Check that it remains readable and try again.",
+                            canonical_path.display()
+                        ))
+                    })?;
+                if content.len() as u64 > MAX_FILE_SIZE {
+                    return Err(Error::tool(
+                        "File grew beyond the 50 MiB limit while it was being read. Use a stable file no larger than 50 MiB or split the input before retrying.",
+                    ));
+                }
+                let content = String::from_utf8(content).map_err(|_| {
+                    Error::tool(format!(
+                        "File '{}' is not valid UTF-8. Convert the JSON file to UTF-8 before calling evaluate_file.",
+                        canonical_path.display()
+                    ))
+                })?;
 
                 match engine.evaluate_str(&params.expression, &content) {
                     Ok(result) => json_result(&result),
@@ -1061,17 +1110,24 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
 
     // -- engine_info
     let e = engine.clone();
+    let engine_info_file_access = file_access.clone();
     let engine_info = ToolBuilder::new("engine_info")
         .title("Engine Info")
-        .description("Get information about the jpx engine including version, mode, function count, and ephemeral process state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
+        .description("Get information about the jpx engine including version, mode, function count, filesystem policy, and ephemeral process state. Optionally include discovery schema (include_schema) and/or index statistics (include_index_stats).")
         .read_only()
         .handler(move |params: EngineInfoParams| {
             let engine = e.clone();
+            let file_access = engine_info_file_access.clone();
             async move {
                 let function_count = engine.functions(None).len();
                 let category_count = engine.categories().len();
                 let stored_queries = engine.list_queries().unwrap_or_default().len();
                 let discovery_servers = engine.list_discovery_servers().unwrap_or_default().len();
+                let allowed_roots = file_access
+                    .allowed_roots()
+                    .iter()
+                    .map(|root| root.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>();
 
                 let mut info = serde_json::json!({
                     "name": "jpx-mcp",
@@ -1081,7 +1137,13 @@ pub fn build_router_from_config(config: EngineConfig) -> Result<McpRouter, BoxEr
                     "function_count": function_count,
                     "category_count": category_count,
                     "stored_queries": stored_queries,
-                    "registered_discovery_servers": discovery_servers
+                    "registered_discovery_servers": discovery_servers,
+                    "filesystem": {
+                        "evaluate_file": {
+                            "mode": file_access.mode().as_str(),
+                            "allowed_roots": allowed_roots
+                        }
+                    }
                 });
 
                 if params.include_schema {

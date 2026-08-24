@@ -34,11 +34,9 @@ mod help_and_version {
 
     #[test]
     fn long_help_shows_examples() {
-        jpx()
-            .arg("--help")
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("EXAMPLES:"));
+        jpx().arg("--help").assert().success().stdout(
+            predicate::str::contains("EXAMPLES:").and(predicate::str::contains("--per-file")),
+        );
     }
 }
 
@@ -336,6 +334,26 @@ mod flag_conflicts {
     fn stream_null_input_conflict() {
         jpx()
             .args(["--stream", "--null-input", "@"])
+            .assert()
+            .failure()
+            .code(2)
+            .stderr(predicate::str::contains("cannot be used with"));
+    }
+
+    #[test]
+    fn per_file_stream_conflict() {
+        jpx()
+            .args(["--per-file", "--stream", "@"])
+            .assert()
+            .failure()
+            .code(2)
+            .stderr(predicate::str::contains("cannot be used with"));
+    }
+
+    #[test]
+    fn per_file_null_input_conflict() {
+        jpx()
+            .args(["--per-file", "--null-input", "@"])
             .assert()
             .failure()
             .code(2)

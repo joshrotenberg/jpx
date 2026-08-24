@@ -6,7 +6,8 @@ The jpx MCP server provides **31 tools** organized into seven categories.
 
 ### engine_info
 
-Get information about the jpx engine including version, mode, function count, and ephemeral process state.
+Get information about the jpx engine including version, mode, function count,
+effective filesystem policy, and ephemeral process state.
 
 ```json
 {
@@ -23,7 +24,12 @@ Returns:
   "strict_mode": false,
   "function_count": 498,
   "category_count": 33,
-  "categories": ["Array", "Color", "Computing", ...]
+  "filesystem": {
+    "evaluate_file": {
+      "mode": "allowed_roots",
+      "allowed_roots": ["/srv/json-data"]
+    }
+  }
 }
 ```
 
@@ -124,7 +130,13 @@ Returns: `["Alice"]`
 
 ### evaluate_file
 
-Query a JSON file directly from disk. More efficient than passing large JSON content through the protocol. The path must be absolute and at most 50 MiB. The server can read any path permitted to its operating-system user, so only expose this tool to trusted clients.
+Query a JSON file directly from disk. More efficient than passing large JSON
+content through the protocol. The path must be absolute, permitted by the
+effective filesystem policy, valid UTF-8, and at most 50 MiB. HTTP disables
+file access by default; pass one or more `--allow-root <DIRECTORY>` options to
+enable it for specific canonicalized directory trees. Stdio remains
+unrestricted when no roots are supplied for backward compatibility. Use
+`engine_info` to inspect the active mode and allowed roots.
 
 ```json
 {
