@@ -124,8 +124,9 @@ Process NDJSON line by line with constant memory:
 # Each line processed independently
 cat events.ndjson | jpx --stream 'user.name'
 
-# Null results are automatically skipped
-cat events.ndjson | jpx --stream '[?level == `error`] | [0]'
+# Keep only matching records: each line is an object, so use if() rather than
+# an array filter; null results are automatically skipped
+cat events.ndjson | jpx --stream "if(level == 'error', @, \`null\`)"
 
 # Streaming with CSV output (headers from first record)
 cat events.ndjson | jpx --stream --csv '{user: user.name, action: event}'
@@ -137,7 +138,7 @@ cat events.ndjson | jpx --stream --tsv '@'
 tail -f events.ndjson | jpx --stream --unbuffered 'message'
 ```
 
-**Note:** `--stream` is incompatible with `--table`, `--yaml`, `--toml`, and `--lines` (these need the full dataset). Use `--slurp` instead if you need those formats.
+**Note:** `--stream` is incompatible with `--slurp`, `--null-input`, `--table`, `--yaml`, `--toml`, and `--lines`. Drop `--stream` and use `--slurp` alone when you need those formats or an aggregate across all records.
 
 See [references/streaming.md](references/streaming.md) for more streaming patterns.
 
@@ -218,8 +219,9 @@ jpx --repl -f data.json                    # file is initial data; stdin stays c
 jpx --repl --demo users                 # with demo dataset
 jpx --repl -f data.json --no-history       # private/ephemeral session
 
-# Exit status (for shell conditionals)
-jpx -x '[?critical]' data.json && echo "found critical items"
+# Exit status (for shell conditionals). -x only fails on false/null, so an
+# empty array still exits 0; test the count to require at least one match
+jpx -x 'length([?critical]) > `0`' data.json && echo "found critical items"
 ```
 
 ## Shell Pipeline Recipes
@@ -228,8 +230,8 @@ jpx -x '[?critical]' data.json && echo "found critical items"
 # Fetch API, extract, and format as table
 curl -s https://api.example.com/users | jpx -t '[*].{name: name, email: email}'
 
-# Process log file, count errors by type
-cat app.log | jpx --stream -s '[*]' | jpx 'group_by(@, &error_type)'
+# Group NDJSON log records by error type (aggregate: slurp, not stream)
+cat app.ndjson | jpx -s 'group_by(@, &error_type)'
 
 # Convert JSON to CSV for spreadsheet
 jpx --csv 'records[*]' -o export.csv data.json
@@ -237,6 +239,9 @@ jpx --csv 'records[*]' -o export.csv data.json
 # Find largest files in package.json dependencies
 jpx 'dependencies | keys(@) | sort(@)' package.json
 ```
+
+Tested inputs, expressions, and expected outputs for these recipes live in
+[crates/jpx/tests/fixtures/agent_recipes/recipes.json](../../crates/jpx/tests/fixtures/agent_recipes/recipes.json).
 
 ## Related Skills
 

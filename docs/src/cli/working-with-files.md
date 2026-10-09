@@ -147,11 +147,17 @@ Use `--stream` (or `--each`) for newline-delimited JSON:
 # Process each line independently
 cat events.ndjson | jpx --stream 'event_type'
 
-# Filter and transform streaming data
-cat logs.ndjson | jpx --stream '[?level == `error`].message'
+# Filter and transform streaming data. Each line is an object, so use if()
+# rather than an array filter; null results are skipped
+cat logs.ndjson | jpx --stream "if(level == 'error', message, \`null\`)"
 ```
 
-Streaming mode uses constant memory regardless of file size.
+Streaming mode uses constant memory regardless of file size. For aggregates
+across all records (counts, `group_by`, sorting), use `--slurp` instead;
+`--stream` and `--slurp` conflict.
+
+Tested recipes live in
+[`crates/jpx/tests/fixtures/agent_recipes/recipes.json`](https://github.com/joshrotenberg/jpx/blob/main/crates/jpx/tests/fixtures/agent_recipes/recipes.json).
 
 ## Query Files
 
