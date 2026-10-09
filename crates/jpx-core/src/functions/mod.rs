@@ -6,7 +6,7 @@ use serde_json::{Number, Value};
 
 use crate::ast::Ast;
 use crate::interpreter::{SearchResult, interpret};
-use crate::value_ext::{JmespathType, ValueExt};
+use crate::value_ext::{JmespathType, ValueExt, compare_numbers, values_equal};
 use crate::{Context, ErrorReason, JmespathError, RuntimeError, get_expref_id};
 
 /// Represents a JMESPath function.
@@ -302,7 +302,9 @@ impl Function for ContainsFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
         match &args[0] {
-            Value::Array(arr) => Ok(Value::Bool(arr.contains(&args[1]))),
+            Value::Array(arr) => Ok(Value::Bool(
+                arr.iter().any(|item| values_equal(item, &args[1])),
+            )),
             Value::String(s) => match args[1].as_str() {
                 Some(needle) => Ok(Value::Bool(s.contains(needle))),
                 None => Ok(Value::Bool(false)),
@@ -647,13 +649,12 @@ impl Function for ValuesFn {
 
 // ---- Helper functions ----
 
-/// Compare two Values for sorting. Numbers compare numerically, strings lexicographically.
+/// Compare two Values for sorting. Numbers compare by exact numeric value
+/// (see [`compare_numbers`]), strings lexicographically.
 fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     match (a, b) {
         (Value::Number(a), Value::Number(b)) => {
-            let af = a.as_f64().unwrap_or(0.0);
-            let bf = b.as_f64().unwrap_or(0.0);
-            af.partial_cmp(&bf).unwrap_or(std::cmp::Ordering::Equal)
+            compare_numbers(a, b).unwrap_or(std::cmp::Ordering::Equal)
         }
         (Value::String(a), Value::String(b)) => a.cmp(b),
         _ => std::cmp::Ordering::Equal,
