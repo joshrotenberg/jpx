@@ -1,0 +1,9 @@
+{
+  "issues": [
+    {"number": 101, "title": "Crash on empty input", "state": "open", "labels": ["bug", "cli"], "user": {"login": "ada"}, "assignee": null},
+    {"number": 102, "title": "Add YAML output", "state": "closed", "labels": ["enhancement"], "user": {"login": "lin"}, "assignee": "ada"},
+    {"number": 103, "title": "Wrong exit code", "state": "open", "labels": ["bug"], "user": {"login": "sam"}},
+    {"number": 104, "title": "Docs typo", "state": "closed", "labels": ["docs"], "user": {"login": "ada"}, "assignee": "sam"},
+    {"number": 105, "title": "Stream stalls", "state": "open", "labels": ["cli"], "user": {"login": "kim"}, "assignee": "lin"}
+  ]
+}
