@@ -57,6 +57,19 @@ pub trait ValueExt {
     /// Extracts an element by negative index (counting from end).
     fn get_negative_index(&self, idx: usize) -> Value;
 
+    /// Borrows a named field from an object; `None` if absent or not an object.
+    ///
+    /// The borrowing counterpart to [`ValueExt::get_field`]. The interpreter uses
+    /// these `_ref` accessors so that selecting a field does not deep-copy the
+    /// subtree it selects; the copy happens once, at the end, on the result.
+    fn get_field_ref(&self, name: &str) -> Option<&Value>;
+
+    /// Borrows an element by positive index; `None` if out of range or not an array.
+    fn get_index_ref(&self, idx: usize) -> Option<&Value>;
+
+    /// Borrows an element by negative index (counting from end).
+    fn get_negative_index_ref(&self, idx: usize) -> Option<&Value>;
+
     /// Slices an array with start/stop/step, per the JMESPath spec.
     /// Returns `None` if the value is not an array.
     fn slice(&self, start: Option<i32>, stop: Option<i32>, step: i32) -> Option<Vec<Value>>;
@@ -96,29 +109,43 @@ impl ValueExt for Value {
     }
 
     fn get_field(&self, name: &str) -> Value {
-        match self {
-            Value::Object(map) => map.get(name).cloned().unwrap_or(Value::Null),
-            _ => Value::Null,
-        }
+        self.get_field_ref(name).cloned().unwrap_or(Value::Null)
     }
 
     fn get_index(&self, idx: usize) -> Value {
-        match self {
-            Value::Array(arr) => arr.get(idx).cloned().unwrap_or(Value::Null),
-            _ => Value::Null,
-        }
+        self.get_index_ref(idx).cloned().unwrap_or(Value::Null)
     }
 
     fn get_negative_index(&self, idx: usize) -> Value {
+        self.get_negative_index_ref(idx)
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
+    fn get_field_ref(&self, name: &str) -> Option<&Value> {
+        match self {
+            Value::Object(map) => map.get(name),
+            _ => None,
+        }
+    }
+
+    fn get_index_ref(&self, idx: usize) -> Option<&Value> {
+        match self {
+            Value::Array(arr) => arr.get(idx),
+            _ => None,
+        }
+    }
+
+    fn get_negative_index_ref(&self, idx: usize) -> Option<&Value> {
         match self {
             Value::Array(arr) => {
                 if idx > arr.len() {
-                    Value::Null
+                    None
                 } else {
-                    arr.get(arr.len() - idx).cloned().unwrap_or(Value::Null)
+                    arr.get(arr.len() - idx)
                 }
             }
-            _ => Value::Null,
+            _ => None,
         }
     }
 

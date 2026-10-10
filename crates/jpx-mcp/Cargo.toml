@@ -46,5 +46,6 @@ default = ["let-expr"]
 let-expr = ["jpx-engine/let-expr"]
 
 [dev-dependencies]
+tempfile = "3"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tower-mcp = { workspace = true, features = ["http", "testing"] }

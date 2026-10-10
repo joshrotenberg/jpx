@@ -30,6 +30,39 @@ Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
 | `jpx-mcp` | `crates/jpx-mcp/` | MCP server (31 tools) built on `tower-mcp` |
 | `python` | `python/` | Python bindings via PyO3 (`jpx` on PyPI) |
 
+## Error messages are a contract
+
+**Every user-facing error must carry the corrective action, not just the diagnosis.**
+
+This is a design constraint, not a style preference, and it is enforced by
+`crates/jpx/tests/error_contract.rs`. A message that regresses from prescriptive
+to generic fails CI the same way a broken feature does.
+
+The bar:
+
+| | |
+|---|---|
+| Fails | `Parse error at line 3` |
+| Passes | `No queries found. Use '-- :name <query-name>' to define queries.` |
+
+The difference is that the second one can be acted on without opening the docs.
+A reader who has never seen a `.jpx` file learns the syntax from the failure.
+
+Concretely, an error should do at least one of:
+
+- **Teach the syntax.** `Use '-- :name <query-name>' to define queries.`
+- **Name the valid options.** `Query 'missing' not found in queries.jpx. Available queries: good`
+- **Suggest near-misses.** `Unknown function: lenght` followed by `Did you mean? length, lighten, flatten`
+- **Point at the workaround.** `With -Q/--query-file, a positional argument must be an existing input file. Check the path or pass it explicitly with -f/--file.`
+- **State the constraint that was violated,** where that implies the fix. `Invalid slice: step cannot be 0`
+
+This matters most for agent callers. A prescriptive error costs a few hundred
+tokens on the failure path only; documentation costs thousands on every
+invocation. Errors that teach are what make the tool operable with no docs in
+context, and a wrong call recoverable in one step rather than three.
+
+When adding an error path, add a case to `error_contract.rs` alongside it.
+
 ## Build and test
 
 ```bash

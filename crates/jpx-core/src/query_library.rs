@@ -182,7 +182,11 @@ impl QueryLibrary {
                     let expr = current_expr.trim().to_string();
                     if expr.is_empty() {
                         return Err(ParseError::with_line(
-                            format!("Query '{}' has no expression", name),
+                            format!(
+                                "Query '{name}' has no expression. \
+                                 Add the expression on the line after '-- :name {name}', \
+                                 or remove the entry."
+                            ),
                             current_line_number,
                         ));
                     }
@@ -198,13 +202,19 @@ impl QueryLibrary {
                 // Start new query
                 let name = rest.trim().to_string();
                 if name.is_empty() {
-                    return Err(ParseError::with_line("Empty query name", line_number));
+                    return Err(ParseError::with_line(
+                        "Empty query name. Give the query a name, as in '-- :name my-query'.",
+                        line_number,
+                    ));
                 }
 
                 // Check for duplicates
                 if queries.iter().any(|q| q.name == name) {
                     return Err(ParseError::with_line(
-                        format!("Duplicate query name '{}'", name),
+                        format!(
+                            "Duplicate query name '{name}'. \
+                             Query names must be unique within a file; rename one of them."
+                        ),
                         line_number,
                     ));
                 }
@@ -234,7 +244,11 @@ impl QueryLibrary {
             let expr = current_expr.trim().to_string();
             if expr.is_empty() {
                 return Err(ParseError::with_line(
-                    format!("Query '{}' has no expression", name),
+                    format!(
+                        "Query '{name}' has no expression. \
+                         Add the expression on the line after '-- :name {name}', \
+                         or remove the entry."
+                    ),
                     current_line_number,
                 ));
             }

@@ -59,3 +59,5 @@ Useful in CI/CD to catch syntax errors in query libraries.
 - Use `-- :desc` to document what each query expects as input
 - Query files work with all output formats: `jpx -Q q.jpx:name --csv data.json`
 - Combine with variable binding: `jpx -Q q.jpx:name --arg status active data.json`
+- Run one named query across a corpus: `jpx --per-file -s -l -Q q.jpx:name *.jsonl`
+- In per-file mode, use `$file` to include the current input path in each result

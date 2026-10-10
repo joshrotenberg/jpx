@@ -27,7 +27,8 @@ jpx [OPTIONS] [EXPRESSIONS]...
 | `--check` | Validate all queries in a `.jpx` library without running |
 | `--arg <NAME> <VALUE>` | Bind a string variable as `$NAME` (repeatable) |
 | `--argjson <NAME> <JSON>` | Bind a JSON value as `$NAME` (repeatable) |
-| `-f, --file <FILE>` | Input JSON file (reads stdin if not provided) |
+| `-f, --file <FILE>` | Input JSON file; repeat with `--per-file` |
+| `--per-file` | Evaluate independently per file; exposes the path as `$file` |
 | `-o, --output <FILE>` | Output file (writes to stdout if not provided) |
 | `-n, --null-input` | Don't read input, use null as input value |
 | `-s, --slurp` | Read all inputs into an array |
@@ -52,6 +53,7 @@ jpx [OPTIONS] [EXPRESSIONS]...
 | `-l, --lines` | Output one JSON value per line |
 | `-t, --table` | Output as a formatted table (for arrays of objects) |
 | `--table-style <STYLE>` | `unicode` (default), `ascii`, `markdown`, `plain`, `rounded`, `sharp`, or `modern` |
+| `--columns <NAMES>` | Select and order comma-separated table, CSV, or TSV columns; dot notation selects nested fields |
 | `--color <MODE>` | Colorize output: `auto`, `always`, `never` |
 | `--parquet` | Write Parquet output; requires the `parquet` feature and `--output` |
 
@@ -113,7 +115,19 @@ See [Output Formats](./output-formats.md) for detailed examples.
 | Option | Description |
 |--------|-------------|
 | `--repl` | Start interactive REPL mode |
-| `--demo <NAME>` | Load a demo dataset (use with `--repl`) |
+| `--demo <NAME>` | Start the REPL with a demo dataset |
+| `--no-history` | Do not load, record, or save REPL history |
+
+Pass `-f/--file` to load initial REPL data. Redirected standard input is always
+treated as the REPL command stream, which keeps scripted sessions predictable:
+
+```bash
+printf 'users[*].name\n.exit\n' | jpx --repl -f data.json --no-history
+```
+
+The available demos are `users`, `geo`, `text`, `datetime`, `ecommerce`,
+`timeseries`, `logs`, and `inventory`. Inside the REPL, `.load` accepts quoted
+paths such as `.load "fixtures/user data.json"`.
 
 ### Other
 

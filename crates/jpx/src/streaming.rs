@@ -10,14 +10,16 @@ use std::io::{self, BufRead, BufWriter, Write};
 /// Streaming delimited output state -- tracks headers derived from the first result.
 struct DelimitedState {
     headers: Vec<String>,
+    columns_configured: bool,
     header_written: bool,
     delimiter: u8,
 }
 
 impl DelimitedState {
-    fn new(delimiter: u8) -> Self {
+    fn new(delimiter: u8, columns: Option<&[String]>) -> Self {
         Self {
-            headers: Vec::new(),
+            headers: columns.unwrap_or_default().to_vec(),
+            columns_configured: columns.is_some(),
             header_written: false,
             delimiter,
         }
@@ -29,12 +31,14 @@ impl DelimitedState {
         match value {
             Value::Object(obj) => {
                 if !self.header_written {
-                    // Derive headers from first object
-                    let mut seen = std::collections::HashSet::new();
-                    collect_flattened_keys(obj, "", &mut self.headers, &mut seen);
-                    // Match non-streaming CSV/TSV and table output regardless of
-                    // serde_json `preserve_order` feature unification.
-                    self.headers.sort_unstable();
+                    if !self.columns_configured {
+                        // Derive headers from the first object.
+                        let mut seen = std::collections::HashSet::new();
+                        collect_flattened_keys(obj, "", &mut self.headers, &mut seen);
+                        // Match non-streaming CSV/TSV and table output regardless
+                        // of serde_json `preserve_order` feature unification.
+                        self.headers.sort_unstable();
+                    }
 
                     // Write header row
                     let mut wtr = csv::WriterBuilder::new()
@@ -61,6 +65,12 @@ impl DelimitedState {
                 Ok(true)
             }
             _ => {
+                if self.columns_configured {
+                    return Err(anyhow::anyhow!(
+                        "--columns requires object rows for streaming CSV or TSV output.\n\
+                         Select an expression that returns objects, or remove --columns."
+                    ));
+                }
                 // Non-object: write as single-column value
                 if !self.header_written {
                     let mut wtr = csv::WriterBuilder::new()
@@ -89,9 +99,10 @@ pub(crate) fn run_streaming(
     expressions: &[String],
     args: &Args,
     runtime: &Runtime,
+    columns: Option<&[String]>,
 ) -> Result<bool> {
     // Set up input reader
-    let input: Box<dyn BufRead> = match &args.file {
+    let input: Box<dyn BufRead> = match args.file.first() {
         Some(path) => {
             let file = std::fs::File::open(path).map_err(|e| input::file_read_error(path, &e))?;
             Box::new(std::io::BufReader::new(file))
@@ -126,9 +137,9 @@ pub(crate) fn run_streaming(
 
     // Set up delimited output state if CSV/TSV requested
     let mut delimited = if args.csv_output {
-        Some(DelimitedState::new(b','))
+        Some(DelimitedState::new(b',', columns))
     } else if args.tsv_output {
-        Some(DelimitedState::new(b'\t'))
+        Some(DelimitedState::new(b'\t', columns))
     } else {
         None
     };

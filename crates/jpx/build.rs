@@ -31,6 +31,13 @@ fn main() {
 
     let demos_toml = fs::read_to_string("demos.toml").expect("Failed to read demos.toml");
     let demos_file: DemosFile = toml::from_str(&demos_toml).expect("Failed to parse demos.toml");
+    let demo_names = demos_file
+        .demo
+        .iter()
+        .map(|demo| demo.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("cargo:rustc-env=JPX_DEMO_NAMES={demo_names}");
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("demos_generated.rs");

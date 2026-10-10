@@ -97,6 +97,11 @@ fn load_test_suites() -> Vec<(String, Value)> {
     let files = fs::read_dir(compliance_dir).expect("Invalid directory: tests/compliance");
     for filename in files {
         let path = filename.expect("Invalid file").path();
+        // Only .json files are test suites. Provenance files such as UPSTREAM.md
+        // live in the same directory and must not be parsed as JSON.
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
         let file_path = path.to_str().expect("Could not to_str file").to_string();
         let mut f = File::open(path).expect("Unable to open file");
         let mut file_data = String::new();

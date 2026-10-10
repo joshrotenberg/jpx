@@ -469,6 +469,15 @@ mod variable_bindings {
     }
 
     #[test]
+    fn arg_with_backtick_is_safe_in_generated_literal() {
+        jpx()
+            .args(["--arg", "s", "before`after", "-n", "-c", "$s"])
+            .assert()
+            .success()
+            .stdout("\"before`after\"\n");
+    }
+
+    #[test]
     fn arg_empty_string() {
         jpx()
             .args(["--arg", "empty", "", "-c", "$empty"])
@@ -785,6 +794,16 @@ mod output_formats {
     }
 
     #[test]
+    fn csv_columns_select_order_and_fill_missing_values() {
+        jpx()
+            .args(["--csv", "--columns", "b,a,missing", "-S", "@"])
+            .write_stdin(r#"[{"a":2,"b":1,"extra":3}]"#)
+            .assert()
+            .success()
+            .stdout("b,a,missing\n1,2,\n");
+    }
+
+    #[test]
     fn tsv_output() {
         let assert = jpx()
             .arg("--tsv")
@@ -796,6 +815,16 @@ mod output_formats {
         assert!(stdout.contains('\t'), "TSV output should contain tabs");
         let lines: Vec<&str> = stdout.trim().lines().collect();
         assert!(lines.len() >= 2, "TSV should have header + data rows");
+    }
+
+    #[test]
+    fn tsv_columns_support_flattened_nested_names() {
+        jpx()
+            .args(["--tsv", "--columns", "name,address.city", "@"])
+            .write_stdin(r#"[{"address":{"city":"NYC"},"name":"alice"}]"#)
+            .assert()
+            .success()
+            .stdout("name\taddress.city\nalice\tNYC\n");
     }
 
     #[test]
@@ -820,6 +849,29 @@ mod output_formats {
             .assert()
             .success()
             .stdout(predicate::str::is_empty().not());
+    }
+
+    #[test]
+    fn table_columns_follow_explicit_order() {
+        let assert = jpx()
+            .args([
+                "--table",
+                "--table-style",
+                "markdown",
+                "--columns",
+                "title,missing,when",
+                "--color",
+                "never",
+                "@",
+            ])
+            .write_stdin(r#"[{"when":1,"title":"hello","extra":3}]"#)
+            .assert()
+            .success();
+        let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        let header = stdout.lines().next().unwrap();
+        assert!(header.find("title").unwrap() < header.find("missing").unwrap());
+        assert!(header.find("missing").unwrap() < header.find("when").unwrap());
+        assert!(!stdout.contains("extra"));
     }
 
     #[test]
