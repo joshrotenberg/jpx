@@ -1,6 +1,6 @@
 //! Integration tests for jpx-mcp tools using tower-mcp's TestClient.
 
-use jpx_mcp::build_router;
+use jpx_mcp::{FileAccessPolicy, build_router, build_router_with_file_access};
 use serde_json::json;
 use tower_mcp::TestClient;
 
@@ -17,6 +17,14 @@ async fn create_client() -> TestClient {
 
 async fn create_strict_client() -> TestClient {
     let router = build_router(true).expect("Failed to build router");
+    let mut client = TestClient::from_router(router);
+    client.initialize().await;
+    client
+}
+
+async fn create_client_with_file_access(file_access: FileAccessPolicy) -> TestClient {
+    let router = build_router_with_file_access(false, file_access)
+        .expect("Failed to build router with file access policy");
     let mut client = TestClient::from_router(router);
     client.initialize().await;
     client
@@ -695,6 +703,13 @@ async fn test_engine_info() {
     assert!(text.contains("version"));
     assert!(text.contains("function_count"));
     assert!(text.contains("strict_mode"));
+
+    let info: serde_json::Value = serde_json::from_str(text).unwrap();
+    assert_eq!(info["filesystem"]["evaluate_file"]["mode"], "unrestricted");
+    assert_eq!(
+        info["filesystem"]["evaluate_file"]["allowed_roots"],
+        json!([])
+    );
 }
 
 #[tokio::test]
@@ -898,6 +913,132 @@ async fn test_evaluate_file_not_found() {
             || result.get("message").is_some()
             || result.get("isError").is_some()
     );
+}
+
+#[tokio::test]
+async fn test_evaluate_file_disabled_policy_is_prescriptive() {
+    let mut client = create_client_with_file_access(FileAccessPolicy::disabled()).await;
+
+    let result = client
+        .call_tool_expect_error(
+            "evaluate_file",
+            json!({
+                "file_path": "/tmp/data.json",
+                "expression": "@"
+            }),
+        )
+        .await;
+
+    let error = result.to_string();
+    assert!(error.contains("File access is disabled"), "{error}");
+    assert!(error.contains("--allow-root"), "{error}");
+
+    let info = client.call_tool("engine_info", json!({})).await;
+    let info: serde_json::Value = serde_json::from_str(info.first_text().unwrap()).unwrap();
+    assert_eq!(info["filesystem"]["evaluate_file"]["mode"], "disabled");
+    assert_eq!(
+        info["filesystem"]["evaluate_file"]["allowed_roots"],
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn test_evaluate_file_allowed_roots_enforced_and_reported() {
+    let allowed = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let allowed_file = allowed.path().join("allowed.json");
+    let outside_file = outside.path().join("outside.json");
+    std::fs::write(&allowed_file, r#"{"items": [1, 2, 3]}"#).unwrap();
+    std::fs::write(&outside_file, r#"{"secret": "not-readable"}"#).unwrap();
+
+    let policy = FileAccessPolicy::restricted([allowed.path()]).unwrap();
+    let mut client = create_client_with_file_access(policy).await;
+
+    let result = client
+        .call_tool(
+            "evaluate_file",
+            json!({
+                "file_path": allowed_file,
+                "expression": "length(items)"
+            }),
+        )
+        .await;
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("3"));
+
+    let result = client
+        .call_tool_expect_error(
+            "evaluate_file",
+            json!({
+                "file_path": outside_file,
+                "expression": "@"
+            }),
+        )
+        .await;
+    let error = result.to_string();
+    assert!(
+        error.contains("outside the configured allowed roots"),
+        "{error}"
+    );
+    assert!(error.contains("--allow-root"), "{error}");
+
+    let info = client.call_tool("engine_info", json!({})).await;
+    let info: serde_json::Value = serde_json::from_str(info.first_text().unwrap()).unwrap();
+    assert_eq!(info["filesystem"]["evaluate_file"]["mode"], "allowed_roots");
+    assert_eq!(
+        info["filesystem"]["evaluate_file"]["allowed_roots"],
+        json!([allowed.path().canonicalize().unwrap()])
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn test_evaluate_file_rejects_symlink_escape() {
+    use std::os::unix::fs::symlink;
+
+    let allowed = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let outside_file = outside.path().join("secret.json");
+    let link = allowed.path().join("escape.json");
+    std::fs::write(&outside_file, r#"{"secret": true}"#).unwrap();
+    symlink(&outside_file, &link).unwrap();
+
+    let policy = FileAccessPolicy::restricted([allowed.path()]).unwrap();
+    let mut client = create_client_with_file_access(policy).await;
+    let result = client
+        .call_tool_expect_error(
+            "evaluate_file",
+            json!({
+                "file_path": link,
+                "expression": "@"
+            }),
+        )
+        .await;
+
+    let error = result.to_string();
+    assert!(
+        error.contains("outside the configured allowed roots"),
+        "{error}"
+    );
+    assert!(error.contains("--allow-root"), "{error}");
+}
+
+#[test]
+fn test_file_access_policy_rejects_invalid_roots_prescriptively() {
+    let parent = tempfile::tempdir().unwrap();
+    let missing = parent.path().join("missing");
+    let error = FileAccessPolicy::restricted([&missing]).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("Check that the directory exists")
+    );
+
+    let file = parent.path().join("data.json");
+    std::fs::write(&file, "{}").unwrap();
+    let error = FileAccessPolicy::restricted([&file]).unwrap_err();
+    assert!(error.to_string().contains("is not a directory"));
+    assert!(error.to_string().contains("--allow-root"));
 }
 
 // =============================================================================

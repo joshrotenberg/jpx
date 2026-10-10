@@ -5,7 +5,8 @@
 // Allow nested if-let blocks instead of if-let chains for MSRV compatibility
 #![allow(clippy::collapsible_if)]
 
-use anyhow::{Context, Result};
+use crate::args::ColorMode;
+use anyhow::Result;
 use jpx_engine::{Category, FunctionRegistry, Runtime};
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
@@ -22,33 +23,89 @@ use std::rc::Rc;
 
 // ANSI color codes - using basic 16-color for better terminal compatibility
 mod colors {
-    pub const RESET: &str = "\x1b[0m";
-    pub const BOLD: &str = "\x1b[1m";
+    use std::cell::Cell;
+
+    thread_local! {
+        static ENABLED: Cell<bool> = const { Cell::new(true) };
+    }
+
+    pub fn set_enabled(enabled: bool) {
+        ENABLED.set(enabled);
+    }
+
+    fn code(value: &'static str) -> &'static str {
+        if ENABLED.get() { value } else { "" }
+    }
+
+    pub fn reset() -> &'static str {
+        code("\x1b[0m")
+    }
+    pub fn bold() -> &'static str {
+        code("\x1b[1m")
+    }
 
     // JMESPath syntax (basic 16-color)
-    pub const FUNCTION: &str = "\x1b[36m"; // Cyan
-    pub const STRING: &str = "\x1b[32m"; // Green
-    pub const NUMBER: &str = "\x1b[33m"; // Yellow
-    pub const LITERAL: &str = "\x1b[35m"; // Magenta
-    pub const OPERATOR: &str = "\x1b[31m"; // Red
-    pub const BRACKET: &str = "\x1b[37m"; // White
-    pub const FIELD: &str = "\x1b[97m"; // Bright white
-    pub const AT: &str = "\x1b[93m"; // Bright yellow
-    pub const AMPERSAND: &str = "\x1b[35m"; // Magenta
+    pub fn function() -> &'static str {
+        code("\x1b[36m")
+    } // Cyan
+    pub fn string() -> &'static str {
+        code("\x1b[32m")
+    } // Green
+    pub fn number() -> &'static str {
+        code("\x1b[33m")
+    } // Yellow
+    pub fn literal() -> &'static str {
+        code("\x1b[35m")
+    } // Magenta
+    pub fn operator() -> &'static str {
+        code("\x1b[31m")
+    } // Red
+    pub fn bracket() -> &'static str {
+        code("\x1b[37m")
+    } // White
+    pub fn field() -> &'static str {
+        code("\x1b[97m")
+    } // Bright white
+    pub fn at() -> &'static str {
+        code("\x1b[93m")
+    } // Bright yellow
+    pub fn ampersand() -> &'static str {
+        code("\x1b[35m")
+    } // Magenta
 
     // JSON output
-    pub const JSON_KEY: &str = "\x1b[34m"; // Blue
-    pub const JSON_STRING: &str = "\x1b[32m"; // Green
-    pub const JSON_NUMBER: &str = "\x1b[33m"; // Yellow
-    pub const JSON_BOOL: &str = "\x1b[93m"; // Bright yellow
-    pub const JSON_NULL: &str = "\x1b[90m"; // Bright black (gray)
+    pub fn json_key() -> &'static str {
+        code("\x1b[34m")
+    } // Blue
+    pub fn json_string() -> &'static str {
+        code("\x1b[32m")
+    } // Green
+    pub fn json_number() -> &'static str {
+        code("\x1b[33m")
+    } // Yellow
+    pub fn json_bool() -> &'static str {
+        code("\x1b[93m")
+    } // Bright yellow
+    pub fn json_null() -> &'static str {
+        code("\x1b[90m")
+    } // Bright black (gray)
 
     // UI
-    pub const PROMPT: &str = "\x1b[36m"; // Cyan
-    pub const ERROR: &str = "\x1b[91m"; // Bright red
-    pub const SUCCESS: &str = "\x1b[32m"; // Green
-    pub const INFO: &str = "\x1b[90m"; // Bright black (gray)
-    pub const HINT: &str = "\x1b[90m"; // Bright black (gray)
+    pub fn prompt() -> &'static str {
+        code("\x1b[36m")
+    } // Cyan
+    pub fn error() -> &'static str {
+        code("\x1b[91m")
+    } // Bright red
+    pub fn success() -> &'static str {
+        code("\x1b[32m")
+    } // Green
+    pub fn info() -> &'static str {
+        code("\x1b[90m")
+    } // Bright black (gray)
+    pub fn hint() -> &'static str {
+        code("\x1b[90m")
+    } // Bright black (gray)
 }
 
 // Demo themes with pre-loaded data and suggested queries
@@ -90,7 +147,7 @@ impl JmespathHelper {
             match c {
                 // String literals
                 '\'' => {
-                    result.push_str(colors::STRING);
+                    result.push_str(colors::string());
                     result.push(c);
                     i += 1;
                     while i < chars.len() && chars[i] != '\'' {
@@ -110,12 +167,12 @@ impl JmespathHelper {
                         result.push(chars[i]);
                         i += 1;
                     }
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                 }
 
                 // Backtick literals
                 '`' => {
-                    result.push_str(colors::LITERAL);
+                    result.push_str(colors::literal());
                     result.push(c);
                     i += 1;
                     while i < chars.len() && chars[i] != '`' {
@@ -135,44 +192,44 @@ impl JmespathHelper {
                         result.push(chars[i]);
                         i += 1;
                     }
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                 }
 
                 // Current node
                 '@' => {
-                    result.push_str(colors::AT);
+                    result.push_str(colors::at());
                     result.push(c);
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                     i += 1;
                 }
 
                 // Expression reference
                 '&' => {
-                    result.push_str(colors::AMPERSAND);
+                    result.push_str(colors::ampersand());
                     result.push(c);
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                     i += 1;
                 }
 
                 // Brackets
                 '[' | ']' | '{' | '}' | '(' | ')' => {
-                    result.push_str(colors::BRACKET);
+                    result.push_str(colors::bracket());
                     result.push(c);
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                     i += 1;
                 }
 
                 // Operators
                 '|' | '.' | ',' | ':' | '?' | '*' => {
-                    result.push_str(colors::OPERATOR);
+                    result.push_str(colors::operator());
                     result.push(c);
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                     i += 1;
                 }
 
                 // Comparison operators (including ! for !=)
                 '=' | '<' | '>' | '!' => {
-                    result.push_str(colors::OPERATOR);
+                    result.push_str(colors::operator());
                     result.push(c);
                     i += 1;
                     // Handle ==, !=, <=, >=
@@ -180,7 +237,7 @@ impl JmespathHelper {
                         result.push(chars[i]);
                         i += 1;
                     }
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                 }
 
                 // Identifiers (fields or functions)
@@ -196,13 +253,13 @@ impl JmespathHelper {
                         i < chars.len() && chars[i] == '(' && self.functions.contains(&word);
 
                     if is_function {
-                        result.push_str(colors::FUNCTION);
+                        result.push_str(colors::function());
                         result.push_str(&word);
-                        result.push_str(colors::RESET);
+                        result.push_str(colors::reset());
                     } else {
-                        result.push_str(colors::FIELD);
+                        result.push_str(colors::field());
                         result.push_str(&word);
-                        result.push_str(colors::RESET);
+                        result.push_str(colors::reset());
                     }
                 }
 
@@ -210,14 +267,14 @@ impl JmespathHelper {
                 '0'..='9' | '-'
                     if c == '-' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit() =>
                 {
-                    result.push_str(colors::NUMBER);
+                    result.push_str(colors::number());
                     result.push(c);
                     i += 1;
                     while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
                         result.push(chars[i]);
                         i += 1;
                     }
-                    result.push_str(colors::RESET);
+                    result.push_str(colors::reset());
                 }
 
                 // Everything else
@@ -308,7 +365,7 @@ impl Hinter for JmespathHelper {
             .min()
             .map(|f| {
                 let suffix = &f[prefix.len()..];
-                format!("{}{}({})", colors::HINT, suffix, colors::RESET)
+                format!("{}{}({})", colors::hint(), suffix, colors::reset())
             })
     }
 }
@@ -323,7 +380,7 @@ impl Highlighter for JmespathHelper {
         prompt: &'p str,
         _default: bool,
     ) -> Cow<'b, str> {
-        Cow::Owned(format!("{}{}{}", colors::PROMPT, prompt, colors::RESET))
+        Cow::Owned(format!("{}{}{}", colors::prompt(), prompt, colors::reset()))
     }
 
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
@@ -345,20 +402,20 @@ pub fn colorize_json(value: &serde_json::Value, indent: usize) -> String {
 
     match value {
         serde_json::Value::Null => {
-            format!("{}null{}", colors::JSON_NULL, colors::RESET)
+            format!("{}null{}", colors::json_null(), colors::reset())
         }
         serde_json::Value::Bool(b) => {
-            format!("{}{}{}", colors::JSON_BOOL, b, colors::RESET)
+            format!("{}{}{}", colors::json_bool(), b, colors::reset())
         }
         serde_json::Value::Number(n) => {
-            format!("{}{}{}", colors::JSON_NUMBER, n, colors::RESET)
+            format!("{}{}{}", colors::json_number(), n, colors::reset())
         }
         serde_json::Value::String(s) => {
             format!(
                 "{}\"{}\"{}",
-                colors::JSON_STRING,
+                colors::json_string(),
                 escape_string(s),
-                colors::RESET
+                colors::reset()
             )
         }
         serde_json::Value::Array(arr) => {
@@ -395,9 +452,9 @@ pub fn colorize_json(value: &serde_json::Value, indent: usize) -> String {
                         format!(
                             "{}  {}\"{}\"{}: {}",
                             prefix,
-                            colors::JSON_KEY,
+                            colors::json_key(),
                             k,
-                            colors::RESET,
+                            colors::reset(),
                             colorize_json(v, indent + 1)
                         )
                     })
@@ -1130,7 +1187,7 @@ fn print_validated_queries(
         return;
     }
 
-    println!("{}{}{}", colors::INFO, header, colors::RESET);
+    println!("{}{}{}", colors::info(), header, colors::reset());
 
     // Group by level
     for level in 1..=max_lvl {
@@ -1154,13 +1211,13 @@ fn print_validated_queries(
 
         println!(
             "  {}[L{}] {}:{}",
-            colors::HINT,
+            colors::hint(),
             level,
             level_label,
-            colors::RESET
+            colors::reset()
         );
         for (query, desc, _) in level_queries {
-            println!("    {}# {}{}", colors::HINT, desc, colors::RESET);
+            println!("    {}# {}{}", colors::hint(), desc, colors::reset());
             println!("    {}", query);
         }
     }
@@ -1173,8 +1230,8 @@ pub fn print_suggestions(var: &Value, runtime: &Runtime) {
     if suggestions.is_empty() {
         println!(
             "{}No suggestions for this data shape{}",
-            colors::INFO,
-            colors::RESET
+            colors::info(),
+            colors::reset()
         );
         return;
     }
@@ -1188,13 +1245,13 @@ pub fn print_suggestions(var: &Value, runtime: &Runtime) {
     if valid_suggestions.is_empty() {
         println!(
             "{}No valid suggestions for this data shape{}",
-            colors::INFO,
-            colors::RESET
+            colors::info(),
+            colors::reset()
         );
         return;
     }
 
-    println!("{}Suggested queries:{}", colors::INFO, colors::RESET);
+    println!("{}Suggested queries:{}", colors::info(), colors::reset());
 
     // Group by level
     for level in 1..=5u8 {
@@ -1218,13 +1275,18 @@ pub fn print_suggestions(var: &Value, runtime: &Runtime) {
 
         println!(
             "  {}[L{}] {}:{}",
-            colors::HINT,
+            colors::hint(),
             level,
             level_label,
-            colors::RESET
+            colors::reset()
         );
         for s in level_queries {
-            println!("    {}# {}{}", colors::HINT, s.description, colors::RESET);
+            println!(
+                "    {}# {}{}",
+                colors::hint(),
+                s.description,
+                colors::reset()
+            );
             println!("    {}", s.query);
         }
     }
@@ -1250,8 +1312,29 @@ fn extract_fields(var: &Value) -> Vec<String> {
     }
 }
 
-/// Run the REPL
-pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry) -> Result<()> {
+pub(crate) struct ReplOptions<'a> {
+    pub(crate) demo_name: Option<&'a str>,
+    pub(crate) initial_file: Option<&'a str>,
+    pub(crate) color_mode: ColorMode,
+    pub(crate) history_enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CommandControl {
+    Continue,
+    Exit,
+}
+
+/// Run the REPL.
+pub(crate) fn run(
+    options: ReplOptions<'_>,
+    runtime: Runtime,
+    registry: FunctionRegistry,
+) -> Result<()> {
+    let use_color =
+        crate::util::should_colorize(&options.color_mode, crate::util::stdout_is_terminal());
+    colors::set_enabled(use_color);
+
     // Shared state for data field completion
     let data_fields: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(vec![]));
 
@@ -1260,46 +1343,66 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
     rl.set_helper(Some(helper));
 
     // Try to load history
-    let history_path = dirs::data_local_dir().map(|p| p.join("jpx").join("history.txt"));
+    let history_path = options
+        .history_enabled
+        .then(|| dirs::data_local_dir().map(|p| p.join("jpx").join("history.txt")))
+        .flatten();
 
     if let Some(ref path) = history_path {
         let _ = std::fs::create_dir_all(path.parent().unwrap());
         let _ = rl.load_history(path);
     }
 
-    // Current data
-    let mut data: Option<Value> = None;
+    // Current data. Redirected stdin remains the command stream; use -f/--file
+    // for explicit startup data.
+    let mut data = if let Some(path) = options.initial_file {
+        let value = load_json_file(path)?;
+        *data_fields.borrow_mut() = extract_fields(&value);
+        Some(value)
+    } else {
+        None
+    };
 
     // Print banner
     println!(
         "{}{}jpx{} - JMESPath Extended REPL",
-        colors::BOLD,
-        colors::PROMPT,
-        colors::RESET
+        colors::bold(),
+        colors::prompt(),
+        colors::reset()
     );
     println!(
         "{}Type .help for commands, .exit to quit{}\n",
-        colors::INFO,
-        colors::RESET
+        colors::info(),
+        colors::reset()
     );
 
+    if let Some(path) = options.initial_file {
+        println!(
+            "{}Loaded file:{} {} ({})\n",
+            colors::success(),
+            colors::reset(),
+            path,
+            describe_value(data.as_ref().expect("initial file loaded"))
+        );
+    }
+
     // Load demo if specified
-    if let Some(name) = demo_name {
+    if let Some(name) = options.demo_name {
         if let Some(demo) = DEMOS.iter().find(|d| d.name == name) {
             let value = serde_json::from_str(demo.data).unwrap();
             *data_fields.borrow_mut() = extract_fields(&value);
             data = Some(value);
             println!(
                 "{}Loaded demo:{} {} - {}",
-                colors::SUCCESS,
-                colors::RESET,
+                colors::success(),
+                colors::reset(),
                 demo.name,
                 demo.description
             );
             println!(
                 "{}Data:{} {} (access via `{}`)\n",
-                colors::INFO,
-                colors::RESET,
+                colors::info(),
+                colors::reset(),
                 describe_value(data.as_ref().unwrap()),
                 demo.root_key
             );
@@ -1314,10 +1417,10 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
         } else {
             println!(
                 "{}Unknown demo '{}'. Available: {}{}",
-                colors::ERROR,
+                colors::error(),
                 name,
                 DEMOS.iter().map(|d| d.name).collect::<Vec<_>>().join(", "),
-                colors::RESET
+                colors::reset()
             );
         }
     }
@@ -1339,11 +1442,22 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
 
                 // Handle commands
                 if line.starts_with('.') {
-                    let _ = rl.add_history_entry(line);
-                    if let Err(e) =
-                        handle_command(line, &mut data, &registry, &runtime, &mut rl, &data_fields)
-                    {
-                        println!("{}Error: {}{}", colors::ERROR, e, colors::RESET);
+                    if options.history_enabled {
+                        let _ = rl.add_history_entry(line);
+                    }
+                    match handle_command(
+                        line,
+                        &mut data,
+                        &registry,
+                        &runtime,
+                        &mut rl,
+                        &data_fields,
+                    ) {
+                        Ok(CommandControl::Continue) => {}
+                        Ok(CommandControl::Exit) => break,
+                        Err(e) => {
+                            println!("{}Error: {}{}", colors::error(), e, colors::reset());
+                        }
                     }
                     continue;
                 }
@@ -1365,7 +1479,7 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
                                 }
                             }
                             Err(ReadlineError::Interrupted) => {
-                                println!("{}Cancelled{}", colors::INFO, colors::RESET);
+                                println!("{}Cancelled{}", colors::info(), colors::reset());
                                 lines.clear();
                                 break;
                             }
@@ -1380,7 +1494,9 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
                     line.to_string()
                 };
 
-                let _ = rl.add_history_entry(&full_query);
+                if options.history_enabled {
+                    let _ = rl.add_history_entry(&full_query);
+                }
 
                 // Execute JMESPath expression
                 if let Some(ref d) = data {
@@ -1390,16 +1506,16 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
                                 if !result.is_null() {
                                     println!("{}", colorize_json(&result, 0));
                                 } else {
-                                    println!("{}null{}", colors::JSON_NULL, colors::RESET);
+                                    println!("{}null{}", colors::json_null(), colors::reset());
                                 }
                             }
                             Err(e) => {
                                 let err_msg = e.to_string();
                                 println!(
                                     "{}Runtime error: {}{}",
-                                    colors::ERROR,
+                                    colors::error(),
                                     err_msg,
-                                    colors::RESET
+                                    colors::reset()
                                 );
                                 if let Some(suggestion) =
                                     crate::discovery::suggest_for_unknown_function(
@@ -1411,25 +1527,25 @@ pub fn run(demo_name: Option<&str>, runtime: Runtime, registry: FunctionRegistry
                             }
                         },
                         Err(e) => {
-                            println!("{}Parse error: {}{}", colors::ERROR, e, colors::RESET);
+                            println!("{}Parse error: {}{}", colors::error(), e, colors::reset());
                         }
                     }
                 } else {
                     println!(
                         "{}No data loaded. Use .load <file> or .demo <name>{}",
-                        colors::ERROR,
-                        colors::RESET
+                        colors::error(),
+                        colors::reset()
                     );
                 }
             }
             Err(ReadlineError::Interrupted) => {
-                println!("{}Use .exit to quit{}", colors::INFO, colors::RESET);
+                println!("{}Use .exit to quit{}", colors::info(), colors::reset());
             }
             Err(ReadlineError::Eof) => {
                 break;
             }
             Err(err) => {
-                println!("{}Error: {}{}", colors::ERROR, err, colors::RESET);
+                println!("{}Error: {}{}", colors::error(), err, colors::reset());
                 break;
             }
         }
@@ -1451,85 +1567,85 @@ fn handle_command(
     runtime: &Runtime,
     rl: &mut Editor<JmespathHelper, DefaultHistory>,
     data_fields: &Rc<RefCell<Vec<String>>>,
-) -> Result<()> {
-    let parts: Vec<&str> = line.splitn(2, ' ').collect();
-    let cmd = parts[0];
-    let arg = parts.get(1).map(|s| s.trim());
+) -> Result<CommandControl> {
+    let (cmd, arg) = split_command(line);
 
     match cmd {
-        ".exit" | ".quit" | ".q" => {
-            std::process::exit(0);
-        }
+        ".exit" | ".quit" | ".q" => return Ok(CommandControl::Exit),
 
         ".help" | ".h" | ".?" => {
-            println!("{}Commands:{}", colors::BOLD, colors::RESET);
+            println!("{}Commands:{}", colors::bold(), colors::reset());
             println!(
                 "  {}.load <file>{}     Load JSON from file",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.json [json]{}     Load JSON (inline or multiline mode)",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.data{}            Show current data",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
-                "  {}.demo [name]{}     Load demo dataset (users, geo, text, datetime, ecommerce)",
-                colors::FUNCTION,
-                colors::RESET
+                "  {}.demo [name]{}     Load demo dataset ({})",
+                colors::function(),
+                colors::reset(),
+                demo_names()
             );
             println!(
                 "  {}.demos{}           List available demos",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.suggest{}         Suggest queries for current data",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.functions{}       List all functions",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.describe <fn>{}   Describe a function",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.clear{}           Clear screen",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!(
                 "  {}.exit{}            Exit REPL",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
             println!();
-            println!("{}Tips:{}", colors::BOLD, colors::RESET);
+            println!("{}Tips:{}", colors::bold(), colors::reset());
             println!("  - Tab completion for function names");
             println!("  - Up/Down arrows for history");
             println!("  - Ctrl+R to search history");
         }
 
         ".load" => {
-            let path = arg.ok_or_else(|| anyhow::anyhow!("Usage: .load <file>"))?;
-            let content = std::fs::read_to_string(path)
-                .with_context(|| format!("Failed to read file: {}", path))?;
-            let value = serde_json::from_str(&content)
-                .map_err(|e| anyhow::anyhow!("Invalid JSON: {}", e))?;
+            let raw_path = arg.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Usage: .load <file>. Quote paths containing leading/trailing spaces."
+                )
+            })?;
+            let path = parse_path_argument(raw_path)?;
+            let value = load_json_file(&path)?;
             println!(
-                "{}Loaded:{} {}",
-                colors::SUCCESS,
-                colors::RESET,
+                "{}Loaded:{} {} ({})",
+                colors::success(),
+                colors::reset(),
+                path,
                 describe_value(&value)
             );
             *data_fields.borrow_mut() = extract_fields(&value);
@@ -1544,8 +1660,8 @@ fn handle_command(
                 // Multiline input mode
                 println!(
                     "{}Enter JSON (empty line to finish, Ctrl+C to cancel):{}",
-                    colors::INFO,
-                    colors::RESET
+                    colors::info(),
+                    colors::reset()
                 );
                 let mut lines = Vec::new();
                 loop {
@@ -1567,8 +1683,8 @@ fn handle_command(
                             }
                         }
                         Err(rustyline::error::ReadlineError::Interrupted) => {
-                            println!("{}Cancelled{}", colors::INFO, colors::RESET);
-                            return Ok(());
+                            println!("{}Cancelled{}", colors::info(), colors::reset());
+                            return Ok(CommandControl::Continue);
                         }
                         Err(e) => {
                             return Err(anyhow::anyhow!("Read error: {}", e));
@@ -1582,8 +1698,8 @@ fn handle_command(
                 .map_err(|e| anyhow::anyhow!("Invalid JSON: {}", e))?;
             println!(
                 "{}Loaded:{} {}",
-                colors::SUCCESS,
-                colors::RESET,
+                colors::success(),
+                colors::reset(),
                 describe_value(&value)
             );
             *data_fields.borrow_mut() = extract_fields(&value);
@@ -1594,7 +1710,7 @@ fn handle_command(
             if let Some(d) = data.as_ref() {
                 println!("{}", colorize_json(d, 0));
             } else {
-                println!("{}No data loaded{}", colors::INFO, colors::RESET);
+                println!("{}No data loaded{}", colors::info(), colors::reset());
             }
         }
 
@@ -1606,15 +1722,15 @@ fn handle_command(
                 *data = Some(value);
                 println!(
                     "{}Loaded demo:{} {} - {}",
-                    colors::SUCCESS,
-                    colors::RESET,
+                    colors::success(),
+                    colors::reset(),
                     demo.name,
                     demo.description
                 );
                 println!(
                     "{}Data:{} {} (access via `{}`)\n",
-                    colors::INFO,
-                    colors::RESET,
+                    colors::info(),
+                    colors::reset(),
                     describe_value(data.as_ref().unwrap()),
                     demo.root_key
                 );
@@ -1628,29 +1744,29 @@ fn handle_command(
             } else {
                 println!(
                     "{}Unknown demo '{}'. Available: {}{}",
-                    colors::ERROR,
+                    colors::error(),
                     name,
                     DEMOS.iter().map(|d| d.name).collect::<Vec<_>>().join(", "),
-                    colors::RESET
+                    colors::reset()
                 );
             }
         }
 
         ".demos" => {
-            println!("{}Available demos:{}", colors::BOLD, colors::RESET);
+            println!("{}Available demos:{}", colors::bold(), colors::reset());
             for demo in DEMOS {
                 println!(
                     "  {}{:<12}{} - {}",
-                    colors::FUNCTION,
+                    colors::function(),
                     demo.name,
-                    colors::RESET,
+                    colors::reset(),
                     demo.description
                 );
             }
             println!(
                 "\nUse {}.demo <name>{} to load",
-                colors::FUNCTION,
-                colors::RESET
+                colors::function(),
+                colors::reset()
             );
         }
 
@@ -1660,8 +1776,8 @@ fn handle_command(
             } else {
                 println!(
                     "{}No data loaded. Use .load <file> or .demo <name>{}",
-                    colors::ERROR,
-                    colors::RESET
+                    colors::error(),
+                    colors::reset()
                 );
             }
         }
@@ -1681,9 +1797,9 @@ fn handle_command(
                 let names: Vec<_> = funcs.iter().map(|f| f.name).collect();
                 println!(
                     "{}{}{}: {}",
-                    colors::BOLD,
+                    colors::bold(),
                     category.name().to_uppercase(),
-                    colors::RESET,
+                    colors::reset(),
                     names.join(", ")
                 );
             }
@@ -1692,7 +1808,7 @@ fn handle_command(
         ".describe" | ".desc" => {
             let name = arg.ok_or_else(|| anyhow::anyhow!("Usage: .describe <function>"))?;
             if let Some(func) = registry.get_function(name) {
-                println!("{}{}{}", colors::BOLD, func.name, colors::RESET);
+                println!("{}{}{}", colors::bold(), func.name, colors::reset());
                 println!("  Category:    {}", func.category.name());
                 println!("  Description: {}", func.description);
                 println!("  Signature:   {}", func.signature);
@@ -1703,9 +1819,9 @@ fn handle_command(
             } else {
                 println!(
                     "{}Unknown function '{}'{}",
-                    colors::ERROR,
+                    colors::error(),
                     name,
-                    colors::RESET
+                    colors::reset()
                 );
             }
         }
@@ -1717,12 +1833,114 @@ fn handle_command(
         _ => {
             println!(
                 "{}Unknown command '{}'. Type .help for commands{}",
-                colors::ERROR,
+                colors::error(),
                 cmd,
-                colors::RESET
+                colors::reset()
             );
         }
     }
 
-    Ok(())
+    Ok(CommandControl::Continue)
+}
+
+fn demo_names() -> String {
+    DEMOS
+        .iter()
+        .map(|demo| demo.name)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn split_command(line: &str) -> (&str, Option<&str>) {
+    let line = line.trim();
+    match line.char_indices().find(|(_, ch)| ch.is_whitespace()) {
+        Some((offset, _)) => {
+            let arg = line[offset..].trim();
+            (&line[..offset], (!arg.is_empty()).then_some(arg))
+        }
+        None => (line, None),
+    }
+}
+
+fn parse_path_argument(raw: &str) -> Result<String> {
+    let raw = raw.trim();
+    let Some(quote @ ('\'' | '"')) = raw.chars().next() else {
+        return Ok(raw.to_string());
+    };
+
+    let mut path = String::new();
+    let mut escaped = false;
+    let mut closing_offset = None;
+    for (offset, ch) in raw.char_indices().skip(1) {
+        if escaped {
+            path.push(ch);
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else if ch == quote {
+            closing_offset = Some(offset + ch.len_utf8());
+            break;
+        } else {
+            path.push(ch);
+        }
+    }
+
+    let Some(closing_offset) = closing_offset else {
+        return Err(anyhow::anyhow!(
+            "Unclosed quote in .load path. Close the {quote} quote and retry."
+        ));
+    };
+    if !raw[closing_offset..].trim().is_empty() {
+        return Err(anyhow::anyhow!(
+            "Unexpected text after the quoted .load path. Quote the entire path and retry."
+        ));
+    }
+
+    Ok(path)
+}
+
+fn load_json_file(path: &str) -> Result<Value> {
+    let content = std::fs::read_to_string(path).map_err(|error| {
+        anyhow::anyhow!(
+            "Failed to read JSON file '{path}': {error}. Check the path and permissions, then retry."
+        )
+    })?;
+    serde_json::from_str(&content).map_err(|error| {
+        anyhow::anyhow!(
+            "Failed to parse JSON file '{path}': {error}. Fix the JSON syntax and retry."
+        )
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_splitting_accepts_any_whitespace() {
+        assert_eq!(
+            split_command(".load\tdata.json"),
+            (".load", Some("data.json"))
+        );
+        assert_eq!(split_command("  .help  "), (".help", None));
+    }
+
+    #[test]
+    fn path_arguments_support_quotes_escapes_and_unquoted_spaces() {
+        assert_eq!(
+            parse_path_argument("data file.json").unwrap(),
+            "data file.json"
+        );
+        assert_eq!(
+            parse_path_argument(r#""data \"file\".json""#).unwrap(),
+            "data \"file\".json"
+        );
+        assert!(parse_path_argument("'data.json' trailing").is_err());
+        assert!(parse_path_argument("\"data.json").is_err());
+    }
+
+    #[test]
+    fn generated_demo_names_match_the_embedded_registry() {
+        assert_eq!(demo_names(), env!("JPX_DEMO_NAMES"));
+    }
 }
