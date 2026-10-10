@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- disable `evaluate_file` over HTTP by default and add repeatable canonical
+  allowed-root policies that reject canonical-path symlink escapes, validate
+  opened regular files, and report the active policy through `engine_info`
+  ([#234](https://github.com/joshrotenberg/jpx/issues/234))
+
 ## [0.5.1](https://github.com/joshrotenberg/jpx/compare/jpx-mcp-v0.5.0...jpx-mcp-v0.5.1) - 2026-08-13
 
 ### Fixed

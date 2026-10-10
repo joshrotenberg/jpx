@@ -28,6 +28,17 @@ jpx --file users.json 'length(@)'
 When the last positional argument is an existing file, jpx automatically uses it as input.
 The `-f` flag is still supported for explicitness or when the file doesn't exist yet.
 
+Use `--per-file` to evaluate independently over multiple files without starting
+a process for each one:
+
+```bash
+jpx --per-file --lines '{file: $file, count: length(@)}' *.json
+jpx --per-file --slurp --lines -Q queries.jpx:summary *.jsonl
+```
+
+Globs are expanded by the shell. Results form one outer array, so `--lines`
+emits exactly one value per file.
+
 ### Null Input
 
 Use `-n` to start with null (useful for functions that don't need input):

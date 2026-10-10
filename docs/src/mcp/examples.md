@@ -139,7 +139,10 @@ Result:
 
 ### Working with Large Files
 
-Query files directly without loading into memory:
+Query files directly without sending their contents through the MCP protocol:
+
+Start `jpx-mcp` with `--allow-root /path/to` when using HTTP. Stdio keeps its
+historical unrestricted behavior unless one or more allowed roots are supplied.
 
 ```
 [Uses evaluate_file tool]

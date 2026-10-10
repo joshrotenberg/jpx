@@ -16,11 +16,7 @@ pub(crate) fn run_benchmark(
     warmup: u32,
     color_mode: &ColorMode,
 ) -> Result<()> {
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     // Helper for colored output
     let heading = |s: &str| -> String {

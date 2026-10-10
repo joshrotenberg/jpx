@@ -196,6 +196,173 @@ mod arguments {
             .failure()
             .stderr(predicate::str::contains("-Q/--query-file"));
     }
+
+    #[test]
+    fn multiple_files_name_per_file_recovery() {
+        let first = query_file("{}\n");
+        let second = query_file("{}\n");
+        jpx()
+            .arg("-f")
+            .arg(first.path())
+            .arg("-f")
+            .arg(second.path())
+            .arg("@")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Add --per-file"));
+    }
+
+    #[test]
+    fn per_file_without_files_teaches_both_input_forms() {
+        jpx().args(["--per-file", "@"]).assert().failure().stderr(
+            predicate::str::contains("repeated -f/--file")
+                .and(predicate::str::contains("trailing paths")),
+        );
+    }
+
+    #[test]
+    fn per_file_reserved_binding_names_the_fix() {
+        let file = query_file("{}\n");
+        jpx()
+            .args(["--per-file", "--arg", "file", "override", "-f"])
+            .arg(file.path())
+            .arg("$file")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Remove '--arg file"));
+    }
+
+    #[test]
+    fn per_file_binding_in_strict_mode_names_both_recoveries() {
+        let file = query_file("{}\n");
+        jpx()
+            .args(["--per-file", "--strict", "-f"])
+            .arg(file.path())
+            .arg("$file")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("Remove --strict")
+                    .and(predicate::str::contains("remove $file")),
+            );
+    }
+
+    #[test]
+    fn per_file_read_failure_names_the_file_and_recovery() {
+        let good = query_file("{}\n");
+        let missing = good.path().with_file_name("missing-per-file-input.json");
+        jpx()
+            .args(["--per-file", "-f"])
+            .arg(good.path())
+            .arg("-f")
+            .arg(&missing)
+            .arg("@")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains(missing.to_string_lossy().as_ref())
+                    .and(predicate::str::contains("Check the path and JSON format")),
+            );
+    }
+
+    #[test]
+    fn columns_without_tabular_output_names_valid_flags() {
+        jpx()
+            .args(["--columns", "name,age", "@"])
+            .write_stdin("{}")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("--table")
+                    .and(predicate::str::contains("--csv"))
+                    .and(predicate::str::contains("--tsv")),
+            );
+    }
+
+    #[test]
+    fn columns_reject_empty_names_with_example() {
+        jpx()
+            .args(["--csv", "--columns", "name,,age", "@"])
+            .write_stdin("[{}]")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("--columns name,age"));
+    }
+
+    #[test]
+    fn columns_reject_duplicates_with_recovery() {
+        jpx()
+            .args(["--csv", "--columns", "name,name", "@"])
+            .write_stdin("[{}]")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("Duplicate column 'name'")
+                    .and(predicate::str::contains("List each column once")),
+            );
+    }
+
+    #[test]
+    fn columns_non_object_output_names_both_recoveries() {
+        jpx()
+            .args(["--csv", "--columns", "name", "@"])
+            .write_stdin("[1,2]")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("returns objects")
+                    .and(predicate::str::contains("remove --columns")),
+            );
+    }
+
+    #[test]
+    fn streaming_columns_non_object_output_names_both_recoveries() {
+        jpx()
+            .args(["--stream", "--csv", "--columns", "name", "@"])
+            .write_stdin("1\n")
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("returns objects")
+                    .and(predicate::str::contains("remove --columns")),
+            );
+    }
+
+    #[test]
+    fn no_history_without_repl_names_both_recoveries() {
+        jpx().arg("--no-history").assert().failure().stderr(
+            predicate::str::contains("Add --repl")
+                .and(predicate::str::contains("remove --no-history")),
+        );
+    }
+
+    #[test]
+    fn repl_startup_rejects_two_initial_data_sources() {
+        let file = query_file("{}\n");
+        jpx()
+            .args(["--repl", "--demo", "users", "-f"])
+            .arg(file.path())
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("Remove one")
+                    .and(predicate::str::contains(".load"))
+                    .and(predicate::str::contains(".demo")),
+            );
+    }
+
+    #[test]
+    fn malformed_repl_startup_json_names_the_fix() {
+        let mut file = NamedTempFile::new().expect("create temp JSON");
+        file.write_all(b"{not json}").expect("write invalid JSON");
+        file.flush().expect("flush invalid JSON");
+        jpx()
+            .args(["--repl", "--no-history", "-f"])
+            .arg(file.path())
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Fix the JSON syntax and retry"));
+    }
 }
 
 // ============================================================================
