@@ -8,11 +8,7 @@ use colored::Colorize;
 pub(crate) fn show_stats(file_path: &Option<String>, color_mode: &ColorMode) -> Result<()> {
     let data = read_json_from(file_path.as_deref())?;
 
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     // Helper for colored output
     let label = |s: &str| -> String {
@@ -337,11 +333,7 @@ pub(crate) fn show_paths(
 ) -> Result<()> {
     let data = read_json_from(file_path.as_deref())?;
 
-    let use_color = match color_mode {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => crate::util::stdout_is_terminal(),
-    };
+    let use_color = crate::util::should_colorize(color_mode, crate::util::stdout_is_terminal());
 
     let mut paths_info: Vec<(String, String, Option<String>)> = Vec::new();
     collect_paths(&data, String::new(), &mut paths_info);

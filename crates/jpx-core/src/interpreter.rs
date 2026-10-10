@@ -41,7 +41,7 @@ const MAX_EVAL_DEPTH: usize = 128;
 
 /// Interprets the given data using an AST node, returning an owned value.
 ///
-/// Materialises whatever [`interpret_cow`] produced. Callers that evaluate an
+/// Materialises whatever `interpret_cow` produced. Callers that evaluate an
 /// expref against many elements (`map`, `sort_by`, the filter functions) go
 /// through here and pay one copy per element, as they did before.
 pub fn interpret(data: &Value, node: &Ast, ctx: &mut Context<'_>) -> SearchResult {

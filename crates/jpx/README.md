@@ -164,7 +164,8 @@ Modes:
   -v, --verbose               Show expression details and timing
       --strict                Strict mode - only standard JMESPath (no extensions)
       --repl                  Start interactive REPL mode
-      --demo <NAME>           Load a demo dataset (use with --repl)
+      --demo <NAME>           Start the REPL with a demo dataset
+      --no-history            Do not load, record, or save REPL history
 
 Other:
       --completions <SHELL>   Generate shell completions (bash, zsh, fish, powershell, elvish)

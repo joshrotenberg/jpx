@@ -8,6 +8,11 @@ use serde_json::{Value, json};
 
 use jpx_core::{Runtime, ValueExt};
 
+mod support;
+use support::{
+    compliance_expressions, grammar_expression, grammar_smoke_expressions, near_valid_expression,
+};
+
 /// Generates an arbitrary JSON value with bounded recursion depth.
 fn arb_json_value() -> impl Strategy<Value = Value> {
     let leaf = prop_oneof![
@@ -28,23 +33,6 @@ fn arb_json_value() -> impl Strategy<Value = Value> {
     })
 }
 
-/// Generates syntactically plausible JMESPath expressions.
-fn arb_jmespath_expr() -> impl Strategy<Value = String> {
-    let simple = prop_oneof![
-        Just("@".to_string()),
-        "[a-zA-Z_][a-zA-Z0-9_]{0,5}",
-        (0..10i32).prop_map(|n| format!("[{n}]")),
-        Just("*".to_string()),
-        Just("`null`".to_string()),
-    ];
-    prop_oneof![
-        simple.clone(),
-        (simple.clone(), simple.clone()).prop_map(|(a, b)| format!("{a}.{b}")),
-        (simple.clone(), simple.clone()).prop_map(|(a, b)| format!("{a} | {b}")),
-        simple.clone().prop_map(|s| format!("length({s})")),
-    ]
-}
-
 proptest! {
     /// The parser must never panic on arbitrary input strings.
     #[test]
@@ -52,16 +40,31 @@ proptest! {
         let _ = jpx_core::parse(&s);
     }
 
+    /// Grammar-directed expressions remain syntactically valid as productions are composed.
+    #[test]
+    fn grammar_generated_expressions_parse(expr_str in grammar_expression()) {
+        prop_assert!(
+            jpx_core::parse(&expr_str).is_ok(),
+            "grammar generator emitted invalid syntax: {expr_str}"
+        );
+    }
+
     /// The interpreter must never panic when given a valid expression and arbitrary data.
     #[test]
     fn interpreter_never_panics(
-        expr_str in arb_jmespath_expr(),
+        expr_str in grammar_expression(),
         data in arb_json_value(),
     ) {
         let rt = Runtime::strict();
         if let Ok(expr) = rt.compile(&expr_str) {
             let _ = expr.search(&data);
         }
+    }
+
+    /// Small mutations of real compliance expressions must return a result or error, never panic.
+    #[test]
+    fn near_valid_parser_never_panics(expr_str in near_valid_expression()) {
+        let _ = jpx_core::parse(&expr_str);
     }
 
     /// ValueExt field access must never panic on arbitrary values and field names.
@@ -114,6 +117,41 @@ proptest! {
             prop_assert!(result.len() <= arr.len());
         }
     }
+}
+
+#[test]
+fn grammar_smoke_corpus_covers_valid_production_families() {
+    for expression in grammar_smoke_expressions() {
+        assert!(
+            jpx_core::parse(expression).is_ok(),
+            "grammar smoke expression should parse: {expression}"
+        );
+    }
+}
+
+#[test]
+fn near_valid_population_is_derived_from_the_vendored_compliance_suite() {
+    let expressions = compliance_expressions();
+    assert!(
+        expressions.len() >= 100,
+        "expected broad compliance seed population, found {}",
+        expressions.len()
+    );
+    assert!(
+        expressions
+            .iter()
+            .any(|expression| expression.contains("[?"))
+    );
+    assert!(
+        expressions
+            .iter()
+            .any(|expression| expression.contains('('))
+    );
+    assert!(
+        expressions
+            .iter()
+            .any(|expression| expression.contains(':'))
+    );
 }
 
 #[cfg(feature = "extensions")]

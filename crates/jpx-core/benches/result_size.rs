@@ -10,8 +10,9 @@
 //! input-proportional cost shows up as a benchmark change rather than as a
 //! puzzle someone re-derives later.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::{Value, json};
+use std::hint::black_box;
 
 /// ~44KB: a 1000-element array of three-field objects.
 fn large_document() -> Value {

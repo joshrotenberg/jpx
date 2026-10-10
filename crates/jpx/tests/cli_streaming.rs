@@ -339,6 +339,30 @@ fn stream_tsv_basic() {
 }
 
 #[test]
+fn stream_csv_columns_select_and_order_headers() {
+    let input = "{\"name\":\"alice\",\"age\":30}\n{\"name\":\"bob\",\"age\":25}\n";
+
+    jpx()
+        .args(["--stream", "--csv", "--columns", "name,missing,age", "@"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("name,missing,age\nalice,,30\nbob,,25\n");
+}
+
+#[test]
+fn stream_tsv_columns_support_nested_names() {
+    let input = "{\"name\":\"alice\",\"addr\":{\"city\":\"NYC\"}}\n";
+
+    jpx()
+        .args(["--stream", "--tsv", "--columns", "name,addr.city", "@"])
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout("name\taddr.city\nalice\tNYC\n");
+}
+
+#[test]
 fn stream_csv_with_expression() {
     let input = "{\"user\":\"alice\",\"score\":90,\"grade\":\"A\"}\n{\"user\":\"bob\",\"score\":75,\"grade\":\"B\"}\n";
 

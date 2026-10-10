@@ -1591,6 +1591,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tower",
  "tower-mcp",

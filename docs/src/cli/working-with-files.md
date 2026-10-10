@@ -85,9 +85,42 @@ jpx -c -f data.json 'users[0]'
 
 ## Processing Multiple Files
 
-### Sequential Processing
+### Evaluate Once Per File
 
-Process files one at a time in a loop:
+Use `--per-file` to reuse one jpx process across a corpus. The shell expands
+globs; jpx evaluates the expression independently for every resulting path:
+
+```bash
+jpx --per-file --lines 'metadata.title' *.json
+
+# Repeated -f/--file is equivalent
+jpx --per-file --lines -f first.json -f second.json 'metadata.title'
+```
+
+Per-file results form one outer array. `--lines` writes exactly one JSON value
+per input file; without it, the outer array is rendered normally.
+
+The `$file` binding contains the path exactly as passed, which makes provenance
+easy to include in each result:
+
+```bash
+jpx --per-file --lines '{file: $file, title: metadata.title}' *.json
+```
+
+Combine `--per-file` with `--slurp` for JSONL files. Each file is slurped
+separately before evaluation:
+
+```bash
+jpx --per-file --slurp --lines \
+  -Q sessions.jpx:session-row ~/.local/share/sessions/*.jsonl
+```
+
+`--per-file` conflicts with `--stream` and `--null-input`. The `$file` binding
+is a jpx extension and is unavailable in `--strict` mode.
+
+### Shell Loop Alternative
+
+For workflows needing custom per-file control, a shell loop remains useful:
 
 ```bash
 for f in *.json; do
