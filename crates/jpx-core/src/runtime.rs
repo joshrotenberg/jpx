@@ -8,9 +8,31 @@ use crate::functions::*;
 use crate::parse;
 use crate::registry::{Category, FunctionRegistry};
 
+/// Dispatch adapter that keeps the public custom-function API unchanged.
+pub(crate) enum RegisteredFunction {
+    Owned(Box<dyn Function>),
+    Borrowed(Box<dyn BorrowedFunction>),
+}
+
+impl RegisteredFunction {
+    pub(crate) fn as_function(&self) -> &dyn Function {
+        match self {
+            Self::Owned(function) => function.as_ref(),
+            Self::Borrowed(function) => function.as_ref(),
+        }
+    }
+
+    fn into_function(self) -> Box<dyn Function> {
+        match self {
+            Self::Owned(function) => function,
+            Self::Borrowed(function) => function,
+        }
+    }
+}
+
 /// Compiles JMESPath expressions and manages registered functions.
 pub struct Runtime {
-    functions: HashMap<String, Box<dyn Function>>,
+    functions: HashMap<String, RegisteredFunction>,
 }
 
 impl Default for Runtime {
@@ -46,20 +68,34 @@ impl Runtime {
     }
 
     /// Adds a new function to the runtime.
+    ///
+    /// Functions registered through this interface receive owned arguments.
+    /// Re-registering a built-in therefore preserves its behavior but bypasses
+    /// any internal borrowed-argument optimization. Use
+    /// [`Self::register_builtin_functions`] to restore optimized built-ins.
     #[inline]
     pub fn register_function(&mut self, name: &str, f: Box<dyn Function>) {
-        self.functions.insert(name.to_owned(), f);
+        self.functions
+            .insert(name.to_owned(), RegisteredFunction::Owned(f));
     }
 
     /// Removes a function from the runtime.
     pub fn deregister_function(&mut self, name: &str) -> Option<Box<dyn Function>> {
-        self.functions.remove(name)
+        self.functions
+            .remove(name)
+            .map(RegisteredFunction::into_function)
     }
 
     /// Gets a function by name from the runtime.
     #[inline]
     pub fn get_function<'a>(&'a self, name: &str) -> Option<&'a dyn Function> {
-        self.functions.get(name).map(AsRef::as_ref)
+        self.functions
+            .get(name)
+            .map(RegisteredFunction::as_function)
+    }
+
+    pub(crate) fn get_registered_function(&self, name: &str) -> Option<&RegisteredFunction> {
+        self.functions.get(name)
     }
 
     /// Returns an iterator over all registered function names.
@@ -77,7 +113,10 @@ impl Runtime {
         self.register_function("floor", Box::new(FloorFn::new()));
         self.register_function("join", Box::new(JoinFn::new()));
         self.register_function("keys", Box::new(KeysFn::new()));
-        self.register_function("length", Box::new(LengthFn::new()));
+        self.functions.insert(
+            "length".to_owned(),
+            RegisteredFunction::Borrowed(Box::new(LengthFn::new())),
+        );
         self.register_function("map", Box::new(MapFn::new()));
         self.register_function("min", Box::new(MinFn::new()));
         self.register_function("max", Box::new(MaxFn::new()));
@@ -179,6 +218,25 @@ mod tests {
         assert!(rt.get_function("abs").is_some());
         assert!(rt.get_function("length").is_some());
         assert!(rt.get_function("sort").is_some());
+    }
+
+    #[test]
+    fn builtin_length_restores_borrowed_dispatch_after_public_override() {
+        let mut rt = Runtime::strict();
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Borrowed(_))
+        ));
+        rt.register_function("length", Box::new(LengthFn::new()));
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Owned(_))
+        ));
+        rt.register_builtin_functions();
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Borrowed(_))
+        ));
     }
 
     #[test]
