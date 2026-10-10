@@ -164,6 +164,45 @@ mod expressions {
     }
 }
 
+mod random_integer_bounds {
+    use super::*;
+
+    #[test]
+    fn invalid_bounds_name_the_integer_constraint() {
+        for (expression, bound) in [
+            ("random_int(`1.5`, `2`)", "min"),
+            ("random_int(`0`, `2.5`)", "max"),
+            (
+                "random_int(`9223372036854775808`, `9223372036854775808`)",
+                "min",
+            ),
+            ("random_int(`0`, `18446744073709551615`)", "max"),
+            ("random_int(`-1e30`, `0`)", "min"),
+            ("random_int(`0`, `1e30`)", "max"),
+            ("random_int('1', `2`)", "min"),
+        ] {
+            jpx().args(["-n", expression]).assert().code(1).stderr(
+                predicate::str::contains(format!("random_int() {bound} must be an integer"))
+                    .and(predicate::str::contains(
+                        "[-9223372036854775808, 9223372036854775807]",
+                    ))
+                    .and(predicate::str::contains("panicked").not()),
+            );
+        }
+    }
+
+    #[test]
+    fn reversed_bounds_name_the_ordering_constraint() {
+        jpx()
+            .args(["-n", "random_int(`9007199254740993`, `9007199254740992`)"])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(
+                "min must be less than or equal to max",
+            ));
+    }
+}
+
 // ============================================================================
 // Argument conflicts
 // ============================================================================
