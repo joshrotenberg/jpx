@@ -152,6 +152,28 @@ mod expressions {
             .stderr(predicate::str::contains("step cannot be 0"));
     }
 
+    #[test]
+    fn random_empty_or_reversed_range_names_the_fix() {
+        for expression in ["random(`1`, `1`)", "random(`2`, `1`)"] {
+            jpx()
+                .args(["-n", expression])
+                .assert()
+                .code(1)
+                .stderr(predicate::str::contains("Use a minimum strictly less"))
+                .stderr(predicate::str::contains("panicked").not());
+        }
+    }
+
+    #[test]
+    fn random_overflowing_range_names_the_fix() {
+        jpx()
+            .args(["-n", "random(`-1e308`, `1e308`)"])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("Use a narrower range"))
+            .stderr(predicate::str::contains("panicked").not());
+    }
+
     /// Errors carry a caret line locating the failure in the expression. That
     /// is the positional half of the contract.
     #[test]
