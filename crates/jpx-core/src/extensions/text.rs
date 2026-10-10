@@ -519,7 +519,7 @@ defn!(StopwordsFn, vec![], Some(arg!(string)));
 
 impl Function for StopwordsFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use stop_words::{LANGUAGE, get};
+        use stop_words::{Language, get};
 
         self.signature.validate(args, ctx)?;
 
@@ -530,38 +530,38 @@ impl Function for StopwordsFn {
         };
 
         let language = match lang.as_deref() {
-            Some("ar" | "arabic") => LANGUAGE::Arabic,
-            Some("bg" | "bulgarian") => LANGUAGE::Bulgarian,
-            Some("ca" | "catalan") => LANGUAGE::Catalan,
-            Some("cs" | "czech") => LANGUAGE::Czech,
-            Some("da" | "danish") => LANGUAGE::Danish,
-            Some("nl" | "dutch") => LANGUAGE::Dutch,
-            Some("fi" | "finnish") => LANGUAGE::Finnish,
-            Some("fr" | "french") => LANGUAGE::French,
-            Some("de" | "german") => LANGUAGE::German,
-            Some("he" | "hebrew") => LANGUAGE::Hebrew,
-            Some("hi" | "hindi") => LANGUAGE::Hindi,
-            Some("hu" | "hungarian") => LANGUAGE::Hungarian,
-            Some("id" | "indonesian") => LANGUAGE::Indonesian,
-            Some("it" | "italian") => LANGUAGE::Italian,
-            Some("ja" | "japanese") => LANGUAGE::Japanese,
-            Some("ko" | "korean") => LANGUAGE::Korean,
-            Some("lv" | "latvian") => LANGUAGE::Latvian,
-            Some("no" | "norwegian") => LANGUAGE::Norwegian,
-            Some("fa" | "persian") => LANGUAGE::Persian,
-            Some("pl" | "polish") => LANGUAGE::Polish,
-            Some("pt" | "portuguese") => LANGUAGE::Portuguese,
-            Some("ro" | "romanian") => LANGUAGE::Romanian,
-            Some("ru" | "russian") => LANGUAGE::Russian,
-            Some("sk" | "slovak") => LANGUAGE::Slovak,
-            Some("es" | "spanish") => LANGUAGE::Spanish,
-            Some("sv" | "swedish") => LANGUAGE::Swedish,
-            Some("th" | "thai") => LANGUAGE::Thai,
-            Some("tr" | "turkish") => LANGUAGE::Turkish,
-            Some("uk" | "ukrainian") => LANGUAGE::Ukrainian,
-            Some("vi" | "vietnamese") => LANGUAGE::Vietnamese,
-            Some("zh" | "chinese") => LANGUAGE::Chinese,
-            _ => LANGUAGE::English,
+            Some("ar" | "arabic") => Language::Arabic,
+            Some("bg" | "bulgarian") => Language::Bulgarian,
+            Some("ca" | "catalan") => Language::Catalan,
+            Some("cs" | "czech") => Language::Czech,
+            Some("da" | "danish") => Language::Danish,
+            Some("nl" | "dutch") => Language::Dutch,
+            Some("fi" | "finnish") => Language::Finnish,
+            Some("fr" | "french") => Language::French,
+            Some("de" | "german") => Language::German,
+            Some("he" | "hebrew") => Language::Hebrew,
+            Some("hi" | "hindi") => Language::Hindi,
+            Some("hu" | "hungarian") => Language::Hungarian,
+            Some("id" | "indonesian") => Language::Indonesian,
+            Some("it" | "italian") => Language::Italian,
+            Some("ja" | "japanese") => Language::Japanese,
+            Some("ko" | "korean") => Language::Korean,
+            Some("lv" | "latvian") => Language::Latvian,
+            Some("no" | "norwegian") => Language::Norwegian,
+            Some("fa" | "persian") => Language::Persian,
+            Some("pl" | "polish") => Language::Polish,
+            Some("pt" | "portuguese") => Language::Portuguese,
+            Some("ro" | "romanian") => Language::Romanian,
+            Some("ru" | "russian") => Language::Russian,
+            Some("sk" | "slovak") => Language::Slovak,
+            Some("es" | "spanish") => Language::Spanish,
+            Some("sv" | "swedish") => Language::Swedish,
+            Some("th" | "thai") => Language::Thai,
+            Some("tr" | "turkish") => Language::Turkish,
+            Some("uk" | "ukrainian") => Language::Ukrainian,
+            Some("vi" | "vietnamese") => Language::Vietnamese,
+            Some("zh" | "chinese") => Language::Chinese,
+            _ => Language::English,
         };
 
         let words = get(language);
@@ -580,7 +580,7 @@ defn!(RemoveStopwordsFn, vec![arg!(array)], Some(arg!(string)));
 
 impl Function for RemoveStopwordsFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use stop_words::{LANGUAGE, get};
+        use stop_words::{Language, get};
 
         self.signature.validate(args, ctx)?;
         let tokens = args[0].as_array().unwrap();
@@ -592,38 +592,38 @@ impl Function for RemoveStopwordsFn {
         };
 
         let language = match lang.as_deref() {
-            Some("ar" | "arabic") => LANGUAGE::Arabic,
-            Some("bg" | "bulgarian") => LANGUAGE::Bulgarian,
-            Some("ca" | "catalan") => LANGUAGE::Catalan,
-            Some("cs" | "czech") => LANGUAGE::Czech,
-            Some("da" | "danish") => LANGUAGE::Danish,
-            Some("nl" | "dutch") => LANGUAGE::Dutch,
-            Some("fi" | "finnish") => LANGUAGE::Finnish,
-            Some("fr" | "french") => LANGUAGE::French,
-            Some("de" | "german") => LANGUAGE::German,
-            Some("he" | "hebrew") => LANGUAGE::Hebrew,
-            Some("hi" | "hindi") => LANGUAGE::Hindi,
-            Some("hu" | "hungarian") => LANGUAGE::Hungarian,
-            Some("id" | "indonesian") => LANGUAGE::Indonesian,
-            Some("it" | "italian") => LANGUAGE::Italian,
-            Some("ja" | "japanese") => LANGUAGE::Japanese,
-            Some("ko" | "korean") => LANGUAGE::Korean,
-            Some("lv" | "latvian") => LANGUAGE::Latvian,
-            Some("no" | "norwegian") => LANGUAGE::Norwegian,
-            Some("fa" | "persian") => LANGUAGE::Persian,
-            Some("pl" | "polish") => LANGUAGE::Polish,
-            Some("pt" | "portuguese") => LANGUAGE::Portuguese,
-            Some("ro" | "romanian") => LANGUAGE::Romanian,
-            Some("ru" | "russian") => LANGUAGE::Russian,
-            Some("sk" | "slovak") => LANGUAGE::Slovak,
-            Some("es" | "spanish") => LANGUAGE::Spanish,
-            Some("sv" | "swedish") => LANGUAGE::Swedish,
-            Some("th" | "thai") => LANGUAGE::Thai,
-            Some("tr" | "turkish") => LANGUAGE::Turkish,
-            Some("uk" | "ukrainian") => LANGUAGE::Ukrainian,
-            Some("vi" | "vietnamese") => LANGUAGE::Vietnamese,
-            Some("zh" | "chinese") => LANGUAGE::Chinese,
-            _ => LANGUAGE::English,
+            Some("ar" | "arabic") => Language::Arabic,
+            Some("bg" | "bulgarian") => Language::Bulgarian,
+            Some("ca" | "catalan") => Language::Catalan,
+            Some("cs" | "czech") => Language::Czech,
+            Some("da" | "danish") => Language::Danish,
+            Some("nl" | "dutch") => Language::Dutch,
+            Some("fi" | "finnish") => Language::Finnish,
+            Some("fr" | "french") => Language::French,
+            Some("de" | "german") => Language::German,
+            Some("he" | "hebrew") => Language::Hebrew,
+            Some("hi" | "hindi") => Language::Hindi,
+            Some("hu" | "hungarian") => Language::Hungarian,
+            Some("id" | "indonesian") => Language::Indonesian,
+            Some("it" | "italian") => Language::Italian,
+            Some("ja" | "japanese") => Language::Japanese,
+            Some("ko" | "korean") => Language::Korean,
+            Some("lv" | "latvian") => Language::Latvian,
+            Some("no" | "norwegian") => Language::Norwegian,
+            Some("fa" | "persian") => Language::Persian,
+            Some("pl" | "polish") => Language::Polish,
+            Some("pt" | "portuguese") => Language::Portuguese,
+            Some("ro" | "romanian") => Language::Romanian,
+            Some("ru" | "russian") => Language::Russian,
+            Some("sk" | "slovak") => Language::Slovak,
+            Some("es" | "spanish") => Language::Spanish,
+            Some("sv" | "swedish") => Language::Swedish,
+            Some("th" | "thai") => Language::Thai,
+            Some("tr" | "turkish") => Language::Turkish,
+            Some("uk" | "ukrainian") => Language::Ukrainian,
+            Some("vi" | "vietnamese") => Language::Vietnamese,
+            Some("zh" | "chinese") => Language::Chinese,
+            _ => Language::English,
         };
 
         let stopwords = get(language);
@@ -655,7 +655,7 @@ defn!(IsStopwordFn, vec![arg!(string)], Some(arg!(string)));
 
 impl Function for IsStopwordFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use stop_words::{LANGUAGE, get};
+        use stop_words::{Language, get};
 
         self.signature.validate(args, ctx)?;
         let word = args[0].as_str().unwrap();
@@ -667,38 +667,38 @@ impl Function for IsStopwordFn {
         };
 
         let language = match lang.as_deref() {
-            Some("ar" | "arabic") => LANGUAGE::Arabic,
-            Some("bg" | "bulgarian") => LANGUAGE::Bulgarian,
-            Some("ca" | "catalan") => LANGUAGE::Catalan,
-            Some("cs" | "czech") => LANGUAGE::Czech,
-            Some("da" | "danish") => LANGUAGE::Danish,
-            Some("nl" | "dutch") => LANGUAGE::Dutch,
-            Some("fi" | "finnish") => LANGUAGE::Finnish,
-            Some("fr" | "french") => LANGUAGE::French,
-            Some("de" | "german") => LANGUAGE::German,
-            Some("he" | "hebrew") => LANGUAGE::Hebrew,
-            Some("hi" | "hindi") => LANGUAGE::Hindi,
-            Some("hu" | "hungarian") => LANGUAGE::Hungarian,
-            Some("id" | "indonesian") => LANGUAGE::Indonesian,
-            Some("it" | "italian") => LANGUAGE::Italian,
-            Some("ja" | "japanese") => LANGUAGE::Japanese,
-            Some("ko" | "korean") => LANGUAGE::Korean,
-            Some("lv" | "latvian") => LANGUAGE::Latvian,
-            Some("no" | "norwegian") => LANGUAGE::Norwegian,
-            Some("fa" | "persian") => LANGUAGE::Persian,
-            Some("pl" | "polish") => LANGUAGE::Polish,
-            Some("pt" | "portuguese") => LANGUAGE::Portuguese,
-            Some("ro" | "romanian") => LANGUAGE::Romanian,
-            Some("ru" | "russian") => LANGUAGE::Russian,
-            Some("sk" | "slovak") => LANGUAGE::Slovak,
-            Some("es" | "spanish") => LANGUAGE::Spanish,
-            Some("sv" | "swedish") => LANGUAGE::Swedish,
-            Some("th" | "thai") => LANGUAGE::Thai,
-            Some("tr" | "turkish") => LANGUAGE::Turkish,
-            Some("uk" | "ukrainian") => LANGUAGE::Ukrainian,
-            Some("vi" | "vietnamese") => LANGUAGE::Vietnamese,
-            Some("zh" | "chinese") => LANGUAGE::Chinese,
-            _ => LANGUAGE::English,
+            Some("ar" | "arabic") => Language::Arabic,
+            Some("bg" | "bulgarian") => Language::Bulgarian,
+            Some("ca" | "catalan") => Language::Catalan,
+            Some("cs" | "czech") => Language::Czech,
+            Some("da" | "danish") => Language::Danish,
+            Some("nl" | "dutch") => Language::Dutch,
+            Some("fi" | "finnish") => Language::Finnish,
+            Some("fr" | "french") => Language::French,
+            Some("de" | "german") => Language::German,
+            Some("he" | "hebrew") => Language::Hebrew,
+            Some("hi" | "hindi") => Language::Hindi,
+            Some("hu" | "hungarian") => Language::Hungarian,
+            Some("id" | "indonesian") => Language::Indonesian,
+            Some("it" | "italian") => Language::Italian,
+            Some("ja" | "japanese") => Language::Japanese,
+            Some("ko" | "korean") => Language::Korean,
+            Some("lv" | "latvian") => Language::Latvian,
+            Some("no" | "norwegian") => Language::Norwegian,
+            Some("fa" | "persian") => Language::Persian,
+            Some("pl" | "polish") => Language::Polish,
+            Some("pt" | "portuguese") => Language::Portuguese,
+            Some("ro" | "romanian") => Language::Romanian,
+            Some("ru" | "russian") => Language::Russian,
+            Some("sk" | "slovak") => Language::Slovak,
+            Some("es" | "spanish") => Language::Spanish,
+            Some("sv" | "swedish") => Language::Swedish,
+            Some("th" | "thai") => Language::Thai,
+            Some("tr" | "turkish") => Language::Turkish,
+            Some("uk" | "ukrainian") => Language::Ukrainian,
+            Some("vi" | "vietnamese") => Language::Vietnamese,
+            Some("zh" | "chinese") => Language::Chinese,
+            _ => Language::English,
         };
 
         let stopwords = get(language);
@@ -1290,6 +1290,47 @@ mod tests {
         let data = json!("elephant");
         let result = expr.search(&data).unwrap();
         assert!(!result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_stopword_language_aliases_and_fallback() {
+        let runtime = setup_runtime();
+        for (code, name, word) in [
+            ("en", "english", "the"),
+            ("fr", "french", "le"),
+            ("de", "german", "der"),
+            ("es", "spanish", "el"),
+            ("unknown", "unsupported", "the"),
+        ] {
+            let by_code = runtime
+                .compile(&format!("stopwords('{code}')"))
+                .unwrap()
+                .search(&json!(null))
+                .unwrap();
+            let by_name = runtime
+                .compile(&format!("stopwords('{name}')"))
+                .unwrap()
+                .search(&json!(null))
+                .unwrap();
+            assert_eq!(by_code, by_name, "language alias: {code}/{name}");
+            assert!(by_code.as_array().unwrap().contains(&json!(word)));
+
+            for language in [code, name] {
+                let is_stop = runtime
+                    .compile(&format!("is_stopword(@, '{language}')"))
+                    .unwrap()
+                    .search(&json!(word))
+                    .unwrap();
+                assert_eq!(is_stop, json!(true), "is_stopword: {language}");
+
+                let filtered = runtime
+                    .compile(&format!("remove_stopwords(@, '{language}')"))
+                    .unwrap()
+                    .search(&json!([word, "jpx"]))
+                    .unwrap();
+                assert_eq!(filtered, json!(["jpx"]), "remove_stopwords: {language}");
+            }
+        }
     }
 
     // =========================================================================

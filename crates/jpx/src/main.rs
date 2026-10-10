@@ -678,8 +678,10 @@ fn resolve_positional_input_files(args: &mut Args) -> Result<()> {
 
         let reserves_file = args
             .arg
-            .chunks_exact(2)
-            .chain(args.argjson.chunks_exact(2))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .chain(args.argjson.as_chunks::<2>().0.iter())
             .any(|pair| pair[0] == "file");
         if reserves_file {
             return Err(anyhow::anyhow!(
