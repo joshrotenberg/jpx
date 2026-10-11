@@ -12,7 +12,7 @@ use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
-use rustyline::history::DefaultHistory;
+use rustyline::history::{DefaultHistory, History};
 use rustyline::validate::Validator;
 use rustyline::{Editor, Helper};
 use serde_json::Value;
@@ -1352,6 +1352,9 @@ pub(crate) fn run(
         let _ = std::fs::create_dir_all(path.parent().unwrap());
         let _ = rl.load_history(path);
     }
+    // Entries evicted from the bounded in-memory history this session; keeps
+    // `.history` numbers stable for the entries that remain.
+    let mut history_evicted = 0usize;
 
     // Current data. Redirected stdin remains the command stream; use -f/--file
     // for explicit startup data.
@@ -1442,8 +1445,9 @@ pub(crate) fn run(
 
                 // Handle commands
                 if line.starts_with('.') {
-                    if options.history_enabled {
-                        let _ = rl.add_history_entry(line);
+                    // `.history` inspects history; recording it would pollute its own output.
+                    if options.history_enabled && split_command(line).0 != ".history" {
+                        record_history(rl.history_mut(), line, &mut history_evicted);
                     }
                     match handle_command(
                         line,
@@ -1452,6 +1456,7 @@ pub(crate) fn run(
                         &runtime,
                         &mut rl,
                         &data_fields,
+                        options.history_enabled.then_some(history_evicted),
                     ) {
                         Ok(CommandControl::Continue) => {}
                         Ok(CommandControl::Exit) => break,
@@ -1495,7 +1500,7 @@ pub(crate) fn run(
                 };
 
                 if options.history_enabled {
-                    let _ = rl.add_history_entry(&full_query);
+                    record_history(rl.history_mut(), &full_query, &mut history_evicted);
                 }
 
                 // Execute JMESPath expression
@@ -1567,6 +1572,7 @@ fn handle_command(
     runtime: &Runtime,
     rl: &mut Editor<JmespathHelper, DefaultHistory>,
     data_fields: &Rc<RefCell<Vec<String>>>,
+    history_evicted: Option<usize>,
 ) -> Result<CommandControl> {
     let (cmd, arg) = split_command(line);
 
@@ -1615,6 +1621,13 @@ fn handle_command(
                 "  {}.describe <fn>{}   Describe a function",
                 colors::function(),
                 colors::reset()
+            );
+            println!(
+                "  {}.history [n]{}     Show the last n history entries (default {}, max {})",
+                colors::function(),
+                colors::reset(),
+                DEFAULT_HISTORY_COUNT,
+                MAX_HISTORY_COUNT
             );
             println!(
                 "  {}.clear{}           Clear screen",
@@ -1826,6 +1839,19 @@ fn handle_command(
             }
         }
 
+        ".history" => {
+            let count = parse_history_count(arg)?;
+            if let Some(evicted) = history_evicted {
+                print_history(rl.history(), evicted, count);
+            } else {
+                println!(
+                    "{}History is disabled for this session (--no-history). Restart the REPL without --no-history to load, record, and save history.{}",
+                    colors::info(),
+                    colors::reset()
+                );
+            }
+        }
+
         ".clear" | ".cls" => {
             print!("\x1b[2J\x1b[H");
         }
@@ -1841,6 +1867,74 @@ fn handle_command(
     }
 
     Ok(CommandControl::Continue)
+}
+
+const DEFAULT_HISTORY_COUNT: usize = 20;
+const MAX_HISTORY_COUNT: usize = 1000;
+
+fn parse_history_count(arg: Option<&str>) -> Result<usize> {
+    let Some(raw) = arg else {
+        return Ok(DEFAULT_HISTORY_COUNT);
+    };
+    raw.bytes()
+        .all(|b| b.is_ascii_digit())
+        .then(|| raw.parse::<usize>().ok())
+        .flatten()
+        .filter(|count| (1..=MAX_HISTORY_COUNT).contains(count))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Invalid history count '{}'. Usage: .history [count], where count is a whole number from 1 to {} (default {}).",
+                raw,
+                MAX_HISTORY_COUNT,
+                DEFAULT_HISTORY_COUNT
+            )
+        })
+}
+
+/// Add `line` to the bounded history, counting any entry the store evicts so
+/// the surviving entries keep their numbers. Lines Rustyline declines (such as
+/// consecutive duplicates) leave the count unchanged.
+fn record_history(history: &mut DefaultHistory, line: &str, evicted: &mut usize) {
+    let before = history.len();
+    if let Ok(true) = history.add(line) {
+        *evicted += (before + 1).saturating_sub(history.len());
+    }
+}
+
+/// The last `count` entries in chronological order with their session-stable
+/// one-based numbers: entries loaded at startup start at 1, and numbers do not
+/// shift as the bounded store evicts its oldest entries.
+fn recent_history(history: &DefaultHistory, evicted: usize, count: usize) -> Vec<(usize, &str)> {
+    let len = history.len();
+    history
+        .iter()
+        .enumerate()
+        .skip(len.saturating_sub(count))
+        .map(|(index, entry)| (evicted + index + 1, entry.as_str()))
+        .collect()
+}
+
+/// Print the last `count` entries in chronological order.
+fn print_history(history: &DefaultHistory, evicted: usize, count: usize) {
+    let entries = recent_history(history, evicted, count);
+    let Some(&(last, _)) = entries.last() else {
+        println!(
+            "{}No history yet. Queries and commands you enter will appear here.{}",
+            colors::info(),
+            colors::reset()
+        );
+        return;
+    };
+    let width = last.to_string().len();
+    for (number, entry) in entries {
+        println!(
+            "{}{:>width$}{}  {}",
+            colors::hint(),
+            number,
+            colors::reset(),
+            entry
+        );
+    }
 }
 
 fn demo_names() -> String {
@@ -1915,6 +2009,71 @@ fn load_json_file(path: &str) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_count_defaults_and_enforces_range() {
+        assert_eq!(parse_history_count(None).unwrap(), DEFAULT_HISTORY_COUNT);
+        assert_eq!(parse_history_count(Some("1")).unwrap(), 1);
+        assert_eq!(parse_history_count(Some("1000")).unwrap(), 1000);
+        for bad in [
+            "0",
+            "-1",
+            "+5",
+            "1001",
+            "abc",
+            "2 3",
+            "1.5",
+            "99999999999999999999",
+        ] {
+            let err = parse_history_count(Some(bad)).unwrap_err().to_string();
+            assert!(
+                err.contains("Usage: .history [count]") && err.contains("from 1 to 1000"),
+                "{bad}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn history_numbers_stay_stable_as_bounded_history_evicts() {
+        let mut history = DefaultHistory::new();
+        let mut evicted = 0;
+        for n in 1..=150 {
+            record_history(&mut history, &format!("q{n}"), &mut evicted);
+        }
+        let capacity = history.len();
+        assert!(capacity < 150, "test must exceed the real history capacity");
+        assert_eq!(evicted, 150 - capacity);
+        assert_eq!(recent_history(&history, evicted, 1), [(150, "q150")]);
+        let oldest = format!("q{}", 151 - capacity);
+        let all = recent_history(&history, evicted, MAX_HISTORY_COUNT);
+        assert_eq!(all.len(), capacity);
+        assert_eq!(all[0], (151 - capacity, oldest.as_str()));
+
+        record_history(&mut history, "q151", &mut evicted);
+        assert_eq!(
+            recent_history(&history, evicted, 2),
+            [(150, "q150"), (151, "q151")],
+            "retained entries keep their numbers after eviction"
+        );
+        assert_eq!(
+            recent_history(&history, evicted, 2),
+            [(150, "q150"), (151, "q151")],
+            "repeated display does not advance numbering"
+        );
+
+        record_history(&mut history, "q151", &mut evicted);
+        assert_eq!(history.len(), capacity);
+        assert_eq!(
+            recent_history(&history, evicted, 2),
+            [(150, "q150"), (151, "q151")],
+            "a declined consecutive duplicate does not advance numbering"
+        );
+        record_history(&mut history, "q152", &mut evicted);
+        assert_eq!(
+            recent_history(&history, evicted, 2),
+            [(151, "q151"), (152, "q152")]
+        );
+    }
 
     #[test]
     fn command_splitting_accepts_any_whitespace() {

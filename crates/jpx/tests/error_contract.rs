@@ -413,6 +413,31 @@ mod arguments {
     }
 
     #[test]
+    fn invalid_repl_history_count_teaches_syntax_and_range() {
+        jpx()
+            .args(["--repl", "--no-history", "--color", "never"])
+            .write_stdin(".history 0\n.exit\n")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("Usage: .history [count]")
+                    .and(predicate::str::contains("from 1 to 1000")),
+            );
+    }
+
+    #[test]
+    fn repl_history_when_disabled_says_how_to_enable() {
+        jpx()
+            .args(["--repl", "--no-history", "--color", "never"])
+            .write_stdin(".history\n.exit\n")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Restart the REPL without --no-history",
+            ));
+    }
+
+    #[test]
     fn malformed_repl_startup_json_names_the_fix() {
         let mut file = NamedTempFile::new().expect("create temp JSON");
         file.write_all(b"{not json}").expect("write invalid JSON");
