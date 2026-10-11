@@ -2,6 +2,8 @@
 //!
 //! This module wraps jpx_engine functionality in MCP tool handlers.
 
+mod typed_json;
+
 use crate::FileAccessPolicy;
 use jpx_engine::{
     Category, DiscoverySpec, EngineConfig, InspectLimits, JpxEngine,
@@ -345,7 +347,7 @@ fn error_result(message: impl Into<String>) -> CallToolResult {
 /// cap already enforced for `evaluate_file`, so the inline-JSON tools cannot be
 /// used to drive unbounded memory use from a single request.
 const MAX_INLINE_JSON_BYTES: usize = 50 * 1024 * 1024;
-/// Maximum number of expressions accepted by `batch_evaluate` in one call.
+/// Maximum number of expressions accepted by either batch evaluation tool.
 const MAX_BATCH_EXPRESSIONS: usize = 1000;
 /// Upper bound applied to client-provided result counts (`limit` / `top_k`).
 const MAX_RESULT_LIMIT: usize = 1000;
@@ -1256,7 +1258,7 @@ pub fn build_router_from_config_with_file_access(
     let router = McpRouter::new()
         .server_info("jpx-mcp", env!("CARGO_PKG_VERSION"))
         .instructions(
-            "JMESPath query tool with 490+ functions. \
+            "JMESPath query server with 33 tools and 490+ functions. \
             \n\nDISCOVERY: Use 'search' to find functions by keyword, 'similar' to find related functions, \
             'functions' to list all (optionally by category), 'describe' for function details, 'categories' to list categories. \
             \n\nDATA ANALYSIS: Use 'stats' to analyze JSON structure before querying, 'paths' to list all paths in dot notation, \
@@ -1264,12 +1266,22 @@ pub fn build_router_from_config_with_file_access(
             \n\nQUERYING: Use 'evaluate' to run JMESPath queries, 'evaluate_file' to query JSON files directly, \
             'batch_evaluate' for multiple expressions against the same input, 'validate' to check expression syntax, \
             'explain' to get a step-by-step breakdown of what an expression does. \
+            \n\nTYPED COMPOSITION: Use 'evaluate_json' or 'batch_evaluate_json' with required native JSON 'input' \
+            (strings stay literal, null is allowed) and 'expression' or 'expressions'. No other fields are accepted. \
+            Both return schema_version: 1 envelopes in structuredContent and equivalent JSON text. \
+            Read structuredContent.result or ordered results entries (each has result or error). \
+            Input is limited to 50 MiB of compact serialized UTF-8 JSON; batches allow at most 1000 expressions. \
+            Transport has already allocated the input; result size and evaluation allocations are not bounded. \
+            For JSON text or exact integers already rounded by a client, use the original text with 'evaluate', \
+            'batch_evaluate', or 'evaluate_file'; typed input cannot repair prior rounding. \
             \n\nJSON UTILITIES: Use 'format' to pretty-print JSON, 'diff' to generate RFC 6902 JSON Patches, \
             'patch' to apply RFC 6902 patches, 'merge' to apply RFC 7396 JSON Merge Patches. \
             \n\nLET EXPRESSIONS: JEP-18 let expressions are supported for variable bindings: \
             'let $var = expr in body'. Use for naming intermediate results and simplifying complex queries."
         )
         .tool(evaluate)
+        .tool(typed_json::evaluate_tool(engine.clone()))
+        .tool(typed_json::batch_evaluate_tool(engine.clone()))
         .tool(functions)
         .tool(describe)
         .tool(batch_describe)

@@ -56,8 +56,7 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    // Should have 32 tools (30 + batch_describe + inspect)
-    assert_eq!(tools.len(), 32, "Expected 32 tools, got {}", tools.len());
+    assert_eq!(tools.len(), 34, "Expected 34 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -67,6 +66,8 @@ async fn test_list_tools() {
     // Core evaluation tools
     assert!(tool_names.contains(&"evaluate"));
     assert!(tool_names.contains(&"batch_evaluate"));
+    assert!(tool_names.contains(&"evaluate_json"));
+    assert!(tool_names.contains(&"batch_evaluate_json"));
     assert!(tool_names.contains(&"validate"));
     assert!(tool_names.contains(&"evaluate_file"));
 
