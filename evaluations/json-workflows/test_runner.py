@@ -85,7 +85,7 @@ class Validation(unittest.TestCase):
         self.assertGreaterEqual(len(CORPUS["cases"]), 20)
 
     def test_every_known_failure_records_its_wrong_result(self):
-        errors = self.errors_after(lambda c: c["large-id-compare"]["jpx"].pop("known_result"))
+        errors = self.errors_after(lambda c: c["large-id-compare"]["js"].pop("known_result"))
         self.assertTrue(any("known_result" in e for e in errors), errors)
 
     def test_rejects_ambiguous_expectation(self):

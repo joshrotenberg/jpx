@@ -69,12 +69,11 @@ run can `pass` a labelled jpx difference (documented behavior) and still have
 
 Known failures:
 
-- `#259`: jpx compares numbers as `f64`, so ids above 2^53 compare equal
-  (`large-id-compare`, `large-id-filter`). Once the fix lands, run with
-  `--require-fixed '#259'` to require the corrected results.
-  In default mode they are reported as `stale` until you remove the marker.
 - `js-number-precision`: plain `JSON.parse` rounds integers above 2^53.
 - `js-undefined-not-error`: `x.length` on a number gives `undefined`, not an error.
+
+The jpx `large-id-compare` and `large-id-filter` cases require the exact numeric
+results fixed in #259; they no longer carry known-failure markers.
 
 ## Labelled jpx differences
 
@@ -142,7 +141,7 @@ these numbers is a token or agent-cost measurement.
   latency data, and the go/adjust/remove decision.
 
 The `JSON workflows` CI job builds the CLI, runs the runner's unit tests and
-the corpus, and uploads its JSON report. When #259 lands, remove its known
-failure markers and recorded wrong results together; the stale-result check
-deliberately makes that update visible. To evaluate the fix before merging it,
-run with `--require-fixed '#259'`.
+the corpus, and uploads its JSON report. When a known failure is fixed, remove
+its marker and recorded wrong result together; the stale-result check makes
+that update visible. Before removing a marker, `--require-fixed TAG` requires
+the corrected result for the tagged cases.

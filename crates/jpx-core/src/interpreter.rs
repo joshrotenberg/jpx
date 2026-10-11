@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::Context;
 use crate::ast::Ast;
+use crate::runtime::RegisteredFunction;
 use crate::value_ext::ValueExt;
 use crate::{ErrorReason, JmespathError, RuntimeError, make_expref_sentinel};
 
@@ -281,9 +282,8 @@ fn eval_multi_hash<'a>(
     Ok(Cow::Owned(Value::Object(collected)))
 }
 
-/// Arguments are materialised because `Function::evaluate` takes `&[Value]`.
-/// Moving that boundary onto borrowed arguments is a separate change; it would
-/// touch every function implementation.
+/// Keep arguments borrowed until dispatch. Opted-in builtins inspect them
+/// directly; existing public function implementations receive owned arguments.
 #[inline(never)]
 fn eval_function<'a>(
     data: &'a Value,
@@ -292,13 +292,49 @@ fn eval_function<'a>(
     offset: usize,
     ctx: &mut Context<'_>,
 ) -> EvalResult<'a> {
-    let mut fn_args: Vec<Value> = Vec::with_capacity(args.len());
+    let runtime = ctx.runtime;
+    let registered = runtime.get_registered_function(name);
+    if matches!(registered, Some(RegisteredFunction::Borrowed(_))) {
+        let mut fn_args = Vec::with_capacity(args.len());
+        for arg in args {
+            fn_args.push(interpret_cow(data, arg, ctx)?);
+        }
+        ctx.offset = offset;
+        // A custom argument function can replace the public Context.runtime.
+        // Resolve the function after evaluating arguments, as the owned path does.
+        let registered = if std::ptr::eq(runtime, ctx.runtime) {
+            registered
+        } else {
+            ctx.runtime.get_registered_function(name)
+        };
+        return match registered {
+            Some(RegisteredFunction::Borrowed(f)) => {
+                f.evaluate_borrowed(&fn_args, ctx).map(Cow::Owned)
+            }
+            Some(RegisteredFunction::Owned(f)) => {
+                let fn_args: Vec<Value> = fn_args.into_iter().map(Cow::into_owned).collect();
+                f.evaluate(&fn_args, ctx).map(Cow::Owned)
+            }
+            None => {
+                let reason = ErrorReason::Runtime(RuntimeError::UnknownFunction(name.to_owned()));
+                Err(JmespathError::from_ctx(ctx, reason))
+            }
+        };
+    }
+
+    // Ordinary functions keep a single argument vector and move owned results.
+    let mut fn_args = Vec::with_capacity(args.len());
     for arg in args {
         fn_args.push(interpret_cow(data, arg, ctx)?.into_owned());
     }
     ctx.offset = offset;
-    match ctx.runtime.get_function(name) {
-        Some(f) => f.evaluate(&fn_args, ctx).map(Cow::Owned),
+    let registered = if std::ptr::eq(runtime, ctx.runtime) {
+        registered
+    } else {
+        ctx.runtime.get_registered_function(name)
+    };
+    match registered {
+        Some(f) => f.as_function().evaluate(&fn_args, ctx).map(Cow::Owned),
         None => {
             let reason = ErrorReason::Runtime(RuntimeError::UnknownFunction(name.to_owned()));
             Err(JmespathError::from_ctx(ctx, reason))
@@ -554,6 +590,35 @@ mod tests {
             .join()
             .expect("deep evaluation must not overflow the stack");
         assert!(msg.contains("Recursion limit"), "unexpected message: {msg}");
+    }
+
+    #[test]
+    fn deep_function_eval_errors_gracefully() {
+        use crate::ast::Ast;
+
+        // Exercise both dispatch frames on a typical async worker stack.
+        // Construct the AST directly to bypass the parser's nesting limit.
+        for function in ["length", "abs"] {
+            let msg = std::thread::Builder::new()
+                .stack_size(2 * 1024 * 1024)
+                .spawn(move || {
+                    let mut ast = Ast::Identity { offset: 0 };
+                    for _ in 0..400 {
+                        ast = Ast::Function {
+                            offset: 0,
+                            name: function.to_owned(),
+                            args: vec![ast],
+                        };
+                    }
+                    let rt = crate::Runtime::strict();
+                    let expr = crate::Expression::new("<deep function>", ast, &rt);
+                    format!("{}", expr.search(&json!(0)).unwrap_err())
+                })
+                .unwrap()
+                .join()
+                .expect("nested functions must not overflow the stack");
+            assert!(msg.contains("Recursion limit"), "unexpected message: {msg}");
+        }
     }
 
     #[test]
