@@ -70,18 +70,36 @@ fn topic_is_exact_installable_skill_with_valid_frontmatter() {
         .success()
         .stderr("")
         .stdout(TOPIC);
-    let (yaml, body) = TOPIC
+    let metadata = validate_skill_structure(TOPIC);
+    assert_eq!(metadata["name"].as_str().unwrap(), "jpx-query-libraries");
+}
+
+/// Structural checks only; the embedded bytes are compared exactly elsewhere.
+/// CRLF is normalized so a `core.autocrlf` checkout of the asset still parses.
+fn validate_skill_structure(markdown: &str) -> serde_yaml::Value {
+    let markdown = markdown.replace("\r\n", "\n");
+    let (yaml, body) = markdown
         .strip_prefix("---\n")
         .unwrap()
         .split_once("\n---\n")
         .unwrap();
     let metadata: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
     let name = metadata["name"].as_str().unwrap();
-    assert_eq!(name, "jpx-query-libraries");
     assert!(name.len() <= 64);
     assert!(name.bytes().all(|c| c.is_ascii_lowercase() || c == b'-'));
     assert!(!metadata["description"].as_str().unwrap().is_empty());
     assert!(body.contains("```sh\n"));
+    metadata
+}
+
+#[test]
+fn skill_structure_validation_accepts_lf_and_crlf() {
+    let lf = TOPIC.replace("\r\n", "\n");
+    let crlf = lf.replace('\n', "\r\n");
+    assert_eq!(
+        validate_skill_structure(&lf),
+        validate_skill_structure(&crlf)
+    );
 }
 
 #[test]
