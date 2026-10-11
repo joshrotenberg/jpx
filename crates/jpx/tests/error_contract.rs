@@ -232,6 +232,48 @@ mod random_integer_bounds {
 mod arguments {
     use super::*;
 
+    #[test]
+    fn skills_unknown_topic_points_to_the_index() {
+        jpx()
+            .args(["--skills", "unknown"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Use --skills to list available topics",
+            ));
+    }
+
+    #[test]
+    fn skills_conflicts_name_the_incompatible_options() {
+        for conflict in [
+            vec!["-f", "missing.json"],
+            vec!["-Q", "missing.jpx"],
+            vec!["--repl"],
+            vec!["--csv"],
+        ] {
+            jpx()
+                .arg("--skills")
+                .args(conflict)
+                .assert()
+                .failure()
+                .stderr(
+                    predicate::str::contains("--skills")
+                        .and(predicate::str::contains("cannot be used with")),
+                );
+        }
+    }
+
+    #[test]
+    fn json_without_skills_explains_ordinary_json_output() {
+        jpx().args(["--json", "-n", "@"]).assert().failure().stderr(
+            predicate::str::contains("--json is only supported with --skills")
+                .and(predicate::str::contains("remove --json"))
+                .and(predicate::str::contains(
+                    "ordinary queries already output JSON by default",
+                )),
+        );
+    }
+
     /// The other exemplar from the issue: `-Q` plus a trailing positional. The
     /// message must name the workaround, not just the conflict.
     #[test]

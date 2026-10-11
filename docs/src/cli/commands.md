@@ -16,6 +16,32 @@ jpx [OPTIONS] [EXPRESSIONS]...
 
 ## Options
 
+### Offline Agent Instructions
+
+`jpx --skills` prints a small index. `jpx --skills query-libraries` prints a
+complete, installable `SKILL.md` with tested examples for creating, validating,
+and running `.jpx` query libraries. This is the only shipped topic.
+
+The assets are embedded in the binary: a copied binary works offline from an
+empty directory. Skills return before reading stdin, input files, configuration,
+or initializing the query engine. Save the topic's stdout as
+`jpx-query-libraries/SKILL.md` in your agent's supported skill directory.
+
+| Option | Skills output |
+|--------|---------------|
+| `--skills [TOPIC]` | Exact Markdown (index when no topic is supplied) |
+| `--skills [TOPIC] --json` | Pretty JSON |
+| `--skills [TOPIC] -c` | Compact JSON; also works with `--json` |
+
+JSON contains `content` (the exact Markdown) and either `topics` (an array of
+topic names for the index) or `topic` (the selected name). Only explicit flags
+select the format; `JPX_COMPACT` and config defaults do not affect skills output.
+Other query, execution, and output flags conflict with `--skills`; use shell
+redirection to save the output. Unknown topics point back to `--skills`.
+
+`--json` is supported only with `--skills`. For ordinary queries, omit `--json`:
+JSON is already the default, and `-c` retains its usual compact-output behavior.
+
 ### Input/Output
 
 | Option | Description |
