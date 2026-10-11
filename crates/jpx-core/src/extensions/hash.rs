@@ -11,12 +11,12 @@ use crate::{Context, Runtime, arg, defn};
 
 use crc32fast::Hasher as Crc32Hasher;
 use hmac::{Hmac, Mac};
-use md5::{Digest, Md5};
+use md5::Md5;
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 
 // Type aliases for HMAC variants
-type HmacMd5 = Hmac<Md5>;
+type HmacMd5 = hmac_013::Hmac<Md5>;
 type HmacSha1 = Hmac<Sha1>;
 type HmacSha256 = Hmac<Sha256>;
 type HmacSha512 = Hmac<Sha512>;
@@ -57,6 +57,8 @@ defn!(Md5Fn, vec![arg!(string)], None);
 
 impl Function for Md5Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use md5::Digest;
+
         self.signature.validate(args, ctx)?;
 
         let input = args[0].as_str().ok_or_else(|| {
@@ -69,7 +71,7 @@ impl Function for Md5Fn {
         let mut hasher = Md5::new();
         hasher.update(input.as_bytes());
         let result = hasher.finalize();
-        let hex_string = format!("{:x}", result);
+        let hex_string = hex::encode(result);
 
         Ok(Value::String(hex_string))
     }
@@ -83,6 +85,8 @@ defn!(Sha1Fn, vec![arg!(string)], None);
 
 impl Function for Sha1Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use sha1::Digest;
+
         self.signature.validate(args, ctx)?;
 
         let input = args[0].as_str().ok_or_else(|| {
@@ -109,6 +113,8 @@ defn!(Sha256Fn, vec![arg!(string)], None);
 
 impl Function for Sha256Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use sha2::Digest;
+
         self.signature.validate(args, ctx)?;
 
         let input = args[0].as_str().ok_or_else(|| {
@@ -135,6 +141,8 @@ defn!(Sha512Fn, vec![arg!(string)], None);
 
 impl Function for Sha512Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use sha2::Digest;
+
         self.signature.validate(args, ctx)?;
 
         let input = args[0].as_str().ok_or_else(|| {
@@ -161,6 +169,8 @@ defn!(HmacMd5Fn, vec![arg!(string), arg!(string)], None);
 
 impl Function for HmacMd5Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
+        use hmac_013::{KeyInit, Mac};
+
         self.signature.validate(args, ctx)?;
 
         let text = args[0].as_str().ok_or_else(|| {
@@ -181,7 +191,7 @@ impl Function for HmacMd5Fn {
             HmacMd5::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
         mac.update(text.as_bytes());
         let result = mac.finalize();
-        let hex_string = format!("{:x}", result.into_bytes());
+        let hex_string = hex::encode(result.into_bytes());
 
         Ok(Value::String(hex_string))
     }
