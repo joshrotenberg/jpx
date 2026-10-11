@@ -1,0 +1,42 @@
+name: JSON workflows
+
+on:
+  pull_request:
+    paths:
+      - "evaluations/json-workflows/**"
+      - "crates/**"
+      - "Cargo.*"
+      - ".github/workflows/json-workflows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "evaluations/json-workflows/**"
+      - "crates/**"
+      - "Cargo.*"
+      - ".github/workflows/json-workflows.yml"
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Build CLI
+        run: cargo build -p jpx
+      - name: Check runner failure handling
+        run: python3 -m unittest discover -s evaluations/json-workflows -p 'test_*.py'
+      - name: Run synthetic workflow corpus
+        run: python3 evaluations/json-workflows/run.py --jpx target/debug/jpx --json workflow-results.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: json-workflow-results
+          path: workflow-results.json
+          if-no-files-found: ignore

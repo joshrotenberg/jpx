@@ -1,0 +1,4 @@
+{"id":1,"level":"info","msg":"start"}
+{"id":2,"level":"error","msg":"disk full"}
+{"id":3,"level":"info","msg":"retry"}
+{"id":4,"level":"error","msg":"timeout"}
