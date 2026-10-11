@@ -21,7 +21,7 @@ normalization, replay, both generated populations, and failure handling.
 Two entry points are ignored during ordinary tests: the larger campaign and
 single-file replay.
 
-Explicit larger campaign (the same budget used in scheduled CI):
+Explicit larger campaign (the same budget used by the manually dispatched CI workflow):
 
 ```sh
 JPX_DIFF_CASES=1024 JPX_DIFF_SEEDS=249,99537481 \
@@ -30,9 +30,9 @@ JPX_DIFF_CASES=1024 JPX_DIFF_SEEDS=249,99537481 \
 ```
 
 Replace `--no-default-features` with `--all-features` to exercise the feature-rich
-build. `.github/workflows/differential.yml` runs both on a weekly schedule or
-`workflow_dispatch`, with read-only repository permissions, a 20-minute job
-limit, and artifact upload even on failure. Cold CI runners first fetch the
+build. `.github/workflows/differential.yml` initially runs both configurations
+only via `workflow_dispatch`, with read-only repository permissions, a 20-minute
+job limit, and artifact upload even on failure. Cold CI runners first fetch the
 existing locked dependencies; campaign evaluation is offline.
 
 | Control | Default | Bound |
@@ -185,11 +185,17 @@ JPX_DIFF_REPLAY="$PWD/crates/jpx-core/tests/differential/reproducers/grammar-995
   --test differential differential_replay -- --ignored --exact --nocapture
 ```
 
-These replay commands and the default scheduled larger campaign currently exit
+These replay commands and a manually dispatched larger campaign currently exit
 nonzero with actionable findings. The normal smoke suite is green. This is a
-known initial state, not evidence that either implementation is fully conformant;
-merging this harness activates a weekly job that remains red until the separate
-runtime/reference fixes or an explicitly reviewed policy decision resolve the
-findings. No generator, seed, comparator or allowlist was weakened to hide them.
+known initial state, not evidence that either implementation is fully conformant.
+The workflow starts as manual-only; its failing test exit is preserved, and full
+logs and reproducers are uploaded even on failure. Track follow-up work in
+[issue #249](https://github.com/joshrotenberg/jpx/issues/249). Before enabling a
+schedule, resolve or deliberately review the exact discrepancies documented above
+in separate follow-up work, confirm that both configurations pass the unchanged
+1,024-case-per-population campaign with seeds 249 and 99537481, and validate
+failure reporting and artifact handling. Enable the schedule only in a separately
+reviewed PR. Runtime/reference corrections are separate from this readiness patch.
+No generator, seed, comparator or allowlist was weakened to hide the findings.
 The sampled compliance population supplements the existing exhaustive vendored
 suite; it does not replace it or promise every corpus pair appears in one run.

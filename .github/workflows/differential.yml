@@ -1,8 +1,6 @@
 name: JMESPath differential campaign
 
 on:
-  schedule:
-    - cron: "23 7 * * 1"
   workflow_dispatch:
 
 permissions:
