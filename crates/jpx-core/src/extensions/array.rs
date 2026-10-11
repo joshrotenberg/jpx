@@ -1743,9 +1743,7 @@ impl Function for BsearchFn {
             match (a, b) {
                 // Numbers: compare numerically
                 (Value::Number(n1), Value::Number(n2)) => {
-                    let f1 = n1.as_f64().unwrap_or(0.0);
-                    let f2 = n2.as_f64().unwrap_or(0.0);
-                    f1.partial_cmp(&f2).unwrap_or(std::cmp::Ordering::Equal)
+                    crate::value_ext::compare_numbers(n1, n2).unwrap_or(std::cmp::Ordering::Equal)
                 }
                 // Strings: compare lexicographically
                 (Value::String(s1), Value::String(s2)) => s1.cmp(s2),

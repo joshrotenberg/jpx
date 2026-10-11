@@ -4,7 +4,7 @@
 
 **Signature:** `number? -> string`
 
-Generate nanoid
+Generate nanoid with an optional whole-number size from 0 through 1024 inclusive (integral floats accepted). Defaults to 21 characters; size 0 returns an empty string.
 
 ```
 nanoid() -> \"V1StGXR8_Z5jdHi6B-myT\"

@@ -24,8 +24,10 @@
 //! - **`arrow`** - Enables Apache Arrow support for columnar data conversion.
 //!   This adds the `arrow` module with functions to convert between Arrow
 //!   RecordBatches and JSON Values. Used by the CLI for Parquet I/O.
-//! - **`let-expr`** - Enables `let` expression support (variable bindings in
-//!   JMESPath expressions). Forwarded from jpx-core. Enabled by default.
+//! - **`let-expr`** - Forwards `let` expression support (variable bindings in
+//!   JMESPath expressions) to jpx-core. Core dependency defaults also enable it.
+//!   Use [`JpxEngine::supports_let_expressions`] to inspect effective support,
+//!   including the engine's strict-mode restrictions.
 //! - **`schema`** - Derives `JsonSchema` on discovery types for JSON Schema
 //!   generation. Used by the MCP server for tool schemas.
 //!
@@ -489,6 +491,15 @@ impl JpxEngine {
         self.strict
     }
 
+    /// Returns whether this engine accepts JEP-18 let expressions.
+    ///
+    /// Reports the underlying core's syntax support, subject to this engine's
+    /// strict mode. Cargo features on an adapter crate alone do not determine
+    /// which features are enabled on the core dependency.
+    pub fn supports_let_expressions(&self) -> bool {
+        self.runtime.supports_let_expressions() && !self.strict
+    }
+
     /// Returns a reference to the underlying JMESPath runtime.
     ///
     /// This provides access to the low-level runtime for advanced use cases.
@@ -701,6 +712,21 @@ mod tests {
     fn test_engine_strict_mode() {
         let engine = JpxEngine::strict();
         assert!(engine.is_strict());
+    }
+
+    #[test]
+    fn let_capability_matches_evaluation_and_validation() {
+        let expression = "let $value = value in $value";
+        for engine in [JpxEngine::new(), JpxEngine::strict()] {
+            assert_eq!(
+                engine.supports_let_expressions(),
+                engine.evaluate(expression, &json!({"value": 42})).is_ok()
+            );
+            assert_eq!(
+                engine.supports_let_expressions(),
+                engine.validate(expression).valid
+            );
+        }
     }
 
     #[test]

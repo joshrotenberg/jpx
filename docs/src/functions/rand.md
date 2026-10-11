@@ -10,7 +10,7 @@ Random number and sampling functions.
 |----------|-----------|-------------|
 | [`random`](#random) | `-> number` | Generate random number between 0 and 1 |
 | [`random_choice`](#random_choice) | `array -> any` | Pick a random element from an array |
-| [`random_int`](#random_int) | `number, number -> number` | Generate a random integer in an inclusive range [min, max] |
+| [`random_int`](#random_int) | `number, number -> number` | Generate a random integer in an inclusive range [min, max]. Bounds must be integral numbers in [-9223372036854775808, 9223372036854775807], with min <= max; fractions and out-of-range values are rejected. Use JSON integer notation to preserve exact large bounds. |
 | [`sample`](#sample) | `array, number -> array` | Random sample from array |
 | [`shuffle`](#shuffle) | `array -> array` | Randomly shuffle array |
 
@@ -48,7 +48,7 @@ random_choice([]) -> null
 
 ### random_int
 
-Generate a random integer in an inclusive range [min, max]
+Generate a random integer in an inclusive range [min, max]. Bounds must be integral numbers in [-9223372036854775808, 9223372036854775807], with min <= max; fractions and out-of-range values are rejected. Use JSON integer notation to preserve exact large bounds.
 
 **Signature:** `number, number -> number`
 
@@ -59,6 +59,8 @@ Generate a random integer in an inclusive range [min, max]
 random_int(`1`, `10`) -> 7
 # Coin flip
 random_int(`0`, `1`) -> 0
+# Exact large integer bound
+random_int(`9007199254740993`, `9007199254740993`) -> 9007199254740993
 ```
 
 ### sample

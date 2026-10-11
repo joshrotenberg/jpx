@@ -1,0 +1,13 @@
+{
+  "id": 7001,
+  "status": "completed",
+  "conclusion": "failure",
+  "head_sha": "a1b2c3d",
+  "jobs": [
+    {"name": "lint", "conclusion": "success", "seconds": 12},
+    {"name": "test", "conclusion": "failure", "seconds": 95},
+    {"name": "build", "conclusion": "success", "seconds": 40},
+    {"name": "docs", "conclusion": null, "seconds": 0}
+  ],
+  "body": "{\"report\":{\"ok\":false,\"counts\":[2,3]}}"
+}

@@ -2,7 +2,7 @@
 
 Let expressions allow binding intermediate results to named variables.
 
-**Support:** jpx, jpx-core. Not all JMESPath implementations support let expressions.
+**Support:** jpx, jpx-core. Not all JMESPath implementations support let expressions. Standard builds of the `jpx` CLI and `jpx-mcp` server support them, because `jpx-core` enables its `let-expr` feature by default (`--features let-expr` still works but isn't required). Rust projects embedding `jpx-core` with `default-features = false` must opt in to `let-expr`. Strict mode (`--strict`) rejects `let` regardless of features.
 
 ## Basic Syntax
 

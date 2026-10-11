@@ -152,6 +152,28 @@ mod expressions {
             .stderr(predicate::str::contains("step cannot be 0"));
     }
 
+    #[test]
+    fn random_empty_or_reversed_range_names_the_fix() {
+        for expression in ["random(`1`, `1`)", "random(`2`, `1`)"] {
+            jpx()
+                .args(["-n", expression])
+                .assert()
+                .code(1)
+                .stderr(predicate::str::contains("Use a minimum strictly less"))
+                .stderr(predicate::str::contains("panicked").not());
+        }
+    }
+
+    #[test]
+    fn random_overflowing_range_names_the_fix() {
+        jpx()
+            .args(["-n", "random(`-1e308`, `1e308`)"])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("Use a narrower range"))
+            .stderr(predicate::str::contains("panicked").not());
+    }
+
     /// Errors carry a caret line locating the failure in the expression. That
     /// is the positional half of the contract.
     #[test]
@@ -161,6 +183,45 @@ mod expressions {
             .assert()
             .failure()
             .stderr(predicate::str::contains("^"));
+    }
+}
+
+mod random_integer_bounds {
+    use super::*;
+
+    #[test]
+    fn invalid_bounds_name_the_integer_constraint() {
+        for (expression, bound) in [
+            ("random_int(`1.5`, `2`)", "min"),
+            ("random_int(`0`, `2.5`)", "max"),
+            (
+                "random_int(`9223372036854775808`, `9223372036854775808`)",
+                "min",
+            ),
+            ("random_int(`0`, `18446744073709551615`)", "max"),
+            ("random_int(`-1e30`, `0`)", "min"),
+            ("random_int(`0`, `1e30`)", "max"),
+            ("random_int('1', `2`)", "min"),
+        ] {
+            jpx().args(["-n", expression]).assert().code(1).stderr(
+                predicate::str::contains(format!("random_int() {bound} must be an integer"))
+                    .and(predicate::str::contains(
+                        "[-9223372036854775808, 9223372036854775807]",
+                    ))
+                    .and(predicate::str::contains("panicked").not()),
+            );
+        }
+    }
+
+    #[test]
+    fn reversed_bounds_name_the_ordering_constraint() {
+        jpx()
+            .args(["-n", "random_int(`9007199254740993`, `9007199254740992`)"])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(
+                "min must be less than or equal to max",
+            ));
     }
 }
 
@@ -394,5 +455,48 @@ mod input {
             .assert()
             .failure()
             .stderr(predicate::str::contains("JSON"));
+    }
+}
+
+mod nanoid {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn invalid_size_states_the_supported_range() {
+        for size in [
+            "-1",
+            "0.5",
+            "1025",
+            "9223372036854775807",
+            "18446744073709551615",
+            "1e100",
+            "\"10\"",
+            "null",
+            "true",
+            "[]",
+            "{}",
+        ] {
+            jpx()
+                .timeout(Duration::from_secs(5))
+                .args(["-n", &format!("nanoid(`{size}`)")])
+                .assert()
+                .failure()
+                .stderr(predicate::str::contains(
+                    "whole number from 0 through 1024 inclusive",
+                ));
+        }
+    }
+
+    #[test]
+    fn extra_arguments_state_the_limit() {
+        jpx()
+            .timeout(Duration::from_secs(5))
+            .args(["-n", "nanoid(`10`, `20`)"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Too many arguments: expected 1, got 2",
+            ));
     }
 }

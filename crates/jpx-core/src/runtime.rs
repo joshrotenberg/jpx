@@ -61,6 +61,15 @@ impl Runtime {
         RuntimeBuilder::new()
     }
 
+    /// Returns whether this runtime can compile and evaluate JEP-18 let expressions.
+    ///
+    /// This reflects the features enabled on `jpx-core`, including features
+    /// enabled by other dependencies. Function registration does not affect
+    /// syntax support; higher-level engines may impose additional restrictions.
+    pub const fn supports_let_expressions(&self) -> bool {
+        cfg!(feature = "let-expr")
+    }
+
     /// Creates a new JMESPath expression from an expression string.
     #[inline]
     pub fn compile<'a>(&'a self, expression: &str) -> Result<Expression<'a>, JmespathError> {
@@ -237,6 +246,19 @@ mod tests {
             rt.get_registered_function("length"),
             Some(RegisteredFunction::Borrowed(_))
         ));
+    }
+
+    #[test]
+    fn let_capability_matches_compilation() {
+        // Runtime::strict restricts functions, not syntax. The engine applies
+        // the additional strict-mode syntax restriction.
+        for rt in [Runtime::new(), Runtime::strict()] {
+            let expr = rt.compile("let $value = value in $value");
+            assert_eq!(rt.supports_let_expressions(), expr.is_ok());
+            if let Ok(expr) = expr {
+                assert_eq!(expr.search(&json!({"value": 42})).unwrap(), json!(42));
+            }
+        }
     }
 
     #[test]

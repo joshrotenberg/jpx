@@ -20,10 +20,12 @@ thiserror = "2"
 
 # Extension dependencies (optional, pulled in by extensions feature)
 heck = { version = "0.5", optional = true }
-md-5 = { version = "0.10", optional = true }
+md-5 = { version = "0.11", optional = true }
 sha1 = { version = "0.10", optional = true }
 sha2 = { version = "0.10", optional = true }
 hmac = { version = "0.12", optional = true }
+# The upgraded hashes use digest 0.11; SHA-2 still needs hmac 0.12/digest 0.10.
+hmac-013 = { package = "hmac", version = "0.13", optional = true }
 crc32fast = { version = "1.5", optional = true }
 base64 = { version = "0.23", optional = true }
 urlencoding = { version = "2.1", optional = true }
@@ -32,7 +34,8 @@ url = { version = "2.5", optional = true }
 form_urlencoded = { version = "1", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 hex = { version = "0.4", optional = true }
-rand = { version = "0.8", optional = true }
+# Preserve unbiased integer/index sampling from rand 0.8.
+rand = { version = "0.9", features = ["unbiased"], optional = true }
 chrono = { version = "0.4", optional = true }
 chrono-tz = { version = "0.10", optional = true }
 interim = { version = "0.2", features = ["chrono_0_4"], optional = true }
@@ -43,14 +46,14 @@ geoutils = { version = "0.5", optional = true }
 geohash = { version = "0.13", optional = true }
 semver_crate = { package = "semver", version = "1.0", optional = true }
 ipnetwork = { version = "0.21", optional = true }
-nanoid = { version = "0.4", optional = true }
+nanoid = { version = "0.5", optional = true }
 ulid = { version = "1.1", optional = true }
 json-patch = { version = "4.0", optional = true }
 aho-corasick = { version = "1.1", optional = true }
 csv = { version = "1.3", optional = true }
 whatlang = { version = "0.18", optional = true }
 rust-stemmers = { version = "1.2", optional = true }
-stop-words = { version = "0.10", optional = true }
+stop-words = { version = "0.10.1", optional = true }
 unicode-normalization = { version = "0.1", optional = true }
 
 [build-dependencies]
@@ -76,7 +79,7 @@ harness = false
 default = ["extensions", "let-expr"]
 extensions = [
     "dep:heck",
-    "dep:md-5", "dep:sha1", "dep:sha2", "dep:hmac", "dep:crc32fast",
+    "dep:md-5", "dep:sha1", "dep:sha2", "dep:hmac", "dep:hmac-013", "dep:crc32fast",
     "dep:base64", "dep:hex",
     "dep:urlencoding", "dep:url", "dep:form_urlencoded",
     "dep:regex",

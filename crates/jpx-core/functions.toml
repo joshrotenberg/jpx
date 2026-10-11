@@ -2138,7 +2138,7 @@ features = ["core"]
 [[functions]]
 name = "nanoid"
 category = "ids"
-description = "Generate nanoid"
+description = "Generate nanoid with an optional whole-number size from 0 through 1024 inclusive (integral floats accepted). Defaults to 21 characters; size 0 returns an empty string."
 signature = "number? -> string"
 examples = [
     { code = '''nanoid() -> \"V1StGXR8_Z5jdHi6B-myT\"''', description = "Default 21 chars" },
@@ -3796,11 +3796,12 @@ features = ["core"]
 [[functions]]
 name = "random_int"
 category = "rand"
-description = "Generate a random integer in an inclusive range [min, max]"
+description = "Generate a random integer in an inclusive range [min, max]. Bounds must be integral numbers in [-9223372036854775808, 9223372036854775807], with min <= max; fractions and out-of-range values are rejected. Use JSON integer notation to preserve exact large bounds."
 signature = "number, number -> number"
 examples = [
     { code = "random_int(`1`, `10`) -> 7", description = "Random integer 1-10" },
     { code = "random_int(`0`, `1`) -> 0", description = "Coin flip" },
+    { code = "random_int(`9007199254740993`, `9007199254740993`) -> 9007199254740993", description = "Exact large integer bound" },
 ]
 features = ["core"]
 

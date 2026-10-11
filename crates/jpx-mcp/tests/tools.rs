@@ -167,6 +167,62 @@ async fn test_evaluate_with_extension_function() {
 }
 
 #[tokio::test]
+async fn test_evaluate_random_int_exact_bounds_and_recovery() {
+    let mut client = create_client().await;
+    for (input, expected) in [
+        (
+            r#"{"min": 9007199254740993, "max": 9007199254740993}"#,
+            "9007199254740993",
+        ),
+        (
+            r#"{"min": -9007199254740993, "max": -9007199254740993}"#,
+            "-9007199254740993",
+        ),
+        (
+            r#"{"min": 9223372036854775807, "max": 9223372036854775807}"#,
+            "9223372036854775807",
+        ),
+    ] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({ "input": input, "expression": "random_int(min, max)" }),
+            )
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some(expected));
+    }
+
+    for expression in [
+        "random_int(`0`, `1.5`)",
+        "random_int(`0`, `9223372036854775808`)",
+    ] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({ "input": "null", "expression": expression }),
+            )
+            .await;
+        assert!(result.is_error);
+        assert!(
+            result
+                .first_text()
+                .unwrap()
+                .contains("max must be an integer")
+        );
+    }
+
+    let result = client
+        .call_tool(
+            "evaluate",
+            json!({ "input": "null", "expression": "random_int(`5`, `5`)" }),
+        )
+        .await;
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("5"));
+}
+
+#[tokio::test]
 async fn test_evaluate_invalid_expression() {
     let mut client = create_client().await;
 
@@ -181,6 +237,30 @@ async fn test_evaluate_invalid_expression() {
         .await;
 
     assert!(result.get("code").is_some() || result.get("isError").is_some());
+}
+
+#[tokio::test]
+async fn test_random_invalid_range_returns_recoverable_error() {
+    let mut client = create_client().await;
+    for (expression, recovery) in [
+        ("random(`1`, `1`)", "Use a minimum strictly less"),
+        ("random(`2`, `1`)", "Use a minimum strictly less"),
+        ("random(`-1e308`, `1e308`)", "Use a narrower range"),
+    ] {
+        let error = client
+            .call_tool_expect_error(
+                "evaluate",
+                json!({"input": "null", "expression": expression}),
+            )
+            .await;
+        assert!(error.to_string().contains(recovery));
+
+        let result = client
+            .call_tool("evaluate", json!({"input": "42", "expression": "@"}))
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some("42"));
+    }
 }
 
 #[tokio::test]
@@ -1378,4 +1458,34 @@ async fn test_batch_evaluate_within_limit_ok() {
         )
         .await;
     assert!(!result.is_error);
+}
+
+#[tokio::test]
+async fn test_nanoid_invalid_size_same_server_recovery() {
+    let mut client = create_client().await;
+    for size in ["18446744073709551615", "1e100", "-1", "1.5", "1025", "null"] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({"input": "null", "expression": format!("nanoid(`{size}`)")}),
+            )
+            .await;
+        assert!(result.is_error, "{size}: {result:?}");
+        assert!(
+            result
+                .first_text()
+                .unwrap()
+                .contains("whole number from 0 through 1024 inclusive")
+        );
+
+        // Reuse the same initialized client/router after each invalid request.
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({"input": "null", "expression": "length(nanoid(`10`))"}),
+            )
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some("10"));
+    }
 }

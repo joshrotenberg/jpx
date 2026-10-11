@@ -223,15 +223,93 @@ fn adjust_slice_endpoint(len: i32, mut endpoint: i32, step: i32) -> i32 {
     }
 }
 
+/// A JSON number widened to a form that can be compared without loss.
+///
+/// Every integer `serde_json` stores (`i64` or `u64`) fits exactly in `i128`;
+/// everything else is an `f64`.
+#[derive(Clone, Copy)]
+enum ExactNumber {
+    Int(i128),
+    Float(f64),
+}
+
+impl ExactNumber {
+    fn from_number(n: &serde_json::Number) -> Option<Self> {
+        if let Some(i) = n.as_i64() {
+            Some(ExactNumber::Int(i128::from(i)))
+        } else if let Some(u) = n.as_u64() {
+            Some(ExactNumber::Int(i128::from(u)))
+        } else {
+            n.as_f64().map(ExactNumber::Float)
+        }
+    }
+}
+
+/// Compares an integer to a float by mathematical value, without rounding the
+/// integer to `f64`. Returns `None` only when `f` is NaN.
+fn compare_int_float(i: i128, f: f64) -> Option<std::cmp::Ordering> {
+    use std::cmp::Ordering;
+    if f.is_nan() {
+        return None;
+    }
+    // 2^127 is exactly representable; anything at or beyond it (including
+    // infinities) lies outside the i128 range, so the integer is on one side.
+    const TWO_POW_127: f64 = (1u128 << 127) as f64;
+    if f >= TWO_POW_127 {
+        return Some(Ordering::Less);
+    }
+    if f < -TWO_POW_127 {
+        return Some(Ordering::Greater);
+    }
+    // `trunc` is exact and now within [-2^127, 2^127), so the cast is exact
+    // (no saturation). `-0.0` truncates to 0.
+    let whole = f.trunc();
+    match i.cmp(&(whole as i128)) {
+        Ordering::Equal => {
+            // Same integer part: the fractional part (exact) decides.
+            let frac = f - whole;
+            Some(if frac > 0.0 {
+                Ordering::Less
+            } else if frac < 0.0 {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            })
+        }
+        other => Some(other),
+    }
+}
+
+/// Compares two JSON numbers by exact mathematical value.
+///
+/// Contract:
+/// - integer vs integer compares exactly across the full `i64` and `u64` ranges
+///   (e.g. 2^53 and 2^53 + 1 are distinct; `u64::MAX - 1 < u64::MAX`);
+/// - integer vs float compares the integer's true value against the float's
+///   true value, so `1 == 1.0`, `0 == -0.0`, and `2^53 + 1 > 9007199254740992.0`;
+/// - float vs float uses IEEE ordering (`-0.0 == 0.0`).
+///
+/// Returns `None` only if a NaN is involved, which JSON input cannot produce.
+pub(crate) fn compare_numbers(
+    a: &serde_json::Number,
+    b: &serde_json::Number,
+) -> Option<std::cmp::Ordering> {
+    match (ExactNumber::from_number(a)?, ExactNumber::from_number(b)?) {
+        (ExactNumber::Int(x), ExactNumber::Int(y)) => Some(x.cmp(&y)),
+        (ExactNumber::Int(x), ExactNumber::Float(y)) => compare_int_float(x, y),
+        (ExactNumber::Float(x), ExactNumber::Int(y)) => {
+            compare_int_float(y, x).map(std::cmp::Ordering::reverse)
+        }
+        (ExactNumber::Float(x), ExactNumber::Float(y)) => x.partial_cmp(&y),
+    }
+}
+
 /// Equality comparison per JMESPath spec.
-fn values_equal(a: &Value, b: &Value) -> bool {
+pub(crate) fn values_equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Null, Value::Null) => true,
         (Value::Bool(a), Value::Bool(b)) => a == b,
-        (Value::Number(a), Value::Number(b)) => {
-            // Compare as f64 to handle integer/float comparison
-            a.as_f64().zip(b.as_f64()).is_some_and(|(af, bf)| af == bf)
-        }
+        (Value::Number(a), Value::Number(b)) => compare_numbers(a, b).is_some_and(|o| o.is_eq()),
         (Value::String(a), Value::String(b)) => a == b,
         (Value::Array(a), Value::Array(b)) => {
             a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| values_equal(x, y))
@@ -248,11 +326,7 @@ fn values_equal(a: &Value, b: &Value) -> bool {
 /// Ordering comparison per JMESPath spec - only numbers and strings.
 fn compare_ordered(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
     match (a, b) {
-        (Value::Number(a), Value::Number(b)) => {
-            let af = a.as_f64()?;
-            let bf = b.as_f64()?;
-            af.partial_cmp(&bf)
-        }
+        (Value::Number(a), Value::Number(b)) => compare_numbers(a, b),
         (Value::String(a), Value::String(b)) => Some(a.cmp(b)),
         _ => None,
     }
@@ -344,6 +418,87 @@ mod tests {
             json!(1).compare(&Comparator::Equal, &json!("a")),
             Some(false)
         );
+    }
+
+    /// Parses a number from exact JSON text (never via a rounded f64).
+    fn num(text: &str) -> serde_json::Number {
+        serde_json::from_str(text).expect("valid JSON number")
+    }
+
+    /// Asserts `a <ord> b` and the mirrored `b <reverse ord> a`.
+    fn assert_cmp(a: &str, b: &str, expected: std::cmp::Ordering) {
+        assert_eq!(
+            compare_numbers(&num(a), &num(b)),
+            Some(expected),
+            "{a} vs {b}"
+        );
+        assert_eq!(
+            compare_numbers(&num(b), &num(a)),
+            Some(expected.reverse()),
+            "{b} vs {a}"
+        );
+    }
+
+    #[test]
+    fn test_compare_numbers_exact_integers() {
+        use std::cmp::Ordering::*;
+        // Around 2^53, where f64 stops representing every integer.
+        assert_cmp("9007199254740992", "9007199254740993", Less);
+        assert_cmp("-9007199254740992", "-9007199254740993", Greater);
+        assert_cmp("9007199254740993", "9007199254740993", Equal);
+        // i64 limits, and the i64/u64 boundary.
+        assert_cmp("9223372036854775806", "9223372036854775807", Less);
+        assert_cmp("9223372036854775807", "9223372036854775808", Less);
+        assert_cmp("-9223372036854775808", "-9223372036854775807", Less);
+        // u64 limits.
+        assert_cmp("18446744073709551614", "18446744073709551615", Less);
+        // Negative signed vs large unsigned.
+        assert_cmp("-1", "18446744073709551615", Less);
+        assert_cmp("-9223372036854775808", "18446744073709551615", Less);
+    }
+
+    #[test]
+    fn test_compare_numbers_mixed_int_float() {
+        use std::cmp::Ordering::*;
+        assert_cmp("1", "1.0", Equal);
+        assert_cmp("-1", "-1.0", Equal);
+        assert_cmp("0", "-0.0", Equal);
+        assert_cmp("0", "0.0", Equal);
+        assert_cmp("1", "1.5", Less);
+        assert_cmp("2", "1.5", Greater);
+        assert_cmp("-1", "-0.5", Less);
+        assert_cmp("-1", "-1.5", Greater);
+        // 9007199254740992.0 is exactly 2^53; the integer above it must not
+        // round down to it.
+        assert_cmp("9007199254740992", "9007199254740992.0", Equal);
+        assert_cmp("9007199254740993", "9007199254740992.0", Greater);
+        assert_cmp("9007199254740991", "9007199254740992.0", Less);
+        // 2^64 as a float: a saturating `as u64` cast would wrongly make this Equal.
+        assert_cmp("18446744073709551615", "18446744073709551616.0", Less);
+        // -2^63 as a float is exactly i64::MIN.
+        assert_cmp("-9223372036854775808", "-9223372036854775808.0", Equal);
+        assert_cmp("-9223372036854775807", "-9223372036854775808.0", Greater);
+        // Far outside every integer range.
+        assert_cmp("18446744073709551615", "1e300", Less);
+        assert_cmp("-9223372036854775808", "-1e300", Greater);
+    }
+
+    #[test]
+    fn test_compare_numbers_floats() {
+        use std::cmp::Ordering::*;
+        assert_cmp("1.25", "1.5", Less);
+        assert_cmp("-0.0", "0.0", Equal);
+    }
+
+    #[test]
+    fn test_values_equal_exact_nested() {
+        let a: Value = serde_json::from_str(r#"{"ids":[9007199254740992]}"#).unwrap();
+        let b: Value = serde_json::from_str(r#"{"ids":[9007199254740993]}"#).unwrap();
+        let c: Value = serde_json::from_str(r#"{"ids":[9007199254740992.0]}"#).unwrap();
+        assert!(!values_equal(&a, &b));
+        assert!(!values_equal(&b, &a));
+        assert!(values_equal(&a, &c));
+        assert!(values_equal(&c, &a));
     }
 
     #[test]
