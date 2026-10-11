@@ -218,7 +218,7 @@ async fn inspect_rejects_invalid_limits_with_guidance() {
             "max_bytes must be a whole number from 512 to 65536 (default 16384); got 511",
         ),
         ("max_bytes", json!(65537), "got 65537"),
-        ("max_bytes", json!({"n": 1}), "got a object"),
+        ("max_bytes", json!({"n": 1}), "got an object"),
         // Explicit null is not the same as omitting the field.
         (
             "max_depth",

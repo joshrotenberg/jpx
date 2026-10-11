@@ -11,7 +11,7 @@ This project includes [Agent Skills](https://agentskills.io/) in the `skills/` d
 | [`jmespath-query`](skills/jmespath-query/SKILL.md) | Writing JMESPath expressions (syntax, patterns, built-in functions) |
 | [`jpx-functions`](skills/jpx-functions/SKILL.md) | Using the 470+ extension functions (signatures, categories, examples) |
 | [`jpx-cli`](skills/jpx-cli/SKILL.md) | Using the jpx CLI (output formats, streaming, pipelines, REPL) |
-| [`jpx-mcp`](skills/jpx-mcp/SKILL.md) | Using the jpx MCP server (31 tools, discovery, query store) |
+| [`jpx-mcp`](skills/jpx-mcp/SKILL.md) | Using the jpx MCP server (34 tools, discovery, query store) |
 
 Each skill has a SKILL.md overview and a `references/` directory with detailed docs loaded on demand.
 
@@ -27,7 +27,7 @@ Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
 | `jpx` | `crates/jpx/` | CLI with REPL, streaming, multiple output formats (JSON, YAML, CSV, TSV, table) |
 | `jpx-core` | `crates/jpx-core/` | From-scratch JMESPath parser and interpreter, 490+ functions across 33 categories |
 | `jpx-engine` | `crates/jpx-engine/` | Query engine, introspection, BM25 discovery index, config |
-| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (31 tools) built on `tower-mcp` |
+| `jpx-mcp` | `crates/jpx-mcp/` | MCP server (34 tools) built on `tower-mcp` |
 | `python` | `python/` | Python bindings via PyO3 (`jpx` on PyPI) |
 
 ## Error messages are a contract
@@ -205,20 +205,21 @@ Always use `describe` to check a function's exact signature before using it.
 
 ## MCP server tools
 
-The MCP server exposes 31 tools. Key patterns:
+The MCP server exposes 34 tools. Key patterns:
 
 - **`evaluate`** / **`evaluate_file`** — run a JMESPath expression against JSON input or a file
 - **`batch_evaluate`** — run multiple expressions against the same input
+- **`evaluate_json`** / **`batch_evaluate_json`** — query native JSON values and return versioned structured results
 - **`validate`** — check expression syntax without executing
 - **`explain`** — break down an expression into steps
-- **`stats`** / **`paths`** / **`keys`** — analyze JSON structure before querying
+- **`stats`** / **`paths`** / **`keys`** / **`inspect`** — analyze JSON structure before querying; `inspect` bounds traversal and output
 - **`define_query`** / **`run_query`** / **`list_queries`** — ephemeral, process-scoped named query store shared by connected clients
 - **`diff`** / **`patch`** / **`merge`** — JSON Patch (RFC 6902) and Merge Patch (RFC 7396)
 
 ### Workflow for exploring unfamiliar JSON
 
 1. Use `stats` to understand the shape (type, size, depth, field frequency)
-2. Use `paths` or `keys` to see available fields
+2. Use `inspect` for a bounded preview, or `paths`/`keys` to see available fields
 3. Use `evaluate` to run exploratory queries
 4. Use `define_query` to save useful expressions for reuse
 

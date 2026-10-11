@@ -161,7 +161,15 @@ impl LimitSpec {
                 }
             }
             Some(Value::Null) => Err(self.invalid("null")),
-            Some(other) => Err(self.invalid(&format!("a {}", json_type(other)))),
+            Some(other) => {
+                let ty = json_type(other);
+                let article = if matches!(other, Value::Array(_) | Value::Object(_)) {
+                    "an"
+                } else {
+                    "a"
+                };
+                Err(self.invalid(&format!("{article} {ty}")))
+            }
         }
     }
 }
@@ -861,7 +869,8 @@ mod tests {
                 "max_paths must be a whole number from 1 to 1000 (default 100); got 0",
             ),
             (1, json!(1001), "got 1001"),
-            (1, json!([1]), "got a array"),
+            (1, json!([1]), "got an array"),
+            (1, json!({"n": 1}), "got an object"),
             (1, Value::Null, "(default 100); got null"),
             (
                 2,
