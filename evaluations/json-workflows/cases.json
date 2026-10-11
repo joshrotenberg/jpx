@@ -337,7 +337,7 @@
       "profile": "standard",
       "preferred": "jpx",
       "expect": {"json": {"equal": false, "greater": true}},
-      "jpx": {"args": ["{equal: orders[0].id == orders[1].id, greater: orders[0].id > orders[1].id}"], "known_failure": "#259", "known_result": {"json": {"equal": true, "greater": false}}},
+      "jpx": {"args": ["{equal: orders[0].id == orders[1].id, greater: orders[0].id > orders[1].id}"]},
       "python": {"code": "o=J()['orders'];out({'equal':o[0]['id']==o[1]['id'],'greater':o[0]['id']>o[1]['id']})"},
       "js": {"code": "const o=J().orders;out({equal:o[0].id===o[1].id,greater:o[0].id>o[1].id})", "known_failure": "js-number-precision", "known_result": {"json": {"equal": true, "greater": false}}}
     },
@@ -349,7 +349,7 @@
       "profile": "standard",
       "preferred": "jpx",
       "expect": {"json": ["A-1"]},
-      "jpx": {"args": ["orders[?id == `9007199254740993`].sku"], "known_failure": "#259", "known_result": {"json": ["A-1", "B-2"]}},
+      "jpx": {"args": ["orders[?id == `9007199254740993`].sku"]},
       "python": {"code": "out([o['sku'] for o in J()['orders'] if o['id']==9007199254740993])"},
       "js": {"code": "out(J().orders.filter(o=>o.id===9007199254740993).map(o=>o.sku))", "known_failure": "js-number-precision", "known_result": {"json": ["A-1", "B-2"]}}
     },
