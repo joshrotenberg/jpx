@@ -2,6 +2,40 @@
 
 This page demonstrates common workflows using the jpx MCP server with Claude or other AI assistants.
 
+## Typed Tool Composition
+
+An application can pass structured data between tools directly, without having
+a model transcribe a payload or using JSON strings or temporary payload files.
+This Rust excerpt uses the fixture source tool in the executable regression
+`source_tool_to_typed_evaluation_to_consumer_and_wire_size` in
+`crates/jpx-mcp/tests/typed_composition.rs`:
+
+```rust
+let source = client.call_tool("fixture_source", serde_json::json!({})).await;
+assert!(!source.is_error);
+let mut args = serde_json::json!({
+    "expression": "records[?active].{id: id, label: label}"
+});
+args["input"] = source.structured_content.unwrap();
+let response = client.call_tool("evaluate_json", args).await;
+assert!(!response.is_error);
+let rows = &response.structured_content.as_ref().unwrap()["result"];
+assert_eq!(rows[0]["id"].as_u64(), Some(9_007_199_254_740_993));
+```
+
+Run the example and its byte measurement with:
+
+```bash
+cargo test --offline --locked -p jpx-mcp --test typed_composition \
+  source_tool_to_typed_evaluation_to_consumer_and_wire_size -- --nocapture
+```
+
+The test measures the full serialized `CallToolResult`, including text content
+and `structuredContent`. JSON-RPC framing adds another 34 bytes for the example
+response with numeric request ID `1`; other IDs and transports can add different
+overhead. The 50 MiB input ceiling does not bound this response size or evaluation
+allocations. See [typed limits and precision](tools.md#typed-limits-and-precision).
+
 ## Data Exploration
 
 ### Understanding Unknown JSON
