@@ -156,7 +156,7 @@ Input:  [{"name": "alice"}, {"name": "bob"}, {"name": "carol"}]
 [?score > `80`] | [0]     -> first element matching filter
 ```
 
-**Key insight:** Without the pipe, `[*].name | [0]` takes the first of the projected names. With the pipe, `[0]` operates on the collected array, not on each element.
+**Key insight:** Without the pipe, `[*].name[0]` applies `[0]` to each projected name (indexing a string yields null, so the result is `[]`). With the pipe, `[*].name | [0]` stops the projection and `[0]` operates on the collected array, returning the first name.
 
 ## Literal Values
 
@@ -179,29 +179,29 @@ JMESPath spec defines 26 functions. The most commonly used:
 
 | Function | Description | Example |
 |----------|-------------|---------|
-| `length(x)` | Array/string/object size | `length([1,2,3])` -> `3` |
-| `sort(arr)` | Sort array | `sort([3,1,2])` -> `[1,2,3]` |
+| `length(x)` | Array/string/object size | ``length(`[1,2,3]`)`` -> `3` |
+| `sort(arr)` | Sort array | ``sort(`[3,1,2]`)`` -> `[1,2,3]` |
 | `sort_by(arr, &key)` | Sort by expression | `sort_by(users, &age)` |
-| `reverse(x)` | Reverse array/string | `reverse([1,2,3])` -> `[3,2,1]` |
-| `contains(subject, search)` | Check membership | `contains([1,2], `1`)` -> `true` |
-| `keys(obj)` | Object keys | `keys({"a":1})` -> `["a"]` |
-| `values(obj)` | Object values | `values({"a":1})` -> `[1]` |
-| `join(sep, arr)` | Join strings | `join(', ', ["a","b"])` -> `"a, b"` |
-| `to_string(x)` | Convert to string | `to_string(`42`)` -> `"42"` |
+| `reverse(x)` | Reverse array/string | ``reverse(`[1,2,3]`)`` -> `[3,2,1]` |
+| `contains(subject, search)` | Check membership | ``contains(`[1,2]`, `1`)`` -> `true` |
+| `keys(obj)` | Object keys | ``keys(`{"a":1}`)`` -> `["a"]` |
+| `values(obj)` | Object values | ``values(`{"a":1}`)`` -> `[1]` |
+| `join(sep, arr)` | Join strings | `join(', ', ['a','b'])` -> `"a, b"` |
+| `to_string(x)` | Convert to string | ``to_string(`42`)`` -> `"42"` |
 | `to_number(x)` | Convert to number | `to_number('42')` -> `42` |
-| `type(x)` | Type name | `type([])` -> `"array"` |
-| `not_null(a, b, ...)` | First non-null | `not_null(null, 'ok')` -> `"ok"` |
-| `max(arr)` / `min(arr)` | Max/min value | `max([1,3,2])` -> `3` |
+| `type(x)` | Type name | ``type(`[]`)`` -> `"array"` |
+| `not_null(a, b, ...)` | First non-null | ``not_null(`null`, 'ok')`` -> `"ok"` |
+| `max(arr)` / `min(arr)` | Max/min value | ``max(`[1,3,2]`)`` -> `3` |
 | `max_by(arr, &key)` | Max by expression | `max_by(users, &score)` |
 | `min_by(arr, &key)` | Min by expression | `min_by(users, &age)` |
 | `starts_with(s, prefix)` | String prefix check | `starts_with('hello', 'he')` -> `true` |
 | `ends_with(s, suffix)` | String suffix check | `ends_with('hello', 'lo')` -> `true` |
 | `map(&expr, arr)` | Transform each element | `map(&age, users)` |
-| `merge(obj1, obj2)` | Merge objects | `merge({"a":1}, {"b":2})` |
-| `sum(arr)` | Sum of numbers | `sum([1,2,3])` -> `6` |
-| `avg(arr)` | Average of numbers | `avg([1,2,3])` -> `2.0` |
-| `floor(n)` / `ceil(n)` | Round down/up | `floor(`3.7`)` -> `3` |
-| `abs(n)` | Absolute value | `abs(`-5`)` -> `5` |
+| `merge(obj1, obj2)` | Merge objects | ``merge(`{"a":1}`, `{"b":2}`)`` -> `{"a":1,"b":2}` |
+| `sum(arr)` | Sum of numbers | ``sum(`[1,2,3]`)`` -> `6` |
+| `avg(arr)` | Average of numbers | ``avg(`[1,2,3]`)`` -> `2.0` |
+| `floor(n)` / `ceil(n)` | Round down/up | ``floor(`3.7`)`` -> `3` |
+| `abs(n)` | Absolute value | ``abs(`-5`)`` -> `5` |
 
 ### Expression references (exprefs)
 
@@ -218,7 +218,7 @@ The `&` prefix creates a reference to the expression that the function evaluates
 
 ## Let Expressions (JEP-18)
 
-Let expressions bind intermediate results to variables. Supported by jpx and some other implementations.
+Let expressions bind intermediate results to variables. Supported by jpx and some other implementations. Standard builds of the `jpx` CLI and `jpx-mcp` server support them, because `jpx-core` enables its `let-expr` feature by default (`--features let-expr` still works but isn't required). Rust projects embedding `jpx-core` with `default-features = false` must opt in to `let-expr`. Strict mode (`--strict`) rejects `let` regardless of features; rewrite with pipes there.
 
 ```
 let $names = [*].name in sort($names) | [0]
@@ -267,10 +267,10 @@ length([?status != 'ok']) == `0`        -- all ok?
 
 ## Common Mistakes
 
-1. **Forgetting backticks for numbers:** `[?age > 30]` is wrong -- use `[?age > `30`]`
+1. **Forgetting backticks for numbers:** `[?age > 30]` is wrong -- use ``[?age > `30`]``
 2. **Using double quotes for strings in expressions:** `[?name == "alice"]` is wrong -- use single quotes `[?name == 'alice']`
 3. **Expecting nulls in projections:** `[*].missing` returns `[]`, not `[null, null]` -- projections skip nulls
-4. **Pipe vs no pipe:** `[*].name[0]` gets first char of each name; `[*].name | [0]` gets first name
+4. **Pipe vs no pipe:** `[*].name[0]` indexes each name (strings yield null, so `[]`); `[*].name | [0]` gets the first name
 5. **Filter on nested field:** `[?address.city == 'NYC']` works -- you can use sub-expressions in filters
 
 ## Extended Functions

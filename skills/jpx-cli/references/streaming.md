@@ -50,14 +50,20 @@ cat events.ndjson | jpx --stream --csv '{user: user.name, action: event_type}'
 
 ## Filtering in Streaming Mode
 
-Since each line is independent, you can't use array filters directly. Instead, return null for lines you want to skip:
+Each line is evaluated as its own value, usually an object, so array filters like `[?level == 'error']` return null for object records instead of keeping them. Use `if()` to return the record or null; null results are skipped:
 
 ```bash
-# Using if() to filter (null results are skipped)
-cat events.ndjson | jpx --stream 'if(level == `error`, @, null)'
+# Keep only error records, preserving each object as-is
+cat events.ndjson | jpx --stream "if(level == 'error', @, \`null\`)"
 
-# Expression that naturally returns null skips the line
-cat events.ndjson | jpx --stream '[?level == `error`] | [0]'
+# Keep and reshape matching records
+cat events.ndjson | jpx --stream "if(level == 'error', {ts: timestamp, msg: message}, \`null\`)"
+```
+
+To aggregate across records (counts, `group_by`, sorting), use `--slurp` without `--stream`:
+
+```bash
+cat events.ndjson | jpx -s "length([?level == 'error'])"
 ```
 
 ## Multiple Expressions
@@ -86,7 +92,7 @@ These require buffering the full dataset and cannot be used with `--stream`:
 - `--slurp` / `-s`
 - `--null-input` / `-n`
 
-Use `--slurp` to collect streaming input into an array first if you need these formats.
+Drop `--stream` and use `--slurp` alone to collect NDJSON input into an array if you need these formats.
 
 ## Performance
 

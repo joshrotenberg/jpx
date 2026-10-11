@@ -1,0 +1,432 @@
+[
+  {
+    "id": "literal-array-function",
+    "outcome": "A JSON literal in backticks is a real array, so unique() dedupes it regardless of input.",
+    "docs": [
+      "skills/jpx-functions/SKILL.md"
+    ],
+    "input": "{}",
+    "args": [
+      "unique(`[1,2,2,3]`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "[1,2,3]\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "literal-object",
+    "outcome": "A backtick JSON literal yields the object itself.",
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ],
+    "input": "{}",
+    "args": [
+      "`{\"a\":1}`"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "{\"a\":1}\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "raw-string-literal",
+    "outcome": "Single quotes inside the expression are a raw string literal, not a field name.",
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ],
+    "input": "{}",
+    "args": [
+      "'error'"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "\"error\"\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "stream-select-errors",
+    "outcome": "--stream evaluates each NDJSON line; null results are dropped, so only error records print.",
+    "docs": [
+      "skills/jpx-cli/SKILL.md",
+      "skills/jpx-cli/references/streaming.md",
+      "docs/src/cli/commands.md"
+    ],
+    "input": "{\"level\":\"info\",\"msg\":\"started\"}\n{\"level\":\"error\",\"msg\":\"disk full\"}\n{\"level\":\"info\",\"msg\":\"done\"}\n",
+    "args": [
+      "--stream",
+      "if(level == 'error', @, `null`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "{\"level\":\"error\",\"msg\":\"disk full\"}\n"
+    },
+    "profile": "default",
+    "shell_args": "--stream \"if(level == 'error', @, \\`null\\`)\""
+  },
+  {
+    "id": "stream-select-errors-none",
+    "outcome": "When no line matches, --stream prints nothing and still exits 0.",
+    "docs": [
+      "docs/src/cli/working-with-files.md",
+      "skills/jpx-cli/references/streaming.md"
+    ],
+    "input": "{\"level\":\"info\",\"msg\":\"started\"}\n{\"level\":\"info\",\"msg\":\"done\"}\n",
+    "args": [
+      "--stream",
+      "if(level == 'error', @, `null`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": ""
+    },
+    "profile": "default"
+  },
+  {
+    "id": "slurp-filter-errors",
+    "outcome": "-s collects the same NDJSON into one array so a filter returns an array of matches.",
+    "docs": [
+      "docs/src/cli/working-with-files.md",
+      "skills/jpx-cli/references/streaming.md"
+    ],
+    "input": "{\"level\":\"info\",\"msg\":\"started\"}\n{\"level\":\"error\",\"msg\":\"disk full\"}\n{\"level\":\"info\",\"msg\":\"done\"}\n",
+    "args": [
+      "-s",
+      "[?level == 'error']"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "[{\"level\":\"error\",\"msg\":\"disk full\"}]\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "exit-status-any-match",
+    "outcome": "-x with a boolean predicate exits 0 when any item matches.",
+    "docs": [
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "input": "[{\"id\":1,\"critical\":false},{\"id\":2,\"critical\":true}]",
+    "args": [
+      "-x",
+      "length([?critical]) > `0`"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "true\n"
+    },
+    "profile": "default",
+    "shell_args": "-x 'length([?critical]) > `0`'"
+  },
+  {
+    "id": "exit-status-no-match",
+    "outcome": "-x with a boolean predicate prints false and exits 1 when nothing matches.",
+    "docs": [
+      "docs/src/cli/commands.md",
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "input": "[{\"id\":1,\"critical\":false}]",
+    "args": [
+      "-x",
+      "length([?critical]) > `0`"
+    ],
+    "expected": {
+      "status": 1,
+      "stdout": "false\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "exit-status-empty-array-is-truthy",
+    "outcome": "-x treats an empty array as truthy: only false and null fail.",
+    "docs": [
+      "docs/src/cli/commands.md",
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "input": "[]",
+    "args": [
+      "-x",
+      "@"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "[]\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "exit-status-false",
+    "outcome": "-x prints false and exits 1.",
+    "docs": [
+      "docs/src/cli/commands.md",
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "input": "false",
+    "args": [
+      "-x",
+      "@"
+    ],
+    "expected": {
+      "status": 1,
+      "stdout": "false\n"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "exit-status-null",
+    "outcome": "-x prints nothing for null and exits 1.",
+    "docs": [
+      "docs/src/cli/commands.md",
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "input": "{}",
+    "args": [
+      "-x",
+      "missing"
+    ],
+    "expected": {
+      "status": 1,
+      "stdout": ""
+    },
+    "profile": "default"
+  },
+  {
+    "id": "unknown-function",
+    "outcome": "An unknown function is an evaluation error: empty stdout, exit 1, and stderr suggests the near miss.",
+    "docs": [
+      "skills/jpx-functions/SKILL.md"
+    ],
+    "input": "[1,2]",
+    "args": [
+      "lenght(@)"
+    ],
+    "expected": {
+      "status": 1,
+      "stdout": "",
+      "stderr_contains": "Did you mean"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "stream-slurp-conflict",
+    "outcome": "--stream and -s are mutually exclusive; the usage error exits 2 and names the conflict.",
+    "docs": [
+      "skills/jpx-cli/references/streaming.md"
+    ],
+    "input": "{}\n",
+    "args": [
+      "--stream",
+      "-s",
+      "@"
+    ],
+    "expected": {
+      "status": 2,
+      "stdout": "",
+      "stderr_contains": "cannot be used with"
+    },
+    "profile": "default"
+  },
+  {
+    "id": "let-binding",
+    "outcome": "Current CLI defaults enable core let-expr transitively; a let binding returns its body.",
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ],
+    "input": "{\"a\":3}",
+    "args": [
+      "let $x = a in $x"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "3\n"
+    },
+    "profile": "default-with-core-let"
+  },
+  {
+    "id": "slurp-group-records",
+    "outcome": "Aggregate NDJSON objects with slurp alone, grouping records by error type.",
+    "docs": [
+      "skills/jpx-cli/SKILL.md"
+    ],
+    "profile": "default",
+    "input": "{\"error_type\":\"disk\",\"n\":1}\n{\"error_type\":\"net\",\"n\":2}\n{\"error_type\":\"disk\",\"n\":3}\n",
+    "args": [
+      "-s",
+      "group_by(@, &error_type)"
+    ],
+    "shell_args": "-s 'group_by(@, &error_type)'",
+    "expected": {
+      "status": 0,
+      "stdout": "{\"disk\":[{\"error_type\":\"disk\",\"n\":1},{\"error_type\":\"disk\",\"n\":3}],\"net\":[{\"error_type\":\"net\",\"n\":2}]}\n"
+    }
+  },
+  {
+    "id": "reduce-context",
+    "outcome": "Reduce callbacks read accumulator and current fields; numeric addition yields 6.0.",
+    "docs": [
+      "skills/jpx-functions/SKILL.md"
+    ],
+    "profile": "default",
+    "input": "{}",
+    "args": [
+      "reduce_expr(&add(accumulator, current), `[1,2,3]`, `0`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "6.0\n"
+    }
+  },
+  {
+    "id": "template-order",
+    "outcome": "Pass the object before the template string and use double-brace placeholders.",
+    "docs": [
+      "skills/jpx-functions/SKILL.md"
+    ],
+    "profile": "default",
+    "input": "{}",
+    "args": [
+      "template(`{\"name\":\"Jo\"}`, 'Hello, {{name}}!')"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "\"Hello, Jo!\"\n"
+    }
+  },
+  {
+    "id": "stddev-name",
+    "outcome": "Use the registered stddev function for population standard deviation.",
+    "docs": [
+      "skills/jpx-functions/SKILL.md"
+    ],
+    "profile": "default",
+    "input": "{}",
+    "args": [
+      "stddev(`[2,4,4,4,5,5,7,9]`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "2.0\n"
+    }
+  },
+  {
+    "id": "builtin-literal-object",
+    "outcome": "Pass a backtick JSON object to keys, preserving the literal key.",
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ],
+    "profile": "default",
+    "input": "{}",
+    "args": [
+      "keys(`{\"a\":1}`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "[\"a\"]\n"
+    }
+  },
+  {
+    "id": "stream-messages",
+    "outcome": "Select the message field from error object records.",
+    "profile": "default",
+    "input": "{\"level\":\"info\",\"message\":\"ready\",\"timestamp\":1}\n{\"level\":\"error\",\"message\":\"disk full\",\"timestamp\":2}\n",
+    "args": [
+      "--stream",
+      "if(level == 'error', message, `null`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "\"disk full\"\n"
+    },
+    "docs": [
+      "docs/src/cli/working-with-files.md"
+    ],
+    "shell_args": "--stream \"if(level == 'error', message, \\`null\\`)\""
+  },
+  {
+    "id": "stream-reshape",
+    "outcome": "Reshape each matching NDJSON object without an array projection.",
+    "profile": "default",
+    "input": "{\"level\":\"info\",\"message\":\"ready\",\"timestamp\":1}\n{\"level\":\"error\",\"message\":\"disk full\",\"timestamp\":2}\n",
+    "args": [
+      "--stream",
+      "if(level == 'error', {ts: timestamp, msg: message}, `null`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "{\"msg\":\"disk full\",\"ts\":2}\n"
+    },
+    "docs": [
+      "skills/jpx-cli/references/streaming.md"
+    ],
+    "shell_args": "--stream \"if(level == 'error', {ts: timestamp, msg: message}, \\`null\\`)\""
+  },
+  {
+    "id": "slurp-count",
+    "outcome": "Count matching objects after collecting NDJSON into an array.",
+    "profile": "default",
+    "input": "{\"level\":\"info\",\"message\":\"ready\",\"timestamp\":1}\n{\"level\":\"error\",\"message\":\"disk full\",\"timestamp\":2}\n",
+    "args": [
+      "-s",
+      "length([?level == 'error'])"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "1\n"
+    },
+    "docs": [
+      "skills/jpx-cli/references/streaming.md"
+    ],
+    "shell_args": "-s \"length([?level == 'error'])\""
+  },
+  {
+    "id": "projection-string-index",
+    "outcome": "Array indexing a string gives null; projection drops those nulls.",
+    "profile": "default",
+    "input": "[{\"name\":\"alice\"},{\"name\":\"bob\"}]",
+    "args": [
+      "[*].name[0]"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "[]\n"
+    },
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ]
+  },
+  {
+    "id": "projection-pipe",
+    "outcome": "A pipe indexes the collected array, returning the first name.",
+    "profile": "default",
+    "input": "[{\"name\":\"alice\"},{\"name\":\"bob\"}]",
+    "args": [
+      "[*].name | [0]"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "\"alice\"\n"
+    },
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ]
+  },
+  {
+    "id": "merge-literal-objects",
+    "outcome": "Merge two literal JSON objects.",
+    "profile": "default",
+    "input": "{}",
+    "args": [
+      "merge(`{\"a\":1}`, `{\"b\":2}`)"
+    ],
+    "expected": {
+      "status": 0,
+      "stdout": "{\"a\":1,\"b\":2}\n"
+    },
+    "docs": [
+      "skills/jmespath-query/SKILL.md"
+    ]
+  }
+]

@@ -167,8 +167,9 @@ jpx -r 'config.api_key' -f settings.json
 # Chain expressions, table output
 jpx 'users' '[?active]' -t -f data.json
 
-# Stream NDJSON, filter errors
-cat logs.ndjson | jpx --stream '[?level == `"error"`]'
+# Stream NDJSON, keep error records (each line is an object, so use if(),
+# not an array filter; null results are skipped)
+cat logs.ndjson | jpx --stream "if(level == 'error', @, \`null\`)"
 
 # Analyze structure before querying
 jpx --paths --types -f data.json
