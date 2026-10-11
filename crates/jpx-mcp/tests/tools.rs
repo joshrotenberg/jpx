@@ -184,6 +184,30 @@ async fn test_evaluate_invalid_expression() {
 }
 
 #[tokio::test]
+async fn test_random_invalid_range_returns_recoverable_error() {
+    let mut client = create_client().await;
+    for (expression, recovery) in [
+        ("random(`1`, `1`)", "Use a minimum strictly less"),
+        ("random(`2`, `1`)", "Use a minimum strictly less"),
+        ("random(`-1e308`, `1e308`)", "Use a narrower range"),
+    ] {
+        let error = client
+            .call_tool_expect_error(
+                "evaluate",
+                json!({"input": "null", "expression": expression}),
+            )
+            .await;
+        assert!(error.to_string().contains(recovery));
+
+        let result = client
+            .call_tool("evaluate", json!({"input": "42", "expression": "@"}))
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some("42"));
+    }
+}
+
+#[tokio::test]
 async fn test_batch_evaluate() {
     let mut client = create_client().await;
 

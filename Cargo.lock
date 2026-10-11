@@ -1613,7 +1613,7 @@ dependencies = [
  "md-5",
  "nanoid",
  "proptest",
- "rand 0.8.7",
+ "rand 0.9.5",
  "regex",
  "rphonetic",
  "rust-stemmers",
