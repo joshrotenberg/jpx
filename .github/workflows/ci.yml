@@ -58,6 +58,10 @@ jobs:
         run: cargo test --all-features --workspace
       - name: Run tests (no default features)
         run: cargo test --no-default-features --workspace
+      # Workspace dependents can re-enable core extensions through feature
+      # unification, so exercise the minimal core in its own Cargo invocation.
+      - name: Run isolated core tests (no default features)
+        run: cargo test -p jpx-core --no-default-features
 
   clippy:
     name: Clippy
@@ -72,6 +76,8 @@ jobs:
         run: cargo clippy --all-features --workspace -- -D warnings
       - name: Clippy (no default features)
         run: cargo clippy --no-default-features --workspace -- -D warnings
+      - name: Clippy isolated core (no default features)
+        run: cargo clippy -p jpx-core --no-default-features --all-targets -- -D warnings
 
   fmt:
     name: Formatting

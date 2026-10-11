@@ -100,10 +100,7 @@ impl Category {
     /// In jpx-core, all categories are always available when the
     /// `extensions` feature is enabled. Standard is always available.
     pub fn is_available(&self) -> bool {
-        match self {
-            Category::Standard => true,
-            _ => cfg!(feature = "extensions"),
-        }
+        matches!(self, Category::Standard) || cfg!(feature = "extensions")
     }
 
     /// Returns the category name as a string.
