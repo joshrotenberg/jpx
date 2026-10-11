@@ -17,6 +17,7 @@
 //! | **Query Store** | Named queries scoped to an engine instance |
 //! | **Configuration** | Declarative `jpx.toml` config with layered discovery and merge |
 //! | **JSON Utilities** | Format, diff, patch, merge, stats, paths, keys |
+//! | **Inspection** | Bounded structural previews with JSON Pointer paths ([`inspect`]) |
 //! | **Arrow** | Apache Arrow conversion (optional, via `arrow` feature) |
 //!
 //! ## Cargo Features
@@ -258,6 +259,7 @@ mod discovery;
 mod error;
 mod eval;
 mod explain;
+pub mod inspect;
 mod introspection;
 mod json_utils;
 mod query_store;
@@ -275,6 +277,9 @@ pub use discovery::{
 };
 pub use error::{EngineError, EvaluationErrorKind, Result};
 pub use explain::{ExplainResult, ExplainStep, has_let_nodes};
+pub use inspect::{
+    InspectLimits, InspectNode, InspectOmitted, InspectReport, InspectTruncation, inspect_value,
+};
 pub use introspection::{FunctionDetail, SearchResult, SimilarFunctionsResult};
 pub use json_utils::{FieldAnalysis, PathInfo, StatsResult};
 pub use query_store::{QueryStore, StoredQuery};

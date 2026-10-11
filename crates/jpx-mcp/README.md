@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/jpx-mcp.svg)](https://crates.io/crates/jpx-mcp)
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants 31 tools for querying and transforming JSON with JMESPath, powered by [jpx-engine](https://crates.io/crates/jpx-engine) and its 490+ functions.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that gives AI assistants 32 tools for querying and transforming JSON with JMESPath, powered by [jpx-engine](https://crates.io/crates/jpx-engine) and its 490+ functions.
 
 ## Run it
 
@@ -26,7 +26,7 @@ Register it with an MCP client (for example, Claude):
 
 ## Tools
 
-31 tools spanning evaluation, introspection, JSON utilities, an ephemeral process-scoped query store, and tool discovery, including `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, and `paths`. See the [MCP documentation](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
+32 tools spanning evaluation, introspection, JSON utilities, an ephemeral process-scoped query store, and tool discovery, including `evaluate`, `batch_evaluate`, `validate`, `explain`, `functions`, `describe`, `batch_describe`, `search`, `similar`, `format`, `diff`, `patch`, `merge`, `stats`, `paths`, and `inspect`. See the [MCP documentation](https://joshrotenberg.github.io/jpx/mcp/overview/) for the full list.
 
 ## Library use
 
