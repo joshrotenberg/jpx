@@ -167,6 +167,62 @@ async fn test_evaluate_with_extension_function() {
 }
 
 #[tokio::test]
+async fn test_evaluate_random_int_exact_bounds_and_recovery() {
+    let mut client = create_client().await;
+    for (input, expected) in [
+        (
+            r#"{"min": 9007199254740993, "max": 9007199254740993}"#,
+            "9007199254740993",
+        ),
+        (
+            r#"{"min": -9007199254740993, "max": -9007199254740993}"#,
+            "-9007199254740993",
+        ),
+        (
+            r#"{"min": 9223372036854775807, "max": 9223372036854775807}"#,
+            "9223372036854775807",
+        ),
+    ] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({ "input": input, "expression": "random_int(min, max)" }),
+            )
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some(expected));
+    }
+
+    for expression in [
+        "random_int(`0`, `1.5`)",
+        "random_int(`0`, `9223372036854775808`)",
+    ] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({ "input": "null", "expression": expression }),
+            )
+            .await;
+        assert!(result.is_error);
+        assert!(
+            result
+                .first_text()
+                .unwrap()
+                .contains("max must be an integer")
+        );
+    }
+
+    let result = client
+        .call_tool(
+            "evaluate",
+            json!({ "input": "null", "expression": "random_int(`5`, `5`)" }),
+        )
+        .await;
+    assert!(!result.is_error);
+    assert_eq!(result.first_text(), Some("5"));
+}
+
+#[tokio::test]
 async fn test_evaluate_invalid_expression() {
     let mut client = create_client().await;
 

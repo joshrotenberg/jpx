@@ -149,6 +149,21 @@ impl RandomIntFn {
     }
 }
 
+fn random_int_bound(value: &Value) -> Option<i64> {
+    let number = value.as_number()?;
+    if let Some(integer) = number.as_i64() {
+        return Some(integer);
+    }
+    // Do not round an unsupported u64 through f64 or saturate it to i64::MAX.
+    if !number.is_f64() {
+        return None;
+    }
+    let float = number.as_f64()?;
+    // i64::MAX rounds up to 2^63 in f64, so the upper bound must be exclusive.
+    let limit = -(i64::MIN as f64);
+    (float.fract() == 0.0 && (-limit..limit).contains(&float)).then_some(float as i64)
+}
+
 impl Function for RandomIntFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         use rand::Rng;
@@ -157,12 +172,18 @@ impl Function for RandomIntFn {
             return Err(custom_error(ctx, "random_int() takes 2 arguments"));
         }
 
-        let min = args[0]
-            .as_f64()
-            .ok_or_else(|| custom_error(ctx, "Expected number for min"))? as i64;
-        let max = args[1]
-            .as_f64()
-            .ok_or_else(|| custom_error(ctx, "Expected number for max"))? as i64;
+        let parse_bound = |value, name| {
+            random_int_bound(value).ok_or_else(|| {
+                custom_error(
+                    ctx,
+                    &format!(
+                        "random_int() {name} must be an integer in [-9223372036854775808, 9223372036854775807]; use an integral bound within this range"
+                    ),
+                )
+            })
+        };
+        let min = parse_bound(&args[0], "min")?;
+        let max = parse_bound(&args[1], "max")?;
 
         if min > max {
             return Err(custom_error(ctx, "min must be less than or equal to max"));
@@ -415,6 +436,103 @@ mod tests {
         let expr = runtime.compile("random_int(`5`, `5`)").unwrap();
         let result = expr.search(&json!(null)).unwrap();
         assert_eq!(result, json!(5));
+    }
+
+    #[test]
+    fn test_random_int_preserves_exact_singleton_bounds() {
+        let runtime = setup_runtime();
+        let data_expr = runtime.compile("random_int(min, max)").unwrap();
+        for bound in [
+            i64::MIN,
+            i64::MIN + 1,
+            -9_007_199_254_740_993,
+            -9_007_199_254_740_991,
+            0,
+            9_007_199_254_740_991,
+            9_007_199_254_740_993,
+            i64::MAX - 1,
+            i64::MAX,
+        ] {
+            let data = json!({ "min": bound, "max": bound });
+            assert_eq!(data_expr.search(&data).unwrap(), json!(bound));
+            let literal_expr = runtime
+                .compile(&format!("random_int(`{bound}`, `{bound}`)"))
+                .unwrap();
+            assert_eq!(literal_expr.search(&Value::Null).unwrap(), json!(bound));
+        }
+    }
+
+    #[test]
+    fn test_random_int_preserves_exact_narrow_ranges() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(min, max)").unwrap();
+        for (min, max) in [
+            (i64::MIN + 1, i64::MIN + 2),
+            (-9_007_199_254_740_994, -9_007_199_254_740_993),
+            (9_007_199_254_740_993, 9_007_199_254_740_994),
+            (i64::MAX - 2, i64::MAX - 1),
+            (i64::MIN, i64::MAX),
+        ] {
+            let data = json!({ "min": min, "max": max });
+            for _ in 0..128 {
+                let result = expr.search(&data).unwrap().as_i64().unwrap();
+                assert!(
+                    (min..=max).contains(&result),
+                    "{result} outside [{min}, {max}]"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_random_int_accepts_integral_floats() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(min, max)").unwrap();
+        for (bound, expected) in [
+            (-0.0, 0),
+            (1.0, 1),
+            (-1e3, -1000),
+            (9_007_199_254_740_994.0, 9_007_199_254_740_994),
+            (i64::MIN as f64, i64::MIN),
+            (9_223_372_036_854_774_784.0, i64::MAX - 1023),
+        ] {
+            let data = json!({ "min": bound, "max": bound });
+            assert_eq!(expr.search(&data).unwrap(), json!(expected));
+        }
+        let literal_expr = runtime.compile("random_int(`1.0`, `1e0`)").unwrap();
+        assert_eq!(literal_expr.search(&Value::Null).unwrap(), json!(1));
+    }
+
+    #[test]
+    fn test_random_int_rejects_unsupported_bounds() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("random_int(min, max)").unwrap();
+        for invalid in [
+            json!(1.5),
+            json!(-1.5),
+            json!(9_223_372_036_854_775_808_u64),
+            json!(u64::MAX),
+            json!(9_223_372_036_854_775_808.0),
+            json!(-9_223_372_036_854_777_856.0),
+            json!(1e30),
+            json!(-1e30),
+            json!("1"),
+            json!(null),
+        ] {
+            for name in ["min", "max"] {
+                let mut data = json!({ "min": 0, "max": 1 });
+                data[name] = invalid.clone();
+                let error = expr.search(&data).unwrap_err().to_string();
+                assert!(
+                    error.contains(&format!("random_int() {name} must be an integer")),
+                    "{error}"
+                );
+                assert!(
+                    error.contains("[-9223372036854775808, 9223372036854775807]"),
+                    "{error}"
+                );
+            }
+        }
     }
 
     #[test]
