@@ -110,13 +110,23 @@ mod tests {
     }
 
     #[test]
-    fn test_nanoid_unique() {
+    fn test_nanoid_custom_size_and_alphabet() {
         let runtime = setup_runtime();
-        let data = json!(null);
-        let expr = runtime.compile("nanoid()").unwrap();
-        let id1 = expr.search(&data).unwrap();
-        let id2 = expr.search(&data).unwrap();
-        assert_ne!(id1.as_str().unwrap(), id2.as_str().unwrap());
+        let expr = runtime.compile("nanoid(@)").unwrap();
+
+        // Cover short IDs and lengths around random-byte buffer boundaries.
+        // Assert the output contract, not probabilistic uniqueness or a sequence
+        // that the random generator may change between dependency versions.
+        for size in [1, 2, 21, 22, 63, 64, 65, 255, 256, 257, 4096] {
+            let result = expr.search(&json!(size)).unwrap();
+            let id = result.as_str().unwrap();
+            assert_eq!(id.len(), size);
+            assert!(
+                id.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-'),
+                "nanoid({size}) contains a character outside its URL-safe alphabet"
+            );
+        }
     }
 
     #[test]
