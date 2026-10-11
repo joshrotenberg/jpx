@@ -457,3 +457,46 @@ mod input {
             .stderr(predicate::str::contains("JSON"));
     }
 }
+
+mod nanoid {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn invalid_size_states_the_supported_range() {
+        for size in [
+            "-1",
+            "0.5",
+            "1025",
+            "9223372036854775807",
+            "18446744073709551615",
+            "1e100",
+            "\"10\"",
+            "null",
+            "true",
+            "[]",
+            "{}",
+        ] {
+            jpx()
+                .timeout(Duration::from_secs(5))
+                .args(["-n", &format!("nanoid(`{size}`)")])
+                .assert()
+                .failure()
+                .stderr(predicate::str::contains(
+                    "whole number from 0 through 1024 inclusive",
+                ));
+        }
+    }
+
+    #[test]
+    fn extra_arguments_state_the_limit() {
+        jpx()
+            .timeout(Duration::from_secs(5))
+            .args(["-n", "nanoid(`10`, `20`)"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Too many arguments: expected 1, got 2",
+            ));
+    }
+}
