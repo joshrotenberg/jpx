@@ -11,7 +11,7 @@ use crate::ast::Ast;
 use crate::functions::{Function, custom_error, number_value};
 use crate::interpreter::{SearchResult, interpret};
 use crate::registry::register_if_enabled;
-use crate::value_ext::ValueExt;
+use crate::value_ext::{ValueExt, compare_numbers};
 use crate::{Context, Runtime, arg, defn, get_expref_id};
 
 /// Helper to extract an expref AST from a function argument.
@@ -35,9 +35,7 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     match (a, b) {
         (Value::Number(an), Value::Number(bn)) => {
-            let a_f = an.as_f64().unwrap_or(0.0);
-            let b_f = bn.as_f64().unwrap_or(0.0);
-            a_f.partial_cmp(&b_f).unwrap_or(Ordering::Equal)
+            compare_numbers(an, bn).unwrap_or(Ordering::Equal)
         }
         (Value::String(a_s), Value::String(b_s)) => a_s.cmp(b_s),
         (Value::Null, Value::Null) => Ordering::Equal,
