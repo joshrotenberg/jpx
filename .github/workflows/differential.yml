@@ -1,0 +1,56 @@
+name: JMESPath differential campaign
+
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_BUILD_JOBS: 2
+  CARGO_TERM_COLOR: never
+  JPX_DIFF_CASES: "1024"
+  JPX_DIFF_SEEDS: "249,99537481"
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal
+            features: --no-default-features
+          - name: all
+            features: --all-features
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Provision the existing locked dependencies on cold hosted runners.
+      # The campaign itself is offline and never invokes another service.
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Run bounded deterministic campaign
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p target/due-scratch
+          rustc -vV > target/due-scratch/toolchain.txt
+          git rev-parse HEAD > target/due-scratch/revision.txt
+          cargo test --offline --locked -p jpx-core ${{ matrix.features }} \
+            --test differential differential_large -- --ignored --exact --nocapture \
+            2>&1 | tee target/due-scratch/differential-campaign.log
+      - name: Upload results and full reproducers
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: differential-${{ matrix.name }}-${{ github.run_attempt }}
+          path: target/due-scratch/
+          if-no-files-found: warn
+          retention-days: 14
