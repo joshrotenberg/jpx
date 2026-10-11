@@ -1379,3 +1379,33 @@ async fn test_batch_evaluate_within_limit_ok() {
         .await;
     assert!(!result.is_error);
 }
+
+#[tokio::test]
+async fn test_nanoid_invalid_size_same_server_recovery() {
+    let mut client = create_client().await;
+    for size in ["18446744073709551615", "1e100", "-1", "1.5", "1025", "null"] {
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({"input": "null", "expression": format!("nanoid(`{size}`)")}),
+            )
+            .await;
+        assert!(result.is_error, "{size}: {result:?}");
+        assert!(
+            result
+                .first_text()
+                .unwrap()
+                .contains("whole number from 0 through 1024 inclusive")
+        );
+
+        // Reuse the same initialized client/router after each invalid request.
+        let result = client
+            .call_tool(
+                "evaluate",
+                json!({"input": "null", "expression": "length(nanoid(`10`))"}),
+            )
+            .await;
+        assert!(!result.is_error);
+        assert_eq!(result.first_text(), Some("10"));
+    }
+}
