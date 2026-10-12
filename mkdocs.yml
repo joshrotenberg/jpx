@@ -90,6 +90,7 @@ nav:
   - Configuration:
     - jpx.toml: configuration/index.md
     - Strict Mode: configuration/strict-mode.md
+    - Compatibility Audit: configuration/compatibility-audit.md
   - MCP Server:
     - Overview: mcp/overview.md
     - Setup: mcp/setup.md
