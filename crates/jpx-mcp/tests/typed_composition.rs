@@ -258,6 +258,49 @@ async fn typed_request_errors_are_corrective_and_null_is_present() {
 }
 
 #[tokio::test]
+async fn positional_argument_arrays_are_rejected_but_array_input_is_valid() {
+    let mut client = client().await;
+    for (tool, positional, named) in [
+        (
+            "evaluate_json",
+            json!([null, "@"]),
+            json!({"input": [null, "@"], "expression": "@"}),
+        ),
+        (
+            "batch_evaluate_json",
+            json!([null, ["@"]]),
+            json!({"input": [null, ["@"]], "expressions": ["@"]}),
+        ),
+    ] {
+        // serde would otherwise map a sequence onto struct fields by position.
+        let response = client.call_tool(tool, positional).await;
+        tool_error(&response, "arguments must be a JSON object");
+        tool_error(&response, "Supply only required 'input'");
+        tool_error(&response, "native JSON value");
+
+        let response = client.call_tool(tool, named.clone()).await;
+        let output = envelope(&response);
+        let result = if tool == "evaluate_json" {
+            &output["result"]
+        } else {
+            &output["results"][0]["result"]
+        };
+        assert_eq!(result, &named["input"]);
+
+        let mut null_input = named;
+        null_input["input"] = Value::Null;
+        let response = client.call_tool(tool, null_input).await;
+        let output = envelope(&response);
+        let result = if tool == "evaluate_json" {
+            &output["result"]
+        } else {
+            &output["results"][0]["result"]
+        };
+        assert_eq!(result, &Value::Null);
+    }
+}
+
+#[tokio::test]
 async fn single_failures_and_ordered_mixed_batch() {
     let mut client = client().await;
     for expression in ["[", "length(`42`)", "unknown_function(@)"] {

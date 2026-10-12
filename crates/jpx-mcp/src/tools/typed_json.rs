@@ -35,14 +35,22 @@ struct BatchEvaluateJsonParams {
 fn params<T: DeserializeOwned>(arguments: Value, expression_field: &str) -> Result<T, Error> {
     // Validate here so every invalid request gets the corrective typed-input
     // guidance, including missing input, extra fields, and wrong field types.
-    serde_json::from_value(arguments).map_err(|e| {
+    let invalid = |reason: String| {
         Error::tool(format!(
-            "Invalid typed JSON request: {e}. Supply only required 'input' as a native JSON value \
+            "Invalid typed JSON request: {reason}. Supply only required 'input' as a native JSON value \
              (object, array, string, number, boolean, or explicit null) and '{expression_field}'. \
              Strings are literal, not encoded JSON. Remove other fields such as 'input_text' or \
              'file_path'; use 'evaluate'/'batch_evaluate' for JSON text or 'evaluate_file' for a file."
         ))
-    })
+    };
+    // serde maps a sequence onto struct fields by position, so check the
+    // container first: only a named-field object matches the input schema.
+    if !arguments.is_object() {
+        return Err(invalid(
+            "arguments must be a JSON object with named fields, not positional values".into(),
+        ));
+    }
+    serde_json::from_value(arguments).map_err(|e| invalid(e.to_string()))
 }
 
 /// Count the actual compact JSON bytes without allocating a serialized input
