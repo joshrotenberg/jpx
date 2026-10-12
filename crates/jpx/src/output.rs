@@ -68,9 +68,10 @@ pub(crate) fn output_as_yaml(
     value: &serde_json::Value,
     output_path: &Option<String>,
 ) -> Result<()> {
-    let yaml = serde_yaml::to_string(value).context("Failed to serialize to YAML")?;
-    // Remove trailing newline that serde_yaml adds
-    let yaml = yaml.trim_end();
+    let yaml = serde_saphyr::to_string(value).context("Failed to serialize to YAML")?;
+    // write_output restores one final newline. Preserve any preceding whitespace:
+    // it can be significant content in a YAML block scalar.
+    let yaml = yaml.strip_suffix('\n').unwrap_or(&yaml);
     write_output(yaml, output_path)
 }
 
