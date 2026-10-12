@@ -82,6 +82,7 @@ nav:
     - Examples: cli/examples.md
     - Output Formats: cli/output-formats.md
     - Expression Syntax: cli/expression-syntax.md
+    - Bare Literals Decision: design/bare-literals.md
     - String Literals & Escaping: cli/escaping.md
     - Working with Files: cli/working-with-files.md
     - Query Files: cli/query-files.md
