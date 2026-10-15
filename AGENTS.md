@@ -212,7 +212,7 @@ The MCP server exposes 34 tools. Key patterns:
 - **`evaluate_json`** (`input`, `expression`) / **`batch_evaluate_json`** (`input`, `expressions`): evaluate against a native JSON value (see below)
 - **`validate`** — check expression syntax without executing
 - **`explain`** — break down an expression into steps
-- **`stats`** / **`paths`** / **`keys`** / **`inspect`** — analyze JSON structure before querying; `inspect` bounds traversal and output
+- **`stats`** / **`paths`** / **`keys`** / **`inspect`**: analyze JSON structure before querying; `inspect` bounds traversal and output
 - **`define_query`** / **`run_query`** / **`list_queries`** — ephemeral, process-scoped named query store shared by connected clients
 - **`diff`** / **`patch`** / **`merge`** — JSON Patch (RFC 6902) and Merge Patch (RFC 7396)
 
