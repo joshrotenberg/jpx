@@ -16,7 +16,7 @@ use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 
 // Type aliases for HMAC variants
-type HmacMd5 = hmac_013::Hmac<Md5>;
+type HmacMd5 = Hmac<Md5>;
 type HmacSha1 = Hmac<Sha1>;
 type HmacSha256 = Hmac<Sha256>;
 type HmacSha512 = Hmac<Sha512>;
