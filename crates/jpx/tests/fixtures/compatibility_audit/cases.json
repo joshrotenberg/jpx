@@ -1,0 +1,2224 @@
+{
+  "schema_version": 1,
+  "scope": "Limited compatibility probes, not a conformance claim. Current CLI and engine defaults include core let-expr.",
+  "original_compliance": {
+    "commit": "53abcc37901891cf4308fcd910eab287416c4609",
+    "path": "crates/jpx-core/tests/compliance",
+    "url": "https://github.com/jmespath/jmespath.test/tree/53abcc37901891cf4308fcd910eab287416c4609/tests"
+  },
+  "community_spec": {
+    "commit": "bb4a12c5cad990cae3a83491834c447aadc3ceba",
+    "url": "https://github.com/jmespath-community/jmespath.spec/tree/bb4a12c5cad990cae3a83491834c447aadc3ceba",
+    "published_url": "https://jmespath.site/specification/latest/"
+  },
+  "sources": {
+    "original-spec": "https://jmespath.org/specification.html",
+    "community-grammar": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/GRAMMAR.ABNF",
+    "community-ternary": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-0021-ternary-conditionals.md",
+    "community-arithmetic": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-016-arithmetic-expressions.md",
+    "community-root": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-017-root-reference.md",
+    "community-grouping": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-018-grouping.md",
+    "community-let": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-011a-lexical-scope.md",
+    "community-pipe": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/jep-019-pipe-expressions-evaluation.md",
+    "community-length": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/length.yml",
+    "community-sort_by": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/sort_by.yml",
+    "community-map": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/map.yml",
+    "community-join": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/join.yml",
+    "community-not_null": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/not_null.yml",
+    "community-contains": "https://github.com/jmespath-community/jmespath.spec/blob/bb4a12c5cad990cae3a83491834c447aadc3ceba/functions/contains.yml"
+  },
+  "cases": [
+    {
+      "id": "ternary-true",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`true` ? `1` : `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 1,
+        "source": "community-ternary"
+      },
+      "note": "Community JEP-21. One branch-selection probe; no claim about precedence or short-circuit conformance.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Invalid character: ?"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: ?"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: ?"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-add",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` + `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 8,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Invalid character: +"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: +"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: +"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-subtract",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` - `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 4,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "'-' must be followed by numbers 1-9"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'-' must be followed by numbers 1-9"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'-' must be followed by numbers 1-9"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-multiply",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` * `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 12,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Unexpected led token -- found Star"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Unexpected led token -- found Star"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Unexpected led token -- found Star"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-divide",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` / `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 3,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Invalid character: /"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: /"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: /"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-modulo",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` % `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 0,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Invalid character: %"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: %"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: %"
+          ]
+        }
+      }
+    },
+    {
+      "id": "arithmetic-integer-divide",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "`6` // `2`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 3,
+        "source": "community-arithmetic"
+      },
+      "note": "Community JEP-16; ASCII binary operator probe only.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Invalid character: /"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: /"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Invalid character: /"
+          ]
+        }
+      }
+    },
+    {
+      "id": "root-document",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "$",
+      "given": {
+        "a": 1
+      },
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": {
+          "a": 1
+        },
+        "source": "community-root"
+      },
+      "note": "Community JEP-17 root reference is distinct from lexical $name variables.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "'$' must be followed by a valid identifier"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'$' must be followed by a valid identifier"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'$' must be followed by a valid identifier"
+          ]
+        }
+      }
+    },
+    {
+      "id": "root-after-pipe",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "a | $.b",
+      "given": {
+        "a": {},
+        "b": 2
+      },
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 2,
+        "source": "community-root"
+      },
+      "note": "Root should remain the original document after a pipe.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "'$' must be followed by a valid identifier"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'$' must be followed by a valid identifier"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "'$' must be followed by a valid identifier"
+          ]
+        }
+      }
+    },
+    {
+      "id": "parentheses",
+      "area": "grammar",
+      "coverage": "probe",
+      "expression": "(`false` || `true`) && `false`",
+      "given": {},
+      "original": {
+        "kind": "value",
+        "value": false,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": false,
+        "source": "community-grammar"
+      },
+      "note": "Parenthesized expressions are distinct from the group_by function.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": false
+        },
+        "strict": {
+          "kind": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "group-by-expref",
+      "area": "function",
+      "coverage": "probe",
+      "expression": "group_by(@, &k)",
+      "given": [
+        {
+          "k": "a"
+        },
+        {
+          "k": "b"
+        },
+        {
+          "k": "a"
+        }
+      ],
+      "original": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": {
+          "a": [
+            {
+              "k": "a"
+            },
+            {
+              "k": "a"
+            }
+          ],
+          "b": [
+            {
+              "k": "b"
+            }
+          ]
+        },
+        "source": "community-grouping"
+      },
+      "note": "Community JEP-18 is a function addition, not new grammar.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": {
+            "a": [
+              {
+                "k": "a"
+              },
+              {
+                "k": "a"
+              }
+            ],
+            "b": [
+              {
+                "k": "b"
+              }
+            ]
+          }
+        },
+        "strict": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: group_by"
+          ]
+        }
+      }
+    },
+    {
+      "id": "group-by-null-key",
+      "area": "function",
+      "coverage": "probe",
+      "expression": "group_by(@, &k)",
+      "given": [
+        {
+          "k": "a"
+        },
+        {
+          "k": null
+        },
+        {}
+      ],
+      "original": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": {
+          "a": [
+            {
+              "k": "a"
+            }
+          ]
+        },
+        "source": "community-grouping"
+      },
+      "note": "Community discards null/missing keys; jpx retains a \"null\" group.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": {
+            "a": [
+              {
+                "k": "a"
+              }
+            ],
+            "null": [
+              {
+                "k": null
+              },
+              {}
+            ]
+          }
+        },
+        "strict": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: group_by"
+          ]
+        }
+      }
+    },
+    {
+      "id": "group-by-boolean-key",
+      "area": "function",
+      "coverage": "probe",
+      "expression": "group_by(@, &k)",
+      "given": [
+        {
+          "k": true
+        }
+      ],
+      "original": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "community-grouping"
+      },
+      "note": "Community requires string/null keys; jpx stringifies the boolean.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": {
+            "true": [
+              {
+                "k": true
+              }
+            ]
+          }
+        },
+        "strict": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: group_by"
+          ]
+        }
+      }
+    },
+    {
+      "id": "group-by-string-argument",
+      "area": "function",
+      "coverage": "probe",
+      "expression": "group_by(@, 'k')",
+      "given": [
+        {
+          "k": "a"
+        }
+      ],
+      "original": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "community-grouping"
+      },
+      "note": "The string field-name argument is a jpx extension to the Community expref signature.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": {
+            "a": [
+              {
+                "k": "a"
+              }
+            ]
+          }
+        },
+        "strict": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: group_by"
+          ]
+        }
+      }
+    },
+    {
+      "id": "let-binding",
+      "area": "let/build",
+      "coverage": "probe",
+      "expression": "let $x = `1` in $x",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 1,
+        "source": "community-let"
+      },
+      "note": "Original JEP-18 proposal / Community JEP-11a; absent from the original published grammar. Core let-expr is enabled transitively in CLI builds.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": 1
+        },
+        "strict": {
+          "kind": "error",
+          "error": "strict-policy",
+          "message_contains": [
+            "Let expressions are not available in strict mode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "let-shadow-restore",
+      "area": "let/build",
+      "coverage": "probe",
+      "expression": "let $x = `1` in [let $x = `2` in $x, $x]",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          2,
+          1
+        ],
+        "source": "community-let"
+      },
+      "note": "Nested lexical scope and restoration probe.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            2,
+            1
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "strict-policy",
+          "message_contains": [
+            "Let expressions are not available in strict mode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "let-stops-projection",
+      "area": "let/build",
+      "coverage": "probe",
+      "expression": "let $x = foo[*] in $x[0]",
+      "given": {
+        "foo": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          0,
+          1
+        ],
+        "source": "community-let"
+      },
+      "note": "A bound projection is a value; indexing must not resume that projection.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            0,
+            1
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "strict-policy",
+          "message_contains": [
+            "Let expressions are not available in strict mode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "let-wildcard",
+      "area": "let/build",
+      "coverage": "probe",
+      "expression": "let $x = @ in $x[*]",
+      "given": [
+        1,
+        2
+      ],
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          1,
+          2
+        ],
+        "source": "community-let"
+      },
+      "note": "Wildcard access on a variable is measured, not inferred from older guidance.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            1,
+            2
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "strict-policy",
+          "message_contains": [
+            "Let expressions are not available in strict mode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "let-unbound",
+      "area": "let/build",
+      "coverage": "probe",
+      "expression": "let $x = `1` in $missing",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "undefined-variable",
+        "source": "community-let"
+      },
+      "note": "Community requires an evaluation-time undefined-variable error. jpx currently formats it as an unknown-function error.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: Undefined variable: $missing"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "strict-policy",
+          "message_contains": [
+            "Let expressions are not available in strict mode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "identifier-let",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "let",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": 7,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 7,
+        "source": "community-let"
+      },
+      "note": "Identifiers refer to fields; literals do not. Let/in are specified as contextual keywords.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Expected variable binding ($name) after 'let' -- found Eof"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Expected variable binding ($name) after 'let' -- found Eof"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Expected variable binding ($name) after 'let' -- found Eof"
+          ]
+        }
+      }
+    },
+    {
+      "id": "identifier-in",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "in",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": 8,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 8,
+        "source": "community-let"
+      },
+      "note": "Identifiers refer to fields; literals do not. Let/in are specified as contextual keywords.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": 8
+        },
+        "strict": {
+          "kind": "value",
+          "value": 8
+        }
+      }
+    },
+    {
+      "id": "quoted-let",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "\"let\"",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": 7,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 7,
+        "source": "community-let"
+      },
+      "note": "Identifiers refer to fields; literals do not. Let/in are specified as contextual keywords.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": 7
+        },
+        "strict": {
+          "kind": "value",
+          "value": 7
+        }
+      }
+    },
+    {
+      "id": "identifier-booleans-null",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "[true, false, null]",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": [
+          "field-true",
+          "field-false",
+          "field-null"
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          "field-true",
+          "field-false",
+          "field-null"
+        ],
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            "field-true",
+            "field-false",
+            "field-null"
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            "field-true",
+            "field-false",
+            "field-null"
+          ]
+        }
+      }
+    },
+    {
+      "id": "quoted-identifier",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "\"true\"",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": "field-true",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": "field-true",
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": "field-true"
+        },
+        "strict": {
+          "kind": "value",
+          "value": "field-true"
+        }
+      }
+    },
+    {
+      "id": "raw-string",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "'true'",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": "true",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": "true",
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": "true"
+        },
+        "strict": {
+          "kind": "value",
+          "value": "true"
+        }
+      }
+    },
+    {
+      "id": "json-string",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "`\"true\"`",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": "true",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": "true",
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": "true"
+        },
+        "strict": {
+          "kind": "value",
+          "value": "true"
+        }
+      }
+    },
+    {
+      "id": "json-boolean",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "`true`",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": true,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": true,
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": true
+        },
+        "strict": {
+          "kind": "value",
+          "value": true
+        }
+      }
+    },
+    {
+      "id": "json-null",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "`null`",
+      "given": {
+        "let": 7,
+        "in": 8,
+        "true": "field-true",
+        "false": "field-false",
+        "null": "field-null"
+      },
+      "original": {
+        "kind": "value",
+        "value": null,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": null,
+        "source": "community-grammar"
+      },
+      "note": "Collision probe: the input deliberately contains fields named true, false and null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": null
+        },
+        "strict": {
+          "kind": "value",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "malformed-json-literal",
+      "area": "literal/identifier",
+      "coverage": "probe",
+      "expression": "`{\"a\":}`",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "syntax",
+        "source": "community-grammar"
+      },
+      "note": "Backtick JSON must be well formed.",
+      "jpx": {
+        "parse": {
+          "accepted": false,
+          "message_contains": "Unable to parse literal JSON {\"a\":}: expected value at line 1 column 6"
+        },
+        "default": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Unable to parse literal JSON {\"a\":}: expected value at line 1 column 6"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "syntax",
+          "message_contains": [
+            "Unable to parse literal JSON {\"a\":}: expected value at line 1 column 6"
+          ]
+        }
+      }
+    },
+    {
+      "id": "projection-index",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "foo[*][0]",
+      "given": {
+        "foo": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "original": {
+        "kind": "value",
+        "value": [
+          0,
+          2,
+          4
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          0,
+          2,
+          4
+        ],
+        "source": "community-grammar"
+      },
+      "note": "Indexing continues the projection.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            0,
+            2,
+            4
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            0,
+            2,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "id": "pipe-stops-projection",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "foo[*] | [0]",
+      "given": {
+        "foo": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "original": {
+        "kind": "value",
+        "value": [
+          0,
+          1
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          0,
+          1
+        ],
+        "source": "community-pipe"
+      },
+      "note": "A pipe stops the projection.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            0,
+            1
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            0,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "projection-omits-null",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "[*].k",
+      "given": [
+        {
+          "k": 1
+        },
+        {},
+        {
+          "k": null
+        }
+      ],
+      "original": {
+        "kind": "value",
+        "value": [
+          1
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          1
+        ],
+        "source": "community-grammar"
+      },
+      "note": "Projection omits null results; compare map below.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            1
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "pipe-null-multiselect",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "`null` | [@]",
+      "given": {},
+      "original": {
+        "kind": "value",
+        "value": null,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          null
+        ],
+        "source": "community-pipe"
+      },
+      "note": "Original multiselect-list null rule returns null; Community JEP-19 explicitly specifies [null] for this pipe.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": null
+        },
+        "strict": {
+          "kind": "value",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "dot-null-function",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "`null`.type(@)",
+      "given": {},
+      "original": {
+        "kind": "value",
+        "value": "null",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": null,
+        "source": "community-pipe"
+      },
+      "note": "Original subexpression pseudocode evaluates the RHS; Community JEP-19 adds a null short-circuit. This probes the clarification, not every null context.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": "null"
+        },
+        "strict": {
+          "kind": "value",
+          "value": "null"
+        }
+      }
+    },
+    {
+      "id": "pipe-null-function",
+      "area": "pipe/projection",
+      "coverage": "probe",
+      "expression": "`null` | type(@)",
+      "given": {},
+      "original": {
+        "kind": "value",
+        "value": "null",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": "null",
+        "source": "community-pipe"
+      },
+      "note": "A function on the right of a pipe still evaluates on null.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": "null"
+        },
+        "strict": {
+          "kind": "value",
+          "value": "null"
+        }
+      }
+    },
+    {
+      "id": "original-parentheses",
+      "area": "original reference",
+      "coverage": "probe",
+      "expression": "(Number || True) && False",
+      "given": {
+        "True": true,
+        "False": false,
+        "Number": 5,
+        "EmptyList": [],
+        "Zero": 0,
+        "ZeroFloat": 0.0
+      },
+      "original": {
+        "kind": "value",
+        "value": false,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": false,
+        "source": "community-grammar"
+      },
+      "note": "Original compliance grouping/precedence reference.",
+      "original_fixture": {
+        "file": "boolean.json",
+        "group": 2,
+        "case": 18
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": false
+        },
+        "strict": {
+          "kind": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "original-pipe",
+      "area": "original reference",
+      "coverage": "probe",
+      "expression": "foo[*].bar[*] | [0][0]",
+      "given": {
+        "foo": [
+          {
+            "bar": [
+              {
+                "baz": "one"
+              },
+              {
+                "baz": "two"
+              }
+            ]
+          },
+          {
+            "bar": [
+              {
+                "baz": "three"
+              },
+              {
+                "baz": "four"
+              }
+            ]
+          }
+        ]
+      },
+      "original": {
+        "kind": "value",
+        "value": {
+          "baz": "one"
+        },
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": {
+          "baz": "one"
+        },
+        "source": "community-pipe"
+      },
+      "note": "Original compliance nested projection/pipe reference.",
+      "original_fixture": {
+        "file": "pipe.json",
+        "group": 2,
+        "case": 0
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": {
+            "baz": "one"
+          }
+        },
+        "strict": {
+          "kind": "value",
+          "value": {
+            "baz": "one"
+          }
+        }
+      }
+    },
+    {
+      "id": "length-unicode",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "length('✓foo')",
+      "given": {
+        "foo": -1,
+        "zero": 0,
+        "numbers": [
+          -1,
+          3,
+          4,
+          5
+        ],
+        "array": [
+          -1,
+          3,
+          4,
+          5,
+          "a",
+          "100"
+        ],
+        "strings": [
+          "a",
+          "b",
+          "c"
+        ],
+        "decimals": [
+          1.01,
+          1.2,
+          -1.5
+        ],
+        "str": "Str",
+        "false": false,
+        "empty_list": [],
+        "empty_hash": {},
+        "objects": {
+          "foo": "bar",
+          "bar": "baz"
+        },
+        "null_key": null
+      },
+      "original": {
+        "kind": "value",
+        "value": 4,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": 4,
+        "source": "community-length"
+      },
+      "note": "length(string|array|object): code points, not UTF-8 bytes.",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 0,
+        "case": 41
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": 4
+        },
+        "strict": {
+          "kind": "value",
+          "value": 4
+        }
+      }
+    },
+    {
+      "id": "length-type-error",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "length(`false`)",
+      "given": {
+        "foo": -1,
+        "zero": 0,
+        "numbers": [
+          -1,
+          3,
+          4,
+          5
+        ],
+        "array": [
+          -1,
+          3,
+          4,
+          5,
+          "a",
+          "100"
+        ],
+        "strings": [
+          "a",
+          "b",
+          "c"
+        ],
+        "decimals": [
+          1.01,
+          1.2,
+          -1.5
+        ],
+        "str": "Str",
+        "false": false,
+        "empty_list": [],
+        "empty_hash": {},
+        "objects": {
+          "foo": "bar",
+          "bar": "baz"
+        },
+        "null_key": null
+      },
+      "original": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "community-length"
+      },
+      "note": "length rejects boolean input and names valid types.",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 0,
+        "case": 48
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 0: expected array|object|string, got boolean"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 0: expected array|object|string, got boolean"
+          ]
+        }
+      }
+    },
+    {
+      "id": "join-element-type",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "join(',', `[\"a\", 0]`)",
+      "given": {
+        "foo": -1,
+        "zero": 0,
+        "numbers": [
+          -1,
+          3,
+          4,
+          5
+        ],
+        "array": [
+          -1,
+          3,
+          4,
+          5,
+          "a",
+          "100"
+        ],
+        "strings": [
+          "a",
+          "b",
+          "c"
+        ],
+        "decimals": [
+          1.01,
+          1.2,
+          -1.5
+        ],
+        "str": "Str",
+        "false": false,
+        "empty_list": [],
+        "empty_hash": {},
+        "objects": {
+          "foo": "bar",
+          "bar": "baz"
+        },
+        "null_key": null
+      },
+      "original": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "community-join"
+      },
+      "note": "join(string, array[string]) rejects a numeric array member.",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 0,
+        "case": 89
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 1: expected array[string], got array"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 1: expected array[string], got array"
+          ]
+        }
+      }
+    },
+    {
+      "id": "not-null-arity",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "not_null()",
+      "given": {
+        "foo": -1,
+        "zero": 0,
+        "numbers": [
+          -1,
+          3,
+          4,
+          5
+        ],
+        "array": [
+          -1,
+          3,
+          4,
+          5,
+          "a",
+          "100"
+        ],
+        "strings": [
+          "a",
+          "b",
+          "c"
+        ],
+        "decimals": [
+          1.01,
+          1.2,
+          -1.5
+        ],
+        "str": "Str",
+        "false": false,
+        "empty_list": [],
+        "empty_hash": {},
+        "objects": {
+          "foo": "bar",
+          "bar": "baz"
+        },
+        "null_key": null
+      },
+      "original": {
+        "kind": "error",
+        "error": "invalid-arity",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-arity",
+        "source": "community-not_null"
+      },
+      "note": "not_null(any, ...) requires at least one argument.",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 0,
+        "case": 140
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "invalid-arity",
+          "message_contains": [
+            "Not enough arguments: expected 1, got 0"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "invalid-arity",
+          "message_contains": [
+            "Not enough arguments: expected 1, got 0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sort-by-expref",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "sort_by(people, &age)[].name",
+      "given": {
+        "people": [
+          {
+            "age": 20,
+            "age_str": "20",
+            "bool": true,
+            "name": "a",
+            "extra": "foo"
+          },
+          {
+            "age": 40,
+            "age_str": "40",
+            "bool": false,
+            "name": "b",
+            "extra": "bar"
+          },
+          {
+            "age": 30,
+            "age_str": "30",
+            "bool": true,
+            "name": "c"
+          },
+          {
+            "age": 50,
+            "age_str": "50",
+            "bool": false,
+            "name": "d"
+          },
+          {
+            "age": 10,
+            "age_str": "10",
+            "bool": true,
+            "name": 3
+          }
+        ]
+      },
+      "original": {
+        "kind": "value",
+        "value": [
+          3,
+          "a",
+          "c",
+          "b",
+          "d"
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          3,
+          "a",
+          "c",
+          "b",
+          "d"
+        ],
+        "source": "community-sort_by"
+      },
+      "note": "sort_by(array, expression->number|string).",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 2,
+        "case": 3
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            3,
+            "a",
+            "c",
+            "b",
+            "d"
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            3,
+            "a",
+            "c",
+            "b",
+            "d"
+          ]
+        }
+      }
+    },
+    {
+      "id": "map-retains-null",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "map(&foo.bar, array)",
+      "given": {
+        "array": [
+          {
+            "foo": {
+              "bar": "yes1"
+            }
+          },
+          {
+            "foo": {
+              "bar": "yes2"
+            }
+          },
+          {
+            "foo1": {
+              "bar": "no"
+            }
+          }
+        ]
+      },
+      "original": {
+        "kind": "value",
+        "value": [
+          "yes1",
+          "yes2",
+          null
+        ],
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": [
+          "yes1",
+          "yes2",
+          null
+        ],
+        "source": "community-map"
+      },
+      "note": "map(expression, array) retains null results, unlike a projection.",
+      "original_fixture": {
+        "file": "functions.json",
+        "group": 5,
+        "case": 0
+      },
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": [
+            "yes1",
+            "yes2",
+            null
+          ]
+        },
+        "strict": {
+          "kind": "value",
+          "value": [
+            "yes1",
+            "yes2",
+            null
+          ]
+        }
+      }
+    },
+    {
+      "id": "length-arity",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "length()",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "invalid-arity",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-arity",
+        "source": "community-length"
+      },
+      "note": "Exactly one argument required.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "invalid-arity",
+          "message_contains": [
+            "Not enough arguments: expected 1, got 0"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "invalid-arity",
+          "message_contains": [
+            "Not enough arguments: expected 1, got 0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sort-by-string-rejected",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "sort_by(@, 'k')",
+      "given": [
+        {
+          "k": "a"
+        }
+      ],
+      "original": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "invalid-type",
+        "source": "community-sort_by"
+      },
+      "note": "The standard function requires &k, even though jpx group_by also accepts a string.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 1: expected expref, got string"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "invalid-type",
+          "message_contains": [
+            "Invalid type at position 1: expected expref, got string"
+          ]
+        }
+      }
+    },
+    {
+      "id": "contains-nonstring-search",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "contains('abc', `1`)",
+      "given": {},
+      "original": {
+        "kind": "value",
+        "value": false,
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "value",
+        "value": false,
+        "source": "community-contains"
+      },
+      "note": "contains(array|string, any): a non-string search in a string returns false.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "value",
+          "value": false
+        },
+        "strict": {
+          "kind": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "id": "unknown-function",
+      "area": "standard function",
+      "coverage": "probe",
+      "expression": "audit_missing(@)",
+      "given": {},
+      "original": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "original-spec"
+      },
+      "community": {
+        "kind": "error",
+        "error": "unknown-function",
+        "source": "community-grammar"
+      },
+      "note": "Function-call grammar accepts unknown names; evaluation rejects the unavailable function.",
+      "jpx": {
+        "parse": {
+          "accepted": true
+        },
+        "default": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: audit_missing"
+          ]
+        },
+        "strict": {
+          "kind": "error",
+          "error": "unknown-function",
+          "message_contains": [
+            "Unknown function: audit_missing"
+          ]
+        }
+      }
+    }
+  ]
+}

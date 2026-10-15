@@ -46,6 +46,11 @@ echo '[{"name": "alice"}, {"name": "bob"}]' | jpx '@' --yaml
 - name: bob
 ```
 
+YAML output preserves JSON value types, including strings that resemble booleans
+or numbers. Quoting and layout may change between releases; compare parsed values
+rather than YAML bytes. Output ends with a newline, with additional trailing
+newlines retained when they are part of a multiline string.
+
 ### Use Cases
 
 - Converting JSON configs to YAML for Kubernetes, Docker Compose, etc.

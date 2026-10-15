@@ -78,6 +78,16 @@ jobs:
         run: cargo clippy --no-default-features --workspace -- -D warnings
       - name: Clippy isolated core (no default features)
         run: cargo clippy -p jpx-core --no-default-features --all-targets -- -D warnings
+      # Each ext-* feature must build on its own so downstream crates can
+      # pick a subset of extension categories.
+      - name: Clippy isolated core (each extension category alone)
+        run: |
+          for feature in $(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "jpx-core") | .features | keys[] | select(startswith("ext-"))'); do
+            echo "::group::$feature"
+            cargo clippy -p jpx-core --no-default-features --features "$feature" --all-targets -- -D warnings
+            echo "::endgroup::"
+          done
 
   fmt:
     name: Formatting
