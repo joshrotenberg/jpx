@@ -207,14 +207,26 @@ Always use `describe` to check a function's exact signature before using it.
 
 The MCP server exposes 34 tools. Key patterns:
 
-- **`evaluate`** / **`evaluate_file`** — run a JMESPath expression against JSON input or a file
-- **`batch_evaluate`** — run multiple expressions against the same input
-- **`evaluate_json`** / **`batch_evaluate_json`** — query native JSON values and return versioned structured results
+- **`evaluate`** / **`evaluate_file`**: run a JMESPath expression against JSON text or a file
+- **`batch_evaluate`**: run multiple expressions against the same JSON text
+- **`evaluate_json`** (`input`, `expression`) / **`batch_evaluate_json`** (`input`, `expressions`): evaluate against a native JSON value (see below)
 - **`validate`** — check expression syntax without executing
 - **`explain`** — break down an expression into steps
 - **`stats`** / **`paths`** / **`keys`** / **`inspect`** — analyze JSON structure before querying; `inspect` bounds traversal and output
 - **`define_query`** / **`run_query`** / **`list_queries`** — ephemeral, process-scoped named query store shared by connected clients
 - **`diff`** / **`patch`** / **`merge`** — JSON Patch (RFC 6902) and Merge Patch (RFC 7396)
+
+### Native JSON evaluation
+
+`evaluate_json` and `batch_evaluate_json` take a native JSON value instead of encoded JSON text:
+
+- Arguments must be a JSON object with exactly the named fields: required `input` plus `expression` (string) or `expressions` (array of strings). Positional arrays and unknown fields such as `input_text` or `file_path` are errors.
+- `input` may be any JSON value. Explicit `"input": null` is valid; omitting `input` is an error.
+- String inputs stay literal: `"input": "[1,2]"` is a string, not a parsed array. Use `evaluate`/`batch_evaluate` for JSON text.
+- Success returns `{"schema_version": 1, "result": ...}` or `{"schema_version": 1, "results": [...]}` as `structuredContent`, with equivalent JSON text.
+- Batch results keep expression order. Each entry has `expression` and exactly one of `result` or `error`; a batch with some failing expressions still succeeds.
+- Limits: 50 MiB of compact serialized UTF-8 `input` and at most 1000 expressions per batch. Output size and evaluation allocations are not bounded.
+- Invalid requests, limit violations, and single-expression failures return `isError: true` with corrective text and no `structuredContent`.
 
 ### Workflow for exploring unfamiliar JSON
 

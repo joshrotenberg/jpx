@@ -18,11 +18,11 @@ The jpx MCP server exposes 34 tools for JMESPath evaluation, function discovery,
 
 | Tool | Use when... |
 |------|-------------|
-| `evaluate` | Running a JMESPath expression against inline JSON data |
+| `evaluate` | Running a JMESPath expression against inline JSON text |
+| `evaluate_json` | Running an expression against a native JSON value, with a typed result |
 | `evaluate_file` | Querying a JSON file on disk (avoids passing large data through protocol) |
-| `batch_evaluate` | Running multiple expressions against the same input (parses once) |
-| `evaluate_json` | Querying a native JSON value and returning a versioned structured result |
-| `batch_evaluate_json` | Querying a native JSON value with ordered results and per-expression errors |
+| `batch_evaluate` | Running multiple expressions against the same JSON text (parses once) |
+| `batch_evaluate_json` | Running multiple expressions against a native JSON value, with typed results |
 | `validate` | Checking if an expression is syntactically valid before running it |
 | `explain` | Understanding what an expression does step by step |
 
@@ -32,6 +32,17 @@ The jpx MCP server exposes 34 tools for JMESPath evaluation, function discovery,
 ```
 
 **`batch_evaluate`** is more efficient than calling `evaluate` multiple times when you need several values from the same data -- it parses the input JSON once.
+
+**`evaluate_json`** (`input`, `expression`) and **`batch_evaluate_json`** (`input`, `expressions`) take a native JSON value instead of encoded text:
+```json
+{"input": {"users": [{"name": "alice", "age": 35}]}, "expression": "users[?age > `30`].name"}
+```
+- Arguments must be a JSON object with only these named fields; positional arrays and extra fields (`input_text`, `file_path`) are errors.
+- `input` is required and may be any JSON value. Explicit `null` is valid; omitting `input` is an error. Strings stay literal (`"[1,2]"` is a string), so use `evaluate` for JSON text.
+- Success returns `{"schema_version": 1, "result": ...}` (or `"results": [...]`) as `structuredContent` plus equivalent JSON text.
+- Batch entries keep expression order and have `expression` plus exactly one of `result` or `error`; a mixed batch is still a successful call.
+- Limits: 50 MiB of compact serialized UTF-8 `input`, at most 1000 expressions. Output size and evaluation allocations are unbounded.
+- Request errors, limit violations, and single-expression failures return `isError: true` with corrective text and no `structuredContent`.
 
 **`explain`** returns a structured breakdown with node types, functions used, and complexity rating. Works on invalid expressions too (returns parse error details).
 

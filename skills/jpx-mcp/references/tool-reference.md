@@ -22,22 +22,20 @@ Evaluate multiple expressions against the same JSON input.
 Returns an array of results, one per expression.
 
 ### evaluate_json
-Evaluate a JMESPath expression against native JSON input (no JSON text encoding). The legacy `evaluate` tool keeps its JSON-text contract.
-- `input` (any JSON value, required): Native JSON document. Explicit `null` is a valid input; omitting the field is an error. Strings are literal, not encoded JSON.
+Evaluate a JMESPath expression against a native JSON value.
+- `input` (any JSON value, required): Object, array, string, number, boolean, or explicit `null`. Omitting it is an error. Strings are literal, not parsed as JSON text.
 - `expression` (string, required): JMESPath expression
 
-Unknown fields (for example `input_text` or `file_path`) are rejected. Compact serialized UTF-8 input is limited to 50 MiB (quotes and escapes count).
-
-Returns `{schema_version: 1, result: <value>}` as `structuredContent`, with equivalent JSON text in the text content. The result may be any JSON value, including `null`. There is no output-size bound. Evaluation failures are tool errors.
+Arguments must be a JSON object with only these fields; positional arrays and unknown fields such as `input_text` or `file_path` are errors. Returns `{"schema_version": 1, "result": <value>}` as `structuredContent` and equivalent JSON text.
 
 ### batch_evaluate_json
-Evaluate multiple expressions against the same native JSON input.
-- `input` (any JSON value, required): Native JSON document. Explicit `null` is valid; omission is an error. Strings are literal.
+Evaluate multiple expressions against the same native JSON value.
+- `input` (any JSON value, required): Same rules as `evaluate_json`
 - `expressions` (array of strings, required): At most 1000 expressions
 
-Unknown fields are rejected. The same 50 MiB compact input limit as `evaluate_json` applies.
+Returns `{"schema_version": 1, "results": [...]}` as `structuredContent` and equivalent JSON text. Entries keep expression order; each has `expression` and exactly one of `result` or `error`. A batch with some failing expressions is still a successful call.
 
-Returns `{schema_version: 1, results: [...]}` as `structuredContent`, with equivalent JSON text. Entries are in request order. Each has `expression` and exactly one of `result` or `error`; one failing expression does not fail the batch. There is no output-size bound.
+Both typed tools limit `input` to 50 MiB of compact serialized UTF-8 JSON. Output size and evaluation allocations are not bounded. Invalid requests, limit violations, and `evaluate_json` evaluation failures return `isError: true` with corrective text and no `structuredContent`.
 
 ### validate
 Check if a JMESPath expression is syntactically valid.
