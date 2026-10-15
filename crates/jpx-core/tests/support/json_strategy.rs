@@ -2,6 +2,7 @@ use proptest::prelude::*;
 use serde_json::{Value, json};
 
 /// Generates an arbitrary JSON value with bounded recursion depth.
+#[allow(dead_code)] // Not every integration-test binary uses this strategy.
 pub fn arb_json_value() -> impl Strategy<Value = Value> {
     let leaf = prop_oneof![
         Just(Value::Null),
@@ -25,6 +26,7 @@ pub fn arb_json_value() -> impl Strategy<Value = Value> {
 /// Keep the original property-test population above unchanged (including its
 /// arbitrary finite floats). Full-width integers and precision boundaries are
 /// intentional: a lossy reference result must remain a visible divergence.
+#[allow(dead_code)] // Not every integration-test binary uses this strategy.
 pub fn differential_document() -> BoxedStrategy<Value> {
     let leaf = prop_oneof![
         Just(Value::Null),
