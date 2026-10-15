@@ -1,0 +1,10 @@
+---
+source: crates/jpx/tests/cli_skills.rs
+expression: "String::from_utf8(json.stdout).unwrap()"
+---
+{
+  "topics": [
+    "query-libraries"
+  ],
+  "content": "# jpx agent instructions\n\njpx queries and transforms JSON using JMESPath, with extension functions and\nreusable query libraries. These instructions ship inside the binary and work\noffline, without reading stdin or configuration.\n\n## Shipped topics\n\n- `query-libraries`: create, validate, and run named queries in `.jpx` files.\n\nRead the complete, installable topic with `jpx --skills query-libraries`.\nUse `jpx --skills` to return to this index. Add `--json` for pretty JSON or\n`-c` for compact JSON; the `content` field contains the exact Markdown.\n\n## Essential conventions\n\nA `.jpx` library starts each query with `-- :name <query-name>`, optionally\nfollowed by `-- :desc <description>`, then its JMESPath expression. Run a\nnamed query with `jpx -Q library.jpx:query-name -f data.json`; validate the\nlibrary first with `jpx -Q library.jpx --check`.\n\nJMESPath literals are backtick-delimited JSON, such as `` `true` `` or\n`` `\"active\"` ``. In a shell, single-quote the whole expression so backticks\nare not interpreted as command substitution. When creating a library with\na heredoc, quote its delimiter (`<<'JPX'`) to preserve backticks and `$`.\nThe query-libraries topic includes a runnable fixture demonstrating both forms.\n"
+}

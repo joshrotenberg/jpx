@@ -198,8 +198,11 @@ impl TableStyle {
 #[command(version, about, long_about = None)]
 #[command(styles = STYLES)]
 #[command(disable_help_flag = true)]
-#[command(after_help = "Use --help for examples and detailed documentation")]
+#[command(
+    after_help = "Use --help for examples and detailed documentation\nAgents: jpx --skills for offline instructions; jpx --skills query-libraries for a SKILL.md"
+)]
 #[command(after_long_help = concat!(
+    "Agents: jpx --skills for offline instructions; jpx --skills query-libraries for a SKILL.md\n\n",
     "GETTING STARTED:\n",
     "  JMESPath basics (work everywhere):\n",
     "    .field          Access object field       {\"name\": \"jo\"} | jpx 'name' -> \"jo\"\n",
@@ -266,6 +269,41 @@ pub(crate) struct Args {
     /// Print detailed help with examples
     #[arg(long = "help", action = ArgAction::HelpLong, global = true)]
     help_long: (),
+
+    /// Read embedded agent instructions without loading input or configuration
+    #[arg(
+        long,
+        value_name = "TOPIC",
+        num_args = 0..=1,
+        default_missing_value = "",
+        conflicts_with_all = [
+            "expressions", "positional_expressions", "query_file", "query_name",
+            "list_queries", "check_queries", "arg", "argjson", "file", "per_file",
+            "raw", "join_output", "indent", "tab", "sort_keys", "yaml", "toml_output",
+            "csv_output", "tsv_output", "lines_output", "table", "columns", "table_style",
+            "null_input", "slurp", "raw_input", "stream", "unbuffered", "color", "output",
+            "exit_status", "quiet", "verbose", "strict", "completions", "list_functions",
+            "cheatsheet", "list_category", "describe", "search", "similar", "diff", "patch",
+            "merge", "explain", "debug", "repl", "no_history", "demo", "stats", "paths",
+            "types", "values", "bench", "warmup"
+        ],
+        help = "Read offline agent instructions (index or topic)",
+        long_help = "Print the embedded index, or a complete SKILL.md for query-libraries.\n\
+            No stdin, files, configuration, or network access is needed.\n\
+            Use --json for pretty JSON or -c for compact JSON; otherwise prints Markdown.\n\
+            Query/execution and other output flags cannot be combined with --skills."
+    )]
+    #[cfg_attr(feature = "parquet", arg(conflicts_with = "parquet_output"))]
+    pub(crate) skills: Option<String>,
+
+    /// Pretty JSON for embedded skills only
+    #[arg(
+        long,
+        help = "Pretty JSON for --skills (use -c for compact JSON)",
+        long_help = "Output --skills as pretty JSON, or compact JSON if -c is also set.\n\
+            Without --skills, remove --json: ordinary queries already output JSON by default."
+    )]
+    pub(crate) json: bool,
 
     /// JMESPath expression(s) to evaluate
     #[arg(

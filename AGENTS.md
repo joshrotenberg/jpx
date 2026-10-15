@@ -15,6 +15,8 @@ This project includes [Agent Skills](https://agentskills.io/) in the `skills/` d
 
 Each skill has a SKILL.md overview and a `references/` directory with detailed docs loaded on demand.
 
+The `jpx` binary also embeds an offline guide: run `jpx --skills` for the index and `jpx --skills query-libraries` for the query-library topic.
+
 ## Project overview
 
 jpx is a JMESPath CLI and toolchain with 470+ extension functions.
