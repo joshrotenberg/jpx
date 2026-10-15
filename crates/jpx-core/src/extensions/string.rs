@@ -6,6 +6,7 @@ use heck::{
     ToKebabCase, ToLowerCamelCase, ToShoutyKebabCase, ToShoutySnakeCase, ToSnakeCase, ToTitleCase,
     ToTrainCase, ToUpperCamelCase,
 };
+#[cfg(feature = "ext-regex")]
 use regex::Regex;
 use serde_json::{Number, Value};
 
@@ -1494,15 +1495,17 @@ impl Function for MaskFn {
 // redact_pattern(string, pattern, replacement?) -> string
 // Replace all matches of a regex pattern with a replacement string.
 // Named `redact_pattern` to avoid colliding with the object-category `redact`,
-// which redacts named fields in a structure.
+// which redacts named fields in a structure. Requires the `ext-regex` feature.
 // =============================================================================
 
+#[cfg(feature = "ext-regex")]
 defn!(
     RedactPatternFn,
     vec![arg!(string), arg!(string)],
     Some(arg!(any))
 );
 
+#[cfg(feature = "ext-regex")]
 impl Function for RedactPatternFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
@@ -1883,6 +1886,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     // this custom-mask-character variant lives under a distinct name to avoid a
     // nondeterministic collision.
     register_if_enabled(runtime, "obscure", enabled, Box::new(MaskFn::new()));
+    #[cfg(feature = "ext-regex")]
     register_if_enabled(
         runtime,
         "redact_pattern",
@@ -2228,6 +2232,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[cfg(feature = "ext-core")]
     fn test_mask_default() {
         let runtime = setup_runtime();
         let expr = runtime.compile("mask(@)").unwrap();
@@ -2237,6 +2242,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-core")]
     fn test_mask_keep_last_4() {
         let runtime = setup_runtime();
         let expr = runtime.compile("mask(@, `4`)").unwrap();
@@ -2245,6 +2251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-core")]
     fn test_mask_visible_exceeds_length() {
         let runtime = setup_runtime();
         let expr = runtime.compile("mask(@, `10`)").unwrap();
@@ -2254,6 +2261,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-core")]
     fn test_mask_multibyte() {
         let runtime = setup_runtime();
         // "héllo" is 5 chars / 6 bytes. show_last=4 -> mask 1 char. A byte-based
