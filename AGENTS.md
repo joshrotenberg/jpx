@@ -207,8 +207,8 @@ Always use `describe` to check a function's exact signature before using it.
 
 The MCP server exposes 33 tools. Key patterns:
 
-- **`evaluate`** / **`evaluate_file`** — run a JMESPath expression against JSON text or a file
-- **`batch_evaluate`** — run multiple expressions against the same JSON text
+- **`evaluate`** / **`evaluate_file`**: run a JMESPath expression against JSON text or a file
+- **`batch_evaluate`**: run multiple expressions against the same JSON text
 - **`evaluate_json`** (`input`, `expression`) / **`batch_evaluate_json`** (`input`, `expressions`): evaluate against a native JSON value (see below)
 - **`validate`** — check expression syntax without executing
 - **`explain`** — break down an expression into steps
