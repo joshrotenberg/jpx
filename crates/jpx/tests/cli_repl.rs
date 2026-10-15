@@ -252,7 +252,7 @@ fn history_shows_previously_loaded_entries_and_joined_multiline_queries() {
 #[test]
 fn history_numbers_survive_eviction_beyond_capacity() {
     let home = TempDir::new().expect("create history home");
-    // 1 + 150 entries overflows Rustyline's default 100-entry history.
+    // 1 + 150 entries overflows the 100-entry REPL history.
     let mut commands = String::from(".json {}\n");
     for n in 1..=150 {
         commands.push_str(&format!("`{n}`\n"));
@@ -280,7 +280,7 @@ fn history_numbers_survive_eviction_beyond_capacity() {
 #[test]
 fn invalid_history_count_teaches_syntax_and_repl_recovers() {
     let home = TempDir::new().expect("create history home");
-    for bad in ["0", "-3", "1001", "two", "1 2"] {
+    for bad in ["0", "-3", "101", "two", "1 2"] {
         let output = run_with_history_home(
             &home,
             &format!(".json {{\"name\":\"alice\"}}\n.history {bad}\nname\n.exit\n"),
@@ -288,7 +288,7 @@ fn invalid_history_count_teaches_syntax_and_repl_recovers() {
         assert!(
             output.contains(&format!("Invalid history count '{bad}'"))
                 && output.contains("Usage: .history [count]")
-                && output.contains("from 1 to 1000"),
+                && output.contains("from 1 to 100 "),
             "{bad}: {output}"
         );
         assert!(

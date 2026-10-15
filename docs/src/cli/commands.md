@@ -131,8 +131,8 @@ paths such as `.load "fixtures/user data.json"`.
 
 Use `.history [count]` to list recent queries and commands, oldest first. It
 shows the last 20 entries by default; `count` must be a whole number from 1 to
-1000. History is bounded (Rustyline keeps the most recent 100 entries), so
-fewer than `count` entries may be shown. History loaded from earlier sessions
+100. History is bounded to the most recent 100 entries, so fewer than `count`
+entries may be shown. History loaded from earlier sessions
 is included, multiline queries appear as a single joined entry, and neither
 `.history` itself nor an immediately repeated entry is recorded. Under
 `--no-history` the command explains that history is disabled.

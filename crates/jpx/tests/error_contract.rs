@@ -421,7 +421,7 @@ mod arguments {
             .success()
             .stdout(
                 predicate::str::contains("Usage: .history [count]")
-                    .and(predicate::str::contains("from 1 to 1000")),
+                    .and(predicate::str::contains("from 1 to 100 ")),
             );
     }
 

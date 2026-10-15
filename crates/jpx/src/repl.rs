@@ -14,7 +14,7 @@ use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
 use rustyline::history::{DefaultHistory, History};
 use rustyline::validate::Validator;
-use rustyline::{Editor, Helper};
+use rustyline::{Config, Editor, Helper};
 use serde_json::Value;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -1339,7 +1339,7 @@ pub(crate) fn run(
     let data_fields: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(vec![]));
 
     let helper = JmespathHelper::new(&registry, Rc::clone(&data_fields));
-    let mut rl: Editor<JmespathHelper, DefaultHistory> = Editor::new()?;
+    let mut rl: Editor<JmespathHelper, DefaultHistory> = Editor::with_config(editor_config()?)?;
     rl.set_helper(Some(helper));
 
     // Try to load history
@@ -1870,7 +1870,17 @@ fn handle_command(
 }
 
 const DEFAULT_HISTORY_COUNT: usize = 20;
-const MAX_HISTORY_COUNT: usize = 1000;
+
+/// Number of entries the REPL history keeps. The editor is configured with
+/// this size, and `.history` cannot ask for more than it can hold.
+const HISTORY_SIZE: usize = 100;
+const MAX_HISTORY_COUNT: usize = HISTORY_SIZE;
+
+/// Rustyline's default configuration with the history size pinned to
+/// [`HISTORY_SIZE`].
+fn editor_config() -> rustyline::Result<Config> {
+    Ok(Config::builder().max_history_size(HISTORY_SIZE)?.build())
+}
 
 fn parse_history_count(arg: Option<&str>) -> Result<usize> {
     let Some(raw) = arg else {
@@ -2014,12 +2024,12 @@ mod tests {
     fn history_count_defaults_and_enforces_range() {
         assert_eq!(parse_history_count(None).unwrap(), DEFAULT_HISTORY_COUNT);
         assert_eq!(parse_history_count(Some("1")).unwrap(), 1);
-        assert_eq!(parse_history_count(Some("1000")).unwrap(), 1000);
+        assert_eq!(parse_history_count(Some("100")).unwrap(), 100);
         for bad in [
             "0",
             "-1",
             "+5",
-            "1001",
+            "101",
             "abc",
             "2 3",
             "1.5",
@@ -2027,7 +2037,7 @@ mod tests {
         ] {
             let err = parse_history_count(Some(bad)).unwrap_err().to_string();
             assert!(
-                err.contains("Usage: .history [count]") && err.contains("from 1 to 1000"),
+                err.contains("Usage: .history [count]") && err.contains("from 1 to 100 "),
                 "{bad}: {err}"
             );
         }
@@ -2035,13 +2045,13 @@ mod tests {
 
     #[test]
     fn history_numbers_stay_stable_as_bounded_history_evicts() {
-        let mut history = DefaultHistory::new();
+        let mut history = DefaultHistory::with_config(&editor_config().unwrap());
         let mut evicted = 0;
         for n in 1..=150 {
             record_history(&mut history, &format!("q{n}"), &mut evicted);
         }
         let capacity = history.len();
-        assert!(capacity < 150, "test must exceed the real history capacity");
+        assert_eq!(capacity, HISTORY_SIZE);
         assert_eq!(evicted, 150 - capacity);
         assert_eq!(recent_history(&history, evicted, 1), [(150, "q150")]);
         let oldest = format!("q{}", 151 - capacity);
