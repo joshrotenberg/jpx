@@ -38,17 +38,17 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          mkdir -p target/due-scratch
-          rustc -vV > target/due-scratch/toolchain.txt
-          git rev-parse HEAD > target/due-scratch/revision.txt
+          mkdir -p target/tmp/due-scratch
+          rustc -vV > target/tmp/due-scratch/toolchain.txt
+          git rev-parse HEAD > target/tmp/due-scratch/revision.txt
           cargo test --offline --locked -p jpx-core ${{ matrix.features }} \
             --test differential differential_large -- --ignored --exact --nocapture \
-            2>&1 | tee target/due-scratch/differential-campaign.log
+            2>&1 | tee target/tmp/due-scratch/differential-campaign.log
       - name: Upload results and full reproducers
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: differential-${{ matrix.name }}-${{ github.run_attempt }}
-          path: target/due-scratch/
+          path: target/tmp/due-scratch/
           if-no-files-found: warn
           retention-days: 14

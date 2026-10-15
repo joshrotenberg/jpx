@@ -242,6 +242,7 @@ struct Record {
 // Deliberately empty. Any future exception must match this exact input AND
 // both normalized outcomes, with a reviewed reason/issue. No regexes, error-
 // class-wide exemptions, or exceptions for panics/unexpected/conversion errors.
+// Reviewed reference-side failures use REFERENCE_FAILURES below instead.
 struct AllowedDivergence {
     expression: &'static str,
     document_json: &'static str,
@@ -250,6 +251,54 @@ struct AllowedDivergence {
     reason: &'static str,
 }
 const ALLOWLIST: &[AllowedDivergence] = &[];
+
+// A reviewed failure of the reference engine itself. The reference outcome
+// must be `Unexpected` with exactly `reference_failure` as its message, the
+// expression must match exactly, and jpx must produce exactly `jpx`, which can
+// only be a JSON result or a typed error. The document is not part of the key:
+// the expression plus both exact outcomes pin the reference defect. jpx panics,
+// jpx unexpected errors, and conversion failures on either side are never
+// covered, and a blank reason never matches.
+struct ReferenceFailure {
+    expression: &'static str,
+    jpx: Outcome,
+    reference_failure: &'static str,
+    reason: &'static str,
+}
+const AVG_EMPTY_REFERENCE_FAILURE: &str = "parse error during search: Expected to be a valid f64";
+const REFERENCE_FAILURES: &[ReferenceFailure] = &[ReferenceFailure {
+    expression: "avg(empty_list)",
+    jpx: Outcome::Json(Value::Null),
+    reference_failure: AVG_EMPTY_REFERENCE_FAILURE,
+    reason: "Reference bug in the jmespath crate (0.3 through 0.5): avg([]) computes 0/0 and \
+             fails converting NaN to a JSON number, reported as a Parse error during search. \
+             The specification and vendored functions.json require null. \
+             See differential/README.md and issue #249.",
+}];
+
+fn reference_failure_reason(
+    repro: &Repro,
+    jpx: &Outcome,
+    reference: &Outcome,
+    entries: &[ReferenceFailure],
+) -> Option<String> {
+    let Outcome::Unexpected(failure) = reference else {
+        return None;
+    };
+    if !matches!(jpx, Outcome::Json(_) | Outcome::Error(_)) {
+        return None;
+    }
+    entries
+        .iter()
+        .find(|entry| {
+            !entry.reason.trim().is_empty()
+                && entry.expression == repro.expression
+                && entry.reference_failure == failure
+                && matches!(entry.jpx, Outcome::Json(_) | Outcome::Error(_))
+                && &entry.jpx == jpx
+        })
+        .map(|entry| entry.reason.to_owned())
+}
 
 fn allowed_reason(
     repro: &Repro,
@@ -281,7 +330,8 @@ fn record(repro: Repro) -> Record {
     let (jpx, reference) = evaluate(&repro.expression, &repro.document);
     Record {
         agreement: agrees(&jpx, &reference),
-        allowlist_reason: allowed_reason(&repro, &jpx, &reference, ALLOWLIST),
+        allowlist_reason: allowed_reason(&repro, &jpx, &reference, ALLOWLIST)
+            .or_else(|| reference_failure_reason(&repro, &jpx, &reference, REFERENCE_FAILURES)),
         repro,
         jpx,
         reference,
@@ -402,8 +452,10 @@ fn artifact_dir(campaign: &str) -> PathBuf {
     } else {
         "standard"
     };
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../target/due-scratch/differential")
+    // Cargo sets this for integration tests to `<target-dir>/tmp`, so it
+    // follows CARGO_TARGET_DIR and defaults to the workspace `target/tmp`.
+    Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("due-scratch/differential")
         .join(campaign)
         .join(features)
 }
@@ -415,7 +467,7 @@ fn write_json(path: &Path, value: &impl Serialize) {
     )
     .unwrap_or_else(|error| {
         panic!(
-            "Cannot write {}: {error}; make target/due-scratch writable",
+            "Cannot write {}: {error}; make the Cargo target tmp directory writable",
             path.display()
         )
     });
@@ -429,7 +481,8 @@ fn campaign(name: &str, default_cases: usize) {
         .map(|value| parse_seeds(&value).unwrap_or_else(|e| panic!("{e}")))
         .unwrap_or_else(|| DEFAULT_SEEDS.to_vec());
     let dir = artifact_dir(name);
-    fs::create_dir_all(&dir).expect("make target/due-scratch differential artifact directory");
+    fs::create_dir_all(&dir)
+        .expect("make differential artifact directory under the Cargo target tmp directory");
     let mut results =
         BufWriter::new(File::create(dir.join("results.jsonl")).expect("create results artifact"));
     let mut failures = 0;
@@ -648,8 +701,8 @@ mod tests {
         assert!(matches!(reference, Outcome::Unexpected(_)));
         assert!(!agrees(&jpx, &reference));
 
-        // Reference 0.3 compiles this valid expression, then fails while
-        // converting the empty average (NaN) into a JSON Number.
+        // The reference (0.3 through 0.5) compiles this valid expression, then
+        // fails while converting the empty average (NaN) into a JSON Number.
         let (jpx, reference) = evaluate("avg(@)", &json!([]));
         assert_eq!(jpx, Outcome::Json(Value::Null));
         assert!(matches!(reference, Outcome::Unexpected(_)));
@@ -753,6 +806,93 @@ mod tests {
         assert!(allowed_reason(&repro, &reference, &jpx, &entries).is_none());
         entries[0].reason = " ";
         assert!(allowed_reason(&repro, &jpx, &reference, &entries).is_none());
+    }
+
+    #[test]
+    fn reference_failures_are_reviewable_but_only_narrowly() {
+        // The reviewed avg([]) entry covers the real retained reproducers.
+        for name in ["compliance-249-322.json", "compliance-249-872.json"] {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/differential/reproducers")
+                .join(name);
+            let record = replay_json(&fs::read(&path).expect("read retained reproducer"));
+            assert!(
+                !record.agreement,
+                "{name} no longer diverges; drop the entry"
+            );
+            assert_eq!(record.jpx, Outcome::Json(Value::Null));
+            assert_eq!(
+                record.reference,
+                Outcome::Unexpected(AVG_EMPTY_REFERENCE_FAILURE.into())
+            );
+            assert!(record.allowlist_reason.is_some(), "{name}");
+            assert!(require_agreement(&record).is_ok());
+        }
+
+        let repro = repro("avg(empty_list)", json!({"empty_list": []}));
+        let jpx = Outcome::Json(Value::Null);
+        let reference = Outcome::Unexpected(AVG_EMPTY_REFERENCE_FAILURE.into());
+        let covered = |repro: &Repro, jpx: &Outcome, reference: &Outcome| {
+            reference_failure_reason(repro, jpx, reference, REFERENCE_FAILURES).is_some()
+        };
+        assert!(covered(&repro, &jpx, &reference));
+        // A different expression, jpx result, or reference failure is not covered.
+        assert!(!covered(
+            &self::repro("avg(@)", json!([])),
+            &jpx,
+            &reference
+        ));
+        assert!(!covered(&repro, &Outcome::Json(json!(0)), &reference));
+        assert!(!covered(
+            &repro,
+            &jpx,
+            &Outcome::Unexpected("parse error during search: other".into())
+        ));
+        // jpx-side panics and unexpected errors are never covered, nor are
+        // conversion failures or panics in the reference.
+        for bad_jpx in [
+            Outcome::Panic("injected".into()),
+            Outcome::Unexpected(AVG_EMPTY_REFERENCE_FAILURE.into()),
+            Outcome::ConversionFailure("injected".into()),
+        ] {
+            assert!(!covered(&repro, &bad_jpx, &reference));
+        }
+        for bad_reference in [
+            Outcome::Panic(AVG_EMPTY_REFERENCE_FAILURE.into()),
+            Outcome::ConversionFailure(AVG_EMPTY_REFERENCE_FAILURE.into()),
+            Outcome::Json(json!(0)),
+        ] {
+            assert!(!covered(&repro, &jpx, &bad_reference));
+        }
+        // An entry cannot be written to cover a jpx failure, and needs a reason.
+        let entries = [
+            ReferenceFailure {
+                expression: "avg(empty_list)",
+                jpx: Outcome::Unexpected(String::new()),
+                reference_failure: AVG_EMPTY_REFERENCE_FAILURE,
+                reason: "must never mask a jpx failure",
+            },
+            ReferenceFailure {
+                expression: "avg(empty_list)",
+                jpx: Outcome::Json(Value::Null),
+                reference_failure: AVG_EMPTY_REFERENCE_FAILURE,
+                reason: " ",
+            },
+        ];
+        assert!(
+            reference_failure_reason(
+                &repro,
+                &Outcome::Unexpected(String::new()),
+                &reference,
+                &entries
+            )
+            .is_none()
+        );
+        assert!(reference_failure_reason(&repro, &jpx, &reference, &entries).is_none());
+        for entry in REFERENCE_FAILURES {
+            assert!(entry.reason.contains("Reference bug"));
+            assert!(matches!(entry.jpx, Outcome::Json(_) | Outcome::Error(_)));
+        }
     }
 
     #[test]
