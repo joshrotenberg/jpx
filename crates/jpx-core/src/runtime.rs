@@ -324,6 +324,44 @@ mod tests {
         assert!(rt.get_function("upper").is_some());
     }
 
+    // Holds under every feature combination: the registry lists only
+    // functions from compiled-in categories, and the runtime can call each.
+    #[test]
+    fn registry_matches_compiled_functions() {
+        let mut registry = FunctionRegistry::new();
+        registry.register_all();
+        let rt = Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build();
+        for info in registry.functions() {
+            assert!(info.category.is_available(), "{}", info.name);
+            assert!(rt.get_function(info.name).is_some(), "{}", info.name);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ext-core")]
+    fn redact_keys_follows_ext_regex() {
+        let rt = Runtime::builder().with_category(Category::Object).build();
+        assert!(rt.get_function("pick").is_some());
+        assert_eq!(
+            rt.get_function("redact_keys").is_some(),
+            cfg!(feature = "ext-regex")
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "ext-time"))]
+    fn uncompiled_category_registers_nothing() {
+        assert!(!Category::Datetime.is_available());
+        assert_eq!(Category::Datetime.feature_name(), Some("ext-time"));
+        let mut registry = FunctionRegistry::new();
+        registry.register_category(Category::Datetime);
+        assert!(registry.is_empty());
+        assert_eq!(registry.categories().count(), 0);
+    }
+
     #[test]
     fn compile_with_runtime() {
         let rt = Runtime::strict();

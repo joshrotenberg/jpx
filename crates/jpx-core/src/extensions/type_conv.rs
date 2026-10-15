@@ -675,6 +675,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_is_blank() {
         let runtime = setup_runtime();
         let expr = runtime.compile("is_blank(@)").unwrap();
@@ -686,6 +687,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-validation")]
     fn test_is_json() {
         let runtime = setup_runtime();
         let expr = runtime.compile("is_json(@)").unwrap();

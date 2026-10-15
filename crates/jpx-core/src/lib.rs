@@ -17,7 +17,23 @@
 //! ```
 
 pub mod ast;
-#[cfg(feature = "extensions")]
+#[cfg(any(
+    feature = "ext-core",
+    feature = "ext-strings",
+    feature = "ext-text",
+    feature = "ext-lang",
+    feature = "ext-regex",
+    feature = "ext-validation",
+    feature = "ext-hash",
+    feature = "ext-encoding",
+    feature = "ext-ids",
+    feature = "ext-time",
+    feature = "ext-geo",
+    feature = "ext-semver",
+    feature = "ext-net",
+    feature = "ext-jsonpatch",
+    feature = "ext-format",
+))]
 pub mod extensions;
 pub mod functions;
 pub mod query_library;

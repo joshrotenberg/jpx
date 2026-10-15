@@ -18,7 +18,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = "2"
 
-# Extension dependencies (optional, pulled in by extensions feature)
+# Extension dependencies (optional, pulled in by the ext-* features)
 heck = { version = "0.5", optional = true }
 md-5 = { version = "0.11", optional = true }
 sha1 = { version = "0.10", optional = true }
@@ -77,25 +77,57 @@ harness = false
 
 [features]
 default = ["extensions", "let-expr"]
+# All extension function categories. Enable individual `ext-*` features
+# instead to compile only the categories you need.
 extensions = [
-    "dep:heck",
-    "dep:md-5", "dep:sha1", "dep:sha2", "dep:hmac", "dep:hmac-013", "dep:crc32fast",
-    "dep:base64", "dep:hex",
-    "dep:urlencoding", "dep:url", "dep:form_urlencoded",
-    "dep:regex",
-    "dep:uuid",
-    "dep:rand",
-    "dep:chrono", "dep:chrono-tz", "dep:interim", "dep:dateparser",
-    "dep:strsim",
-    "dep:rphonetic",
-    "dep:geoutils", "dep:geohash",
-    "dep:semver_crate",
-    "dep:ipnetwork",
-    "dep:nanoid", "dep:ulid",
-    "dep:json-patch",
-    "dep:aho-corasick",
-    "dep:csv",
-    "dep:whatlang",
-    "dep:rust-stemmers", "dep:stop-words", "dep:unicode-normalization",
+    "ext-core",
+    "ext-strings",
+    "ext-text",
+    "ext-lang",
+    "ext-regex",
+    "ext-validation",
+    "ext-hash",
+    "ext-encoding",
+    "ext-ids",
+    "ext-time",
+    "ext-geo",
+    "ext-semver",
+    "ext-net",
+    "ext-jsonpatch",
+    "ext-format",
 ]
+# array, object, math, type, utility, path, expression, duration, color, computing,
+# units. `redact_keys` (object) also needs ext-regex.
+ext-core = ["dep:heck"]
+# string. `redact_pattern` also needs ext-regex.
+ext-strings = ["dep:heck"]
+# text, fuzzy, phonetic, multi-match, discovery
+ext-text = [
+    "dep:rust-stemmers", "dep:stop-words", "dep:unicode-normalization",
+    "dep:strsim", "dep:rphonetic", "dep:aho-corasick",
+]
+# language
+ext-lang = ["dep:whatlang"]
+# regex
+ext-regex = ["dep:regex"]
+# validation
+ext-validation = ["dep:regex", "dep:base64", "dep:chrono"]
+# hash
+ext-hash = ["dep:md-5", "dep:sha1", "dep:sha2", "dep:hmac", "dep:hmac-013", "dep:crc32fast", "dep:hex"]
+# encoding, url
+ext-encoding = ["dep:base64", "dep:hex", "dep:urlencoding", "dep:url", "dep:form_urlencoded"]
+# uuid, rand, ids
+ext-ids = ["dep:uuid", "dep:rand", "dep:nanoid", "dep:ulid"]
+# datetime
+ext-time = ["dep:chrono", "dep:chrono-tz", "dep:interim", "dep:dateparser"]
+# geo
+ext-geo = ["dep:geoutils", "dep:geohash"]
+# semver
+ext-semver = ["dep:semver_crate"]
+# network
+ext-net = ["dep:ipnetwork"]
+# jsonpatch
+ext-jsonpatch = ["dep:json-patch"]
+# format
+ext-format = ["dep:csv"]
 let-expr = []

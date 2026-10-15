@@ -1964,6 +1964,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_map_values_with_string_fns() {
         let runtime = setup_runtime();
         let data = json!({"name": "alice", "city": "boston"});
@@ -1975,6 +1976,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_map_keys_with_string_fns() {
         let runtime = setup_runtime();
         let data = json!({"hello": 1, "world": 2});

@@ -147,6 +147,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(DataQualityScoreFn::new()),
     );
     register_if_enabled(runtime, "redact", enabled, Box::new(RedactFn::new()));
+    #[cfg(feature = "ext-regex")]
     register_if_enabled(
         runtime,
         "redact_keys",
@@ -1837,10 +1838,13 @@ fn redact_recursive(value: &Value, keys: &HashSet<String>) -> Value {
 
 // =============================================================================
 // redact_keys(any, pattern) -> any (redact keys matching regex pattern)
+// Requires the `ext-regex` feature.
 // =============================================================================
 
+#[cfg(feature = "ext-regex")]
 defn!(RedactKeysFn, vec![arg!(any), arg!(string)], None);
 
+#[cfg(feature = "ext-regex")]
 impl Function for RedactKeysFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
@@ -1856,6 +1860,7 @@ impl Function for RedactKeysFn {
     }
 }
 
+#[cfg(feature = "ext-regex")]
 fn redact_keys_recursive(value: &Value, pattern: &regex::Regex) -> Value {
     match value {
         Value::Object(obj) => {
@@ -3698,6 +3703,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[cfg(feature = "ext-regex")]
     fn test_redact_keys_basic() {
         let runtime = setup_runtime();
         let data = json!({"password": "secret", "api_key": "abc123", "name": "test"});
@@ -3712,6 +3718,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-regex")]
     fn test_redact_keys_pattern() {
         let runtime = setup_runtime();
         let data = json!({"secret_key": "a", "secret_token": "b", "name": "test"});
