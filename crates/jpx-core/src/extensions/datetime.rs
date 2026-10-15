@@ -982,6 +982,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-core")]
     fn test_now() {
         let runtime = setup_runtime();
         let expr = runtime.compile("now()").unwrap();
