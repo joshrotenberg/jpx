@@ -18,6 +18,41 @@ fn jpx() -> Command {
     command
 }
 
+/// Expected `--json` / `-c` bytes with the CLI's fixed field order. Serializing
+/// a `Value` would sort keys or keep insertion order depending on whether the
+/// build enables `serde_json/preserve_order`.
+fn expected_text(topic: bool, pretty: bool) -> String {
+    #[derive(serde::Serialize)]
+    struct Index {
+        topics: [&'static str; 1],
+        content: &'static str,
+    }
+    #[derive(serde::Serialize)]
+    struct Topic {
+        topic: &'static str,
+        content: &'static str,
+    }
+    let text = match (topic, pretty) {
+        (true, true) => serde_json::to_string_pretty(&Topic {
+            topic: "query-libraries",
+            content: TOPIC,
+        }),
+        (true, false) => serde_json::to_string(&Topic {
+            topic: "query-libraries",
+            content: TOPIC,
+        }),
+        (false, true) => serde_json::to_string_pretty(&Index {
+            topics: ["query-libraries"],
+            content: INDEX,
+        }),
+        (false, false) => serde_json::to_string(&Index {
+            topics: ["query-libraries"],
+            content: INDEX,
+        }),
+    };
+    format!("{}\n", text.unwrap())
+}
+
 fn expected_document(topic: bool) -> Value {
     if topic {
         json!({ "topic": "query-libraries", "content": TOPIC })
@@ -128,12 +163,10 @@ fn json_and_compact_forms_preserve_exact_markdown() {
                 serde_json::from_slice::<Value>(&output.stdout).unwrap(),
                 expected
             );
-            let text = if format == ["--json"] {
-                serde_json::to_string_pretty(&expected).unwrap()
-            } else {
-                serde_json::to_string(&expected).unwrap()
-            };
-            assert_eq!(output.stdout, format!("{text}\n").as_bytes());
+            assert_eq!(
+                output.stdout,
+                expected_text(topic, format == ["--json"]).as_bytes()
+            );
         }
     }
 }
@@ -165,14 +198,8 @@ fn ambient_defaults_do_not_select_a_skills_format_or_load_config() {
                 }
                 let expected = match format {
                     None => if topic { TOPIC } else { INDEX }.to_owned(),
-                    Some("--json") => format!(
-                        "{}\n",
-                        serde_json::to_string_pretty(&expected_document(topic)).unwrap()
-                    ),
-                    Some(_) => format!(
-                        "{}\n",
-                        serde_json::to_string(&expected_document(topic)).unwrap()
-                    ),
+                    Some("--json") => expected_text(topic, true),
+                    Some(_) => expected_text(topic, false),
                 };
                 if let Some(format) = format {
                     command.arg(format);
@@ -186,12 +213,23 @@ fn ambient_defaults_do_not_select_a_skills_format_or_load_config() {
 /// Keep stdin open and empty until the child exits. Reading stdin would hang;
 /// drain output concurrently so the test also works for larger future assets.
 fn output_without_closing_stdin(command: &mut ProcessCommand) -> Output {
-    let mut child = command
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+        .stderr(Stdio::piped());
+    // A freshly copied binary can briefly fail with ETXTBSY on Linux when a
+    // concurrently forked test process still holds the copy's write handle.
+    let mut attempts = 0;
+    let mut child = loop {
+        match command.spawn() {
+            Ok(child) => break child,
+            Err(err) if err.kind() == std::io::ErrorKind::ExecutableFileBusy && attempts < 50 => {
+                attempts += 1;
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err(err) => panic!("failed to spawn {command:?}: {err}"),
+        }
+    };
     let stdin = child.stdin.take().unwrap();
     let mut stdout = child.stdout.take().unwrap();
     let mut stderr = child.stderr.take().unwrap();
