@@ -60,3 +60,4 @@ parquet = ["dep:parquet", "jpx-engine/arrow"]
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
+insta = "1"

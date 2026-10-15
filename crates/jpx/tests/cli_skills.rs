@@ -546,3 +546,14 @@ fn every_embedded_shell_example_runs_against_the_built_binary() {
         }
     }
 }
+
+#[test]
+fn skills_index_snapshots() {
+    let plain = jpx().arg("--skills").output().unwrap();
+    assert!(plain.status.success());
+    insta::assert_snapshot!("skills_index", String::from_utf8(plain.stdout).unwrap());
+
+    let json = jpx().args(["--skills", "--json"]).output().unwrap();
+    assert!(json.status.success());
+    insta::assert_snapshot!("skills_index_json", String::from_utf8(json.stdout).unwrap());
+}
