@@ -50,9 +50,11 @@ query results are `["Ada"]`, `["Ada","Lin"]`, and `["Ada"]`, in that order.
 - Inspect names with `jpx -Q library.jpx --list-queries`. A library containing
   multiple queries needs a name when executed; a single query can be selected
   automatically.
-- After editing, run `jpx -Q library.jpx --check`. It checks syntax and function
-  names without reading input. Then run against representative JSON and verify
-  the result: validation alone cannot catch data-dependent type errors.
+- After editing, run `jpx -Q library.jpx --check`. It validates syntax only,
+  without reading input; an unknown function name passes `--check` and fails
+  when the query runs. Then run against representative JSON and verify the
+  result: validation alone cannot catch unknown functions or data-dependent
+  type errors.
 
 ## Preserve literals
 
