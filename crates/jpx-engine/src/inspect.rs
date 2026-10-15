@@ -571,14 +571,29 @@ impl JpxEngine {
         limits: &InspectLimits,
         framing_bytes: usize,
     ) -> Result<InspectReport> {
-        let value: Value = serde_json::from_str(input).map_err(|e| {
-            EngineError::InvalidJson(format!(
-                "{e}. Pass the document as valid JSON text, e.g. {{\"a\": [1, 2]}}; \
-                 string documents must be quoted."
-            ))
-        })?;
+        let value: Value = serde_json::from_str(input).map_err(parse_error)?;
         inspect_value(&value, limits, framing_bytes)
     }
+}
+
+/// Maximum nesting depth `serde_json` accepts when parsing.
+const PARSE_MAX_NESTING: usize = 128;
+
+/// Map a parse failure to corrective guidance. `serde_json` reports its
+/// recursion limit as a syntax error, so it is told apart by message.
+fn parse_error(e: serde_json::Error) -> EngineError {
+    if e.is_syntax() && e.to_string().starts_with("recursion limit exceeded") {
+        return EngineError::InvalidJson(format!(
+            "{e}. The document exceeds the {PARSE_MAX_NESTING}-level nesting limit for \
+             parsing; flatten or split it so arrays and objects nest at most {} \
+             levels deep.",
+            PARSE_MAX_NESTING - 1
+        ));
+    }
+    EngineError::InvalidJson(format!(
+        "{e}. Pass the document as valid JSON text, e.g. {{\"a\": [1, 2]}}; \
+         string documents must be quoted."
+    ))
 }
 
 #[cfg(test)]

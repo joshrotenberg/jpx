@@ -367,3 +367,23 @@ async fn existing_paths_and_keys_handlers_are_unchanged() {
         .await;
     assert_eq!(keys, json!(["a", "a.b"]));
 }
+
+#[tokio::test]
+async fn inspect_reports_parse_nesting_limit() {
+    let mut client = create_client().await;
+    let deep = |n: usize| format!("{}{}", "[".repeat(n), "]".repeat(n));
+
+    let (_, report) = inspect(&mut client, json!({ "input": deep(127), "max_depth": 32 })).await;
+    assert_eq!(report["omitted"]["depth"], json!(true), "{report}");
+    assert_eq!(report["paths"].as_array().unwrap().len(), 33);
+
+    let text = inspect_error(&mut client, json!({ "input": deep(200) })).await;
+    assert!(
+        text.contains("exceeds the 128-level nesting limit for parsing"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("Pass the document as valid JSON text"),
+        "{text}"
+    );
+}

@@ -115,3 +115,42 @@ fn malformed_json_input_gets_corrective_guidance() {
         assert!(!text.contains(SECRET), "{text}");
     }
 }
+
+fn nested_arrays(levels: usize) -> String {
+    format!("{}{}", "[".repeat(levels), "]".repeat(levels))
+}
+
+#[test]
+fn deeply_nested_input_within_parse_limit_is_truncated_by_depth() {
+    let engine = JpxEngine::new();
+    let input = nested_arrays(127);
+    for limits in [
+        InspectLimits::default(),
+        InspectLimits::new(32, 1000, 3, 65536).unwrap(),
+    ] {
+        let report = engine.inspect(&input, &limits, 0).unwrap();
+        assert!(report.omitted.depth, "{report:?}");
+        assert!(!report.complete);
+        assert_eq!(report.paths.len(), limits.max_depth() + 1);
+    }
+}
+
+#[test]
+fn input_nested_past_parse_limit_reports_nesting_limit() {
+    let engine = JpxEngine::new();
+    let err = engine
+        .inspect(&nested_arrays(200), &InspectLimits::default(), 0)
+        .unwrap_err();
+    assert!(matches!(err, EngineError::InvalidJson(_)), "{err:?}");
+    let text = err.to_string();
+    assert!(text.contains("recursion limit exceeded"), "{text}");
+    assert!(
+        text.contains("exceeds the 128-level nesting limit for parsing"),
+        "{text}"
+    );
+    assert!(text.contains("nest at most 127 levels deep"), "{text}");
+    assert!(
+        !text.contains("Pass the document as valid JSON text"),
+        "{text}"
+    );
+}
