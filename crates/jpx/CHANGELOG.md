@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.1...jpx-v0.5.2) - 2026-10-15
+
+### Added
+
+- embed offline query-library guide ([#284](https://github.com/joshrotenberg/jpx/pull/284))
+- inspect bounded REPL history ([#283](https://github.com/joshrotenberg/jpx/pull/283))
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Fixed
+
+- *(cli)* replace unmaintained YAML serialization dependency ([#294](https://github.com/joshrotenberg/jpx/pull/294))
+- validate nanoid size before allocation ([#282](https://github.com/joshrotenberg/jpx/pull/282))
+- preserve exact random integer bounds ([#279](https://github.com/joshrotenberg/jpx/pull/279))
+- preserve exact numeric comparisons across query operations ([#268](https://github.com/joshrotenberg/jpx/pull/268))
+
+### Other
+
+- add reproducible JMESPath compatibility audit probes ([#295](https://github.com/joshrotenberg/jpx/pull/295))
+- *(cli)* test and explain bare literal compatibility ([#293](https://github.com/joshrotenberg/jpx/pull/293))
+- make agent recipes correct and executable ([#269](https://github.com/joshrotenberg/jpx/pull/269))
+- *(deps)* bump rand from 0.8.7 to 0.9.5 ([#230](https://github.com/joshrotenberg/jpx/pull/230))
+- *(deps)* bump nanoid from 0.4.0 to 0.5.0 ([#252](https://github.com/joshrotenberg/jpx/pull/252))
+- treat error messages as a contract, and enforce it ([#243](https://github.com/joshrotenberg/jpx/pull/243))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+
 ### Added
 
 - add `--skills` to print an offline guide index and the `query-libraries` topic embedded in the binary, with `--json` output ([#224](https://github.com/joshrotenberg/jpx/issues/224))
