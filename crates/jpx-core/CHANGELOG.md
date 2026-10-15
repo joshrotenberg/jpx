@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/joshrotenberg/jpx/compare/jpx-core-v0.3.1...jpx-core-v0.4.0) - 2026-10-15
+
+### Added
+
+- *(core)* split extensions feature into per-category features ([#296](https://github.com/joshrotenberg/jpx/pull/296))
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Fixed
+
+- validate nanoid size before allocation ([#282](https://github.com/joshrotenberg/jpx/pull/282))
+- preserve exact random integer bounds ([#279](https://github.com/joshrotenberg/jpx/pull/279))
+- report effective let-expression support ([#273](https://github.com/joshrotenberg/jpx/pull/273))
+- preserve exact numeric comparisons across query operations ([#268](https://github.com/joshrotenberg/jpx/pull/268))
+
+### Other
+
+- *(core)* add reproducible differential campaigns ([#286](https://github.com/joshrotenberg/jpx/pull/286))
+- *(core)* preserve borrowed arguments for length ([#280](https://github.com/joshrotenberg/jpx/pull/280))
+- *(deps)* bump rand from 0.8.7 to 0.9.5 ([#230](https://github.com/joshrotenberg/jpx/pull/230))
+- *(deps)* bump md-5 from 0.10.6 to 0.11.0 ([#244](https://github.com/joshrotenberg/jpx/pull/244))
+- exercise isolated minimal-core features in CI ([#281](https://github.com/joshrotenberg/jpx/pull/281))
+- *(deps)* update dependencies and stop-word API ([#258](https://github.com/joshrotenberg/jpx/pull/258))
+- *(deps)* bump nanoid from 0.4.0 to 0.5.0 ([#252](https://github.com/joshrotenberg/jpx/pull/252))
+- interpret over borrowed values ([#242](https://github.com/joshrotenberg/jpx/pull/242))
+- *(deps)* bump stop-words from 0.9.0 to 0.10.0 ([#246](https://github.com/joshrotenberg/jpx/pull/246))
+- expose the lexer doc-hidden for cross-implementation benchmarking ([#247](https://github.com/joshrotenberg/jpx/pull/247))
+- treat error messages as a contract, and enforce it ([#243](https://github.com/joshrotenberg/jpx/pull/243))
+- re-vendor compliance suite from upstream at a pinned commit ([#241](https://github.com/joshrotenberg/jpx/pull/241))
+- *(deps)* bump dateparser from 0.2.1 to 0.3.1 ([#227](https://github.com/joshrotenberg/jpx/pull/227))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+- *(deps)* bump base64 from 0.22.1 to 0.23.1 ([#229](https://github.com/joshrotenberg/jpx/pull/229))
+- convert jmespath input outside the timed closure ([#239](https://github.com/joshrotenberg/jpx/pull/239))
+
 ### Added
 
 - per-category `ext-*` features so downstream crates can compile a subset of the extension functions; `extensions` enables all of them and the default features are unchanged

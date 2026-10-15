@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-mcp-v0.5.1...jpx-mcp-v0.5.2) - 2026-10-15
+
+### Added
+
+- *(mcp)* add bounded structural inspection ([#287](https://github.com/joshrotenberg/jpx/pull/287))
+- *(mcp)* add typed JSON evaluation envelopes ([#285](https://github.com/joshrotenberg/jpx/pull/285))
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Fixed
+
+- validate nanoid size before allocation ([#282](https://github.com/joshrotenberg/jpx/pull/282))
+- preserve exact random integer bounds ([#279](https://github.com/joshrotenberg/jpx/pull/279))
+- report effective let-expression support ([#273](https://github.com/joshrotenberg/jpx/pull/273))
+- preserve exact numeric comparisons across query operations ([#268](https://github.com/joshrotenberg/jpx/pull/268))
+
+### Other
+
+- make agent recipes correct and executable ([#269](https://github.com/joshrotenberg/jpx/pull/269))
+- *(deps)* bump rand from 0.8.7 to 0.9.5 ([#230](https://github.com/joshrotenberg/jpx/pull/230))
+
 ### Added
 
 - add `evaluate_json` and `batch_evaluate_json` tools that evaluate against

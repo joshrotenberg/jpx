@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "jpx"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1674,7 +1674,7 @@ dependencies = [
 
 [[package]]
 name = "jpx-core"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "aho-corasick",
  "base64 0.23.1",
@@ -1721,7 +1721,7 @@ dependencies = [
 
 [[package]]
 name = "jpx-engine"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "arrow",
  "dirs",
@@ -1738,7 +1738,7 @@ dependencies = [
 
 [[package]]
 name = "jpx-mcp"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "clap",
