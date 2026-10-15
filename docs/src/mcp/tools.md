@@ -1,6 +1,6 @@
 # Available Tools
 
-The jpx MCP server provides **31 tools** organized into seven categories.
+The jpx MCP server provides **33 tools** organized into seven categories.
 
 ## Server Info
 
@@ -127,6 +127,69 @@ Run a JMESPath expression against JSON input.
 ```
 
 Returns: `["Alice"]`
+
+### evaluate_json
+
+Evaluate a native JSON value directly. Only the required `input` and `expression`
+fields are accepted. `input` can be an object, array, string, number, boolean or
+explicit null; omitting it is an error. Strings are always literal, including
+strings containing JSON text. `input_text`, `file_path` and other unknown fields
+are errors; use the legacy text/file tools for those input modes.
+
+```json
+{
+  "input": {"users": [{"name": "Alice", "age": 35}, {"name": "Bob", "age": 25}]},
+  "expression": "users[?age > `30`].name"
+}
+```
+
+Returns `{"schema_version": 1, "result": ["Alice"]}` as MCP `structuredContent`
+and equivalent JSON text. The advertised `outputSchema` requires the version-1
+object envelope and allows **any JSON value** in `result`, including scalar or
+null results. Invalid requests, limit violations and single evaluation failures
+return `isError: true` with corrective text, without a success envelope.
+
+### batch_evaluate_json
+
+Accepts only required native JSON `input` and an `expressions` array of strings.
+Expressions run independently in input order using the same engine semantics
+as `batch_evaluate`.
+
+```json
+{"input": {"name": "Alice"}, "expressions": ["name", "missing", "[", "name"]}
+```
+
+The version-1 envelope contains `results`. Each entry has `expression` and exactly
+one of `result` (including explicit null) or a nonempty `error` string. For this
+example, the ordered outcomes are `"Alice"`, successful null, a syntax error,
+and `"Alice"`. The schema prohibits entries with both or neither outcome field.
+A completed mixed batch is a successful tool call; `expressions: []` returns
+`{"schema_version": 1, "results": []}`. Request/limit failures set `isError: true`.
+The entire envelope appears in both `structuredContent` and equivalent JSON text.
+
+#### Typed limits and precision
+
+Both typed tools accept at most **52,428,800 bytes (50 MiB)** of compact serialized
+UTF-8 `input`; the exact boundary is accepted. Count JSON punctuation, quotes and
+escapes, and the UTF-8 bytes of Unicode characters, not character count or the
+size of the full request. Batches allow at most **1000 expressions**, inclusive.
+Transport has already allocated the received value. The size check serializes
+into a byte counter without building an extra input text buffer; it is not
+zero-copy or serialization-free. No result-size or evaluation-allocation bound
+is introduced. The complete serialized `CallToolResult` includes both escaped
+text and structured data, plus JSON-RPC framing at the transport layer.
+
+Supported signed/unsigned 64-bit integers, including `2^53+1`, `i64::MIN/MAX`
+and `u64::MAX`, round-trip through typed Rust/JSON transport. Floats use binary64,
+not arbitrary decimal precision. A JavaScript `Number` may round a large integer
+before transport; jpx cannot repair that. Retain original JSON text and use
+`evaluate`/`batch_evaluate`, or `evaluate_file`, for exact input when the client
+cannot preserve integers in native values.
+
+These are the only typed entry points in this slice. Existing evaluation,
+stored-query and utility tools keep their existing text-only results. Typed
+stored-query/utility parity and output budgets remain deferred from #261;
+bounded structural inspection belongs to #262.
 
 ### evaluate_file
 

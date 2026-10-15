@@ -1,6 +1,6 @@
 # jpx MCP Tool Reference
 
-Complete parameter reference for all 31 tools.
+Complete parameter reference for all 33 tools.
 
 ## Evaluation Tools
 
@@ -20,6 +20,22 @@ Evaluate multiple expressions against the same JSON input.
 - `input` (string, required): JSON input as string
 
 Returns an array of results, one per expression.
+
+### evaluate_json
+Evaluate a JMESPath expression against a native JSON value.
+- `input` (any JSON value, required): Object, array, string, number, boolean, or explicit `null`. Omitting it is an error. Strings are literal, not parsed as JSON text.
+- `expression` (string, required): JMESPath expression
+
+Arguments must be a JSON object with only these fields; positional arrays and unknown fields such as `input_text` or `file_path` are errors. Returns `{"schema_version": 1, "result": <value>}` as `structuredContent` and equivalent JSON text.
+
+### batch_evaluate_json
+Evaluate multiple expressions against the same native JSON value.
+- `input` (any JSON value, required): Same rules as `evaluate_json`
+- `expressions` (array of strings, required): At most 1000 expressions
+
+Returns `{"schema_version": 1, "results": [...]}` as `structuredContent` and equivalent JSON text. Entries keep expression order; each has `expression` and exactly one of `result` or `error`. A batch with some failing expressions is still a successful call.
+
+Both typed tools limit `input` to 50 MiB of compact serialized UTF-8 JSON. Output size and evaluation allocations are not bounded. Invalid requests, limit violations, and `evaluate_json` evaluation failures return `isError: true` with corrective text and no `structuredContent`.
 
 ### validate
 Check if a JMESPath expression is syntactically valid.
