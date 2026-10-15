@@ -10,13 +10,13 @@ use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
 
 use crc32fast::Hasher as Crc32Hasher;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use md5::Md5;
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 
 // Type aliases for HMAC variants
-type HmacMd5 = hmac_013::Hmac<Md5>;
+type HmacMd5 = Hmac<Md5>;
 type HmacSha1 = Hmac<Sha1>;
 type HmacSha256 = Hmac<Sha256>;
 type HmacSha512 = Hmac<Sha512>;
@@ -99,7 +99,7 @@ impl Function for Sha1Fn {
         let mut hasher = Sha1::new();
         hasher.update(input.as_bytes());
         let result = hasher.finalize();
-        let hex_string = format!("{:x}", result);
+        let hex_string = hex::encode(result);
 
         Ok(Value::String(hex_string))
     }
@@ -127,7 +127,7 @@ impl Function for Sha256Fn {
         let mut hasher = Sha256::new();
         hasher.update(input.as_bytes());
         let result = hasher.finalize();
-        let hex_string = format!("{:x}", result);
+        let hex_string = hex::encode(result);
 
         Ok(Value::String(hex_string))
     }
@@ -155,7 +155,7 @@ impl Function for Sha512Fn {
         let mut hasher = Sha512::new();
         hasher.update(input.as_bytes());
         let result = hasher.finalize();
-        let hex_string = format!("{:x}", result);
+        let hex_string = hex::encode(result);
 
         Ok(Value::String(hex_string))
     }
@@ -169,8 +169,6 @@ defn!(HmacMd5Fn, vec![arg!(string), arg!(string)], None);
 
 impl Function for HmacMd5Fn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use hmac_013::{KeyInit, Mac};
-
         self.signature.validate(args, ctx)?;
 
         let text = args[0].as_str().ok_or_else(|| {
@@ -225,7 +223,7 @@ impl Function for HmacSha1Fn {
             HmacSha1::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
         mac.update(text.as_bytes());
         let result = mac.finalize();
-        let hex_string = format!("{:x}", result.into_bytes());
+        let hex_string = hex::encode(result.into_bytes());
 
         Ok(Value::String(hex_string))
     }
@@ -259,7 +257,7 @@ impl Function for HmacSha256Fn {
             HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
         mac.update(text.as_bytes());
         let result = mac.finalize();
-        let hex_string = format!("{:x}", result.into_bytes());
+        let hex_string = hex::encode(result.into_bytes());
 
         Ok(Value::String(hex_string))
     }
@@ -293,7 +291,7 @@ impl Function for HmacSha512Fn {
             HmacSha512::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
         mac.update(text.as_bytes());
         let result = mac.finalize();
-        let hex_string = format!("{:x}", result.into_bytes());
+        let hex_string = hex::encode(result.into_bytes());
 
         Ok(Value::String(hex_string))
     }
