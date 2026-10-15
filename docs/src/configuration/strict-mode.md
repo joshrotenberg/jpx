@@ -2,6 +2,11 @@
 
 Strict mode disables all extension functions and [let expressions](../guides/let-expressions.md), limiting jpx to only the 26 standard JMESPath functions. This is useful for writing portable queries that work with any JMESPath implementation.
 
+The [compatibility audit](compatibility-audit.md) records limited original and
+Community specification probes against current default/strict behavior. Strict
+mode shares the parser with default mode; function restrictions and let policy
+alone do not establish complete grammar or specification conformance.
+
 ## Enabling Strict Mode
 
 Use the `--strict` flag or set the `JPX_STRICT=1` environment variable:
