@@ -76,14 +76,14 @@ fn topic_is_exact_installable_skill_with_valid_frontmatter() {
 
 /// Structural checks only; the embedded bytes are compared exactly elsewhere.
 /// CRLF is normalized so a `core.autocrlf` checkout of the asset still parses.
-fn validate_skill_structure(markdown: &str) -> serde_yaml::Value {
+fn validate_skill_structure(markdown: &str) -> serde_json::Value {
     let markdown = markdown.replace("\r\n", "\n");
     let (yaml, body) = markdown
         .strip_prefix("---\n")
         .unwrap()
         .split_once("\n---\n")
         .unwrap();
-    let metadata: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+    let metadata: serde_json::Value = serde_saphyr::from_str(yaml).unwrap();
     let name = metadata["name"].as_str().unwrap();
     assert!(name.len() <= 64);
     assert!(name.bytes().all(|c| c.is_ascii_lowercase() || c == b'-'));
