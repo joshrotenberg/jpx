@@ -22,7 +22,7 @@ When working with JSON data in Claude, jpx provides:
 
 ## Available Tools
 
-The MCP server exposes **33 tools** organized by purpose:
+The MCP server exposes **34 tools** organized by purpose:
 
 ### Query Execution
 
@@ -70,6 +70,7 @@ Tools for JSON manipulation (RFC 6902/7396):
 | `keys` | Extract object keys (optionally recursive with dot notation) |
 | `stats` | Analyze JSON structure (type, size, depth, field analysis) |
 | `paths` | Extract all paths in dot notation (e.g., `users[0].name`) |
+| `inspect` | Bounded JSON Pointer preview with depth, path, sample and byte limits |
 
 ### Query Store
 

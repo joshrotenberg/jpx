@@ -1,6 +1,6 @@
 # Available Tools
 
-The jpx MCP server provides **33 tools** organized into seven categories.
+The jpx MCP server provides **34 tools** organized into seven categories.
 
 ## Server Info
 
@@ -268,6 +268,58 @@ Extract all paths in a JSON document using dot notation.
   "include_values": false
 }
 ```
+
+### inspect
+
+Bounded structural preview of a JSON document. Returns RFC 6901 JSON Pointer
+paths with their JSON type and depth, never leaf values. Use it on large or
+unfamiliar documents before `paths`, which is exhaustive.
+
+```json
+{
+  "input": "{\"users\": [{\"name\": \"Alice\"}, {\"name\": \"Bob\"}]}",
+  "max_depth": 3,
+  "max_paths": 100,
+  "array_sample": 1,
+  "max_bytes": 16384
+}
+```
+
+| Limit | Default | Range | Meaning |
+|-------|---------|-------|---------|
+| `max_depth` | 3 | 0-32 | Deepest level returned (root is depth 0; `0` previews only the root) |
+| `max_paths` | 100 | 1-1000 | Records returned, counting the root |
+| `array_sample` | 3 | 0-100 | Leading elements visited per array (`0` omits all elements) |
+| `max_bytes` | 16384 | 512-65536 | Size of the serialized tool result, including JSON text escaping and the content wrapper (JSON-RPC framing excluded) |
+
+Omitted limits use their defaults. Explicit `null`, out-of-range, negative or
+non-integer limits are rejected with the valid range and default, as is input
+that is not valid JSON text.
+
+The result is compact JSON text:
+
+```json
+{"complete":false,"returned_paths":4,
+ "omitted":{"depth":false,"paths":false,"array_sample":true,"bytes":false},
+ "limits":{"max_depth":3,"max_paths":100,"array_sample":1,"max_bytes":16384},
+ "paths":[{"pointer":"","type":"object","depth":0,"length":1},
+          {"pointer":"/users","type":"array","depth":1,"length":2,"truncated":"array_sample"},
+          {"pointer":"/users/0","type":"object","depth":2,"length":1},
+          {"pointer":"/users/0/name","type":"string","depth":3}]}
+```
+
+- Records are in preorder. Object members follow the parsed map's iteration
+  order, which for this server is document (insertion) order; only the members
+  returned are read. Arrays are sampled from the front. The same input always
+  gives the same preview. `~` and `/` in keys are escaped as `~0` and `~1`; the
+  root is `""` and an empty key is `"/"`.
+- `complete` is true only when every node is in `paths`. `omitted` names each
+  limit that actually dropped nodes; reaching a limit exactly at the last node
+  is not an omission. `truncated` marks the node whose children were skipped by
+  depth or sampling. `returned_paths` is exact; no totals are estimated.
+- The walk stops as soon as a limit is hit. The input itself is still parsed in
+  full (up to the 50 MiB inline cap), so parsing time and memory are not bounded
+  by these limits.
 
 ### keys
 

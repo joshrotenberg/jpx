@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- add a public `inspect` module with `JpxEngine::inspect`, `inspect_value`,
+  `InspectLimits`, and report types for bounded structural previews, plus an
+  `EngineError::InvalidLimit` variant for out-of-range limits
+  ([#262](https://github.com/joshrotenberg/jpx/issues/262))
+
 ## [0.4.1](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.4.0...jpx-engine-v0.4.1) - 2026-08-13
 
 ### Fixed

@@ -56,7 +56,7 @@ async fn test_list_tools() {
 
     let tools = client.list_tools().await;
 
-    assert_eq!(tools.len(), 33, "Expected 33 tools, got {}", tools.len());
+    assert_eq!(tools.len(), 34, "Expected 34 tools, got {}", tools.len());
 
     let tool_names: Vec<&str> = tools
         .iter()
@@ -87,6 +87,7 @@ async fn test_list_tools() {
     assert!(tool_names.contains(&"keys"));
     assert!(tool_names.contains(&"paths"));
     assert!(tool_names.contains(&"stats"));
+    assert!(tool_names.contains(&"inspect"));
 
     // Query store
     assert!(tool_names.contains(&"define_query"));

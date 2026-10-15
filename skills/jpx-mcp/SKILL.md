@@ -10,7 +10,7 @@ compatibility: Requires jpx-mcp server (stdio or HTTP transport)
 
 # jpx MCP Server Guide
 
-The jpx MCP server exposes 33 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 470+ extension functions beyond the JMESPath specification.
+The jpx MCP server exposes 34 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 470+ extension functions beyond the JMESPath specification.
 
 ## Tool Groups
 
@@ -65,7 +65,7 @@ The jpx MCP server exposes 33 tools for JMESPath evaluation, function discovery,
 
 **`suggest_function`** accepts plain English: "remove duplicates from an array" returns ranked suggestions with relevance explanations.
 
-### JSON Utilities (7 tools)
+### JSON Utilities (8 tools)
 
 | Tool | Use when... |
 |------|-------------|
@@ -76,10 +76,11 @@ The jpx MCP server exposes 33 tools for JMESPath evaluation, function discovery,
 | `keys` | Extracting object keys (optionally recursive with dot notation) |
 | `stats` | Analyzing JSON structure (type, size, depth, field analysis) |
 | `paths` | Listing all paths in dot notation (optionally with types/values) |
+| `inspect` | Previewing large or unfamiliar JSON with bounded traversal and output |
 
 **Data exploration workflow:**
 1. `stats` to understand overall structure
-2. `paths` to see all available fields
+2. `inspect` for a bounded preview, or `paths` to see all available fields
 3. `keys` with `recursive: true` for nested structure
 4. `evaluate` with expressions informed by the structure
 
