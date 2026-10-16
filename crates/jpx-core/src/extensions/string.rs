@@ -8,11 +8,13 @@ use heck::{
 };
 #[cfg(feature = "ext-regex")]
 use regex::Regex;
+use std::borrow::Borrow;
+
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, custom_error};
+use crate::functions::{Function, arg, borrowed_function, custom_error};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
 
 /// Upper bound on the size of a string produced by user-controlled repetition
@@ -1733,10 +1735,11 @@ impl Function for ExplodeFn {
 
 defn!(ImplodeFn, vec![arg!(array)], None);
 
-impl Function for ImplodeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let arr = args[0]
+borrowed_function!(ImplodeFn);
+
+impl ImplodeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
@@ -1914,7 +1917,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(ReverseStringFn::new()),
     );
     register_if_enabled(runtime, "explode", enabled, Box::new(ExplodeFn::new()));
-    register_if_enabled(runtime, "implode", enabled, Box::new(ImplodeFn::new()));
+    register_borrowed_if_enabled(runtime, "implode", enabled, Box::new(ImplodeFn::new()));
     register_if_enabled(
         runtime,
         "shell_escape",

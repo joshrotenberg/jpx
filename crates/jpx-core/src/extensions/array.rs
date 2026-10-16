@@ -2,12 +2,14 @@
 
 use std::collections::HashSet;
 
+use std::borrow::Borrow;
+
 use serde_json::{Number, Value};
 
 use crate::ast::Ast;
-use crate::functions::{Function, custom_error};
+use crate::functions::{Function, arg, borrowed_function, custom_error};
 use crate::interpreter::{SearchResult, interpret};
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn, get_expref_id};
 
 /// Helper to extract an expref AST from a function argument.
@@ -69,11 +71,11 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "flatten", enabled, Box::new(FlattenFn::new()));
     register_if_enabled(runtime, "compact", enabled, Box::new(CompactFn::new()));
     register_if_enabled(runtime, "range", enabled, Box::new(RangeFn::new()));
-    register_if_enabled(runtime, "index_at", enabled, Box::new(IndexAtFn::new()));
-    register_if_enabled(runtime, "includes", enabled, Box::new(IncludesFn::new()));
-    register_if_enabled(runtime, "find_index", enabled, Box::new(FindIndexFn::new()));
-    register_if_enabled(runtime, "first", enabled, Box::new(FirstFn::new()));
-    register_if_enabled(runtime, "last", enabled, Box::new(LastFn::new()));
+    register_borrowed_if_enabled(runtime, "index_at", enabled, Box::new(IndexAtFn::new()));
+    register_borrowed_if_enabled(runtime, "includes", enabled, Box::new(IncludesFn::new()));
+    register_borrowed_if_enabled(runtime, "find_index", enabled, Box::new(FindIndexFn::new()));
+    register_borrowed_if_enabled(runtime, "first", enabled, Box::new(FirstFn::new()));
+    register_borrowed_if_enabled(runtime, "last", enabled, Box::new(LastFn::new()));
     register_if_enabled(runtime, "group_by", enabled, Box::new(GroupByFn::new()));
     register_if_enabled(runtime, "index_by", enabled, Box::new(IndexByFn::new()));
     register_if_enabled(runtime, "nth", enabled, Box::new(NthFn::new()));
@@ -146,13 +148,13 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(IndicesArrayFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "inside_array",
         enabled,
         Box::new(InsideArrayFn::new()),
     );
-    register_if_enabled(runtime, "bsearch", enabled, Box::new(BsearchFn::new()));
+    register_borrowed_if_enabled(runtime, "bsearch", enabled, Box::new(BsearchFn::new()));
     // Clojure-inspired functions (Phase 3)
     register_if_enabled(
         runtime,
@@ -448,15 +450,15 @@ impl Function for RangeFn {
 
 defn!(IndexAtFn, vec![arg!(array), arg!(number)], None);
 
-impl Function for IndexAtFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(IndexAtFn);
 
-        let arr = args[0]
+impl IndexAtFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let index = args[1]
+        let index = arg(args, 1)
             .as_f64()
             .map(|n| n as i64)
             .ok_or_else(|| custom_error(ctx, "Expected number for index"))?;
@@ -482,15 +484,15 @@ impl Function for IndexAtFn {
 
 defn!(IncludesFn, vec![arg!(array), arg!(any)], None);
 
-impl Function for IncludesFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(IncludesFn);
 
-        let arr = args[0]
+impl IncludesFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let search_key = serde_json::to_string(&args[1]).unwrap_or_default();
+        let search_key = serde_json::to_string(arg(args, 1)).unwrap_or_default();
 
         let found = arr.iter().any(|item| {
             let item_key = serde_json::to_string(item).unwrap_or_default();
@@ -507,15 +509,15 @@ impl Function for IncludesFn {
 
 defn!(FindIndexFn, vec![arg!(array), arg!(any)], None);
 
-impl Function for FindIndexFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(FindIndexFn);
 
-        let arr = args[0]
+impl FindIndexFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let search_key = serde_json::to_string(&args[1]).unwrap_or_default();
+        let search_key = serde_json::to_string(arg(args, 1)).unwrap_or_default();
 
         let index = arr
             .iter()
@@ -536,11 +538,11 @@ impl Function for FindIndexFn {
 
 defn!(FirstFn, vec![arg!(array)], None);
 
-impl Function for FirstFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(FirstFn);
 
-        let arr = args[0]
+impl FirstFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
@@ -554,11 +556,11 @@ impl Function for FirstFn {
 
 defn!(LastFn, vec![arg!(array)], None);
 
-impl Function for LastFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(LastFn);
 
-        let arr = args[0]
+impl LastFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
@@ -1689,15 +1691,15 @@ impl Function for IndicesArrayFn {
 
 defn!(InsideArrayFn, vec![arg!(array), arg!(array)], None);
 
-impl Function for InsideArrayFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(InsideArrayFn);
 
-        let needle = args[0]
+impl InsideArrayFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let needle = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let haystack = args[1]
+        let haystack = arg(args, 1)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
@@ -1723,15 +1725,15 @@ impl Function for InsideArrayFn {
 
 defn!(BsearchFn, vec![arg!(array), arg!(any)], None);
 
-impl Function for BsearchFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(BsearchFn);
 
-        let arr = args[0]
+impl BsearchFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0)
             .as_array()
             .ok_or_else(|| custom_error(ctx, "Expected array argument"))?;
 
-        let target = &args[1];
+        let target = arg(args, 1);
 
         if arr.is_empty() {
             return Ok(Value::Number(Number::from(-1)));

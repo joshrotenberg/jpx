@@ -2,11 +2,13 @@
 
 use std::collections::HashSet;
 
+use std::borrow::Borrow;
+
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::{Function, arg, borrowed_function, number_value};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
 
 /// Maximum decimal precision for `to_fixed`. An f64 carries ~17 significant
@@ -27,15 +29,15 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "sqrt", enabled, Box::new(SqrtFn::new()));
     register_if_enabled(runtime, "log", enabled, Box::new(LogFn::new()));
     register_if_enabled(runtime, "clamp", enabled, Box::new(ClampFn::new()));
-    register_if_enabled(runtime, "median", enabled, Box::new(MedianFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(runtime, "median", enabled, Box::new(MedianFn::new()));
+    register_borrowed_if_enabled(
         runtime,
         "percentile",
         enabled,
         Box::new(PercentileFn::new()),
     );
-    register_if_enabled(runtime, "variance", enabled, Box::new(VarianceFn::new()));
-    register_if_enabled(runtime, "stddev", enabled, Box::new(StddevFn::new()));
+    register_borrowed_if_enabled(runtime, "variance", enabled, Box::new(VarianceFn::new()));
+    register_borrowed_if_enabled(runtime, "stddev", enabled, Box::new(StddevFn::new()));
     register_if_enabled(runtime, "sin", enabled, Box::new(SinFn::new()));
     register_if_enabled(runtime, "cos", enabled, Box::new(CosFn::new()));
     register_if_enabled(runtime, "tan", enabled, Box::new(TanFn::new()));
@@ -50,7 +52,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "subtract", enabled, Box::new(SubtractFn::new()));
     register_if_enabled(runtime, "multiply", enabled, Box::new(MultiplyFn::new()));
     register_if_enabled(runtime, "divide", enabled, Box::new(DivideFn::new()));
-    register_if_enabled(runtime, "mode", enabled, Box::new(ModeFn::new()));
+    register_borrowed_if_enabled(runtime, "mode", enabled, Box::new(ModeFn::new()));
     register_if_enabled(runtime, "to_fixed", enabled, Box::new(ToFixedFn::new()));
     register_if_enabled(
         runtime,
@@ -61,16 +63,16 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "histogram", enabled, Box::new(HistogramFn::new()));
     register_if_enabled(runtime, "normalize", enabled, Box::new(NormalizeFn::new()));
     register_if_enabled(runtime, "z_score", enabled, Box::new(ZScoreFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "correlation",
         enabled,
         Box::new(CorrelationFn::new()),
     );
-    register_if_enabled(runtime, "quantile", enabled, Box::new(QuantileFn::new()));
+    register_borrowed_if_enabled(runtime, "quantile", enabled, Box::new(QuantileFn::new()));
     register_if_enabled(runtime, "moving_avg", enabled, Box::new(MovingAvgFn::new()));
     register_if_enabled(runtime, "ewma", enabled, Box::new(EwmaFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "covariance",
         enabled,
@@ -95,12 +97,12 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(OutliersZscoreFn::new()),
     );
-    register_if_enabled(runtime, "skew", enabled, Box::new(SkewFn::new()));
-    register_if_enabled(runtime, "kurtosis", enabled, Box::new(KurtosisFn::new()));
-    register_if_enabled(runtime, "mad", enabled, Box::new(MadFn::new()));
+    register_borrowed_if_enabled(runtime, "skew", enabled, Box::new(SkewFn::new()));
+    register_borrowed_if_enabled(runtime, "kurtosis", enabled, Box::new(KurtosisFn::new()));
+    register_borrowed_if_enabled(runtime, "mad", enabled, Box::new(MadFn::new()));
     // Time series functions
-    register_if_enabled(runtime, "trend", enabled, Box::new(TrendFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(runtime, "trend", enabled, Box::new(TrendFn::new()));
+    register_borrowed_if_enabled(
         runtime,
         "trend_slope",
         enabled,
@@ -309,11 +311,11 @@ impl Function for ClampFn {
 
 defn!(MedianFn, vec![arg!(array)], None);
 
-impl Function for MedianFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(MedianFn);
 
-        let arr = args[0].as_array().unwrap();
+impl MedianFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         let mut numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
 
@@ -340,12 +342,12 @@ impl Function for MedianFn {
 
 defn!(PercentileFn, vec![arg!(array), arg!(number)], None);
 
-impl Function for PercentileFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(PercentileFn);
 
-        let arr = args[0].as_array().unwrap();
-        let p = args[1].as_f64().unwrap();
+impl PercentileFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
+        let p = arg(args, 1).as_f64().unwrap();
 
         if !(0.0..=100.0).contains(&p) {
             return Err(crate::functions::custom_error(
@@ -388,11 +390,11 @@ impl Function for PercentileFn {
 
 defn!(VarianceFn, vec![arg!(array)], None);
 
-impl Function for VarianceFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(VarianceFn);
 
-        let arr = args[0].as_array().unwrap();
+impl VarianceFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
 
@@ -414,11 +416,11 @@ impl Function for VarianceFn {
 
 defn!(StddevFn, vec![arg!(array)], None);
 
-impl Function for StddevFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(StddevFn);
 
-        let arr = args[0].as_array().unwrap();
+impl StddevFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
 
@@ -628,11 +630,11 @@ impl Function for DivideFn {
 
 defn!(ModeFn, vec![arg!(array)], None);
 
-impl Function for ModeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ModeFn);
 
-        let arr = args[0].as_array().unwrap();
+impl ModeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         if arr.is_empty() {
             return Ok(Value::Null);
@@ -944,12 +946,12 @@ impl Function for ZScoreFn {
 
 defn!(CorrelationFn, vec![arg!(array), arg!(array)], None);
 
-impl Function for CorrelationFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(CorrelationFn);
 
-        let arr1 = args[0].as_array().unwrap();
-        let arr2 = args[1].as_array().unwrap();
+impl CorrelationFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr1 = arg(args, 0).as_array().unwrap();
+        let arr2 = arg(args, 1).as_array().unwrap();
 
         let values1: Vec<f64> = arr1.iter().filter_map(|v| v.as_f64()).collect();
         let values2: Vec<f64> = arr2.iter().filter_map(|v| v.as_f64()).collect();
@@ -999,12 +1001,12 @@ impl Function for CorrelationFn {
 
 defn!(QuantileFn, vec![arg!(array), arg!(number)], None);
 
-impl Function for QuantileFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(QuantileFn);
 
-        let arr = args[0].as_array().unwrap();
-        let q = args[1].as_f64().unwrap();
+impl QuantileFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
+        let q = arg(args, 1).as_f64().unwrap();
 
         if !(0.0..=1.0).contains(&q) {
             return Ok(Value::Null);
@@ -1116,12 +1118,12 @@ impl Function for EwmaFn {
 
 defn!(CovarianceFn, vec![arg!(array), arg!(array)], None);
 
-impl Function for CovarianceFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(CovarianceFn);
 
-        let arr1 = args[0].as_array().unwrap();
-        let arr2 = args[1].as_array().unwrap();
+impl CovarianceFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr1 = arg(args, 0).as_array().unwrap();
+        let arr2 = arg(args, 1).as_array().unwrap();
 
         let values1: Vec<f64> = arr1.iter().filter_map(|v| v.as_f64()).collect();
         let values2: Vec<f64> = arr2.iter().filter_map(|v| v.as_f64()).collect();
@@ -1348,11 +1350,11 @@ impl Function for OutliersZscoreFn {
 
 defn!(TrendFn, vec![arg!(array)], None);
 
-impl Function for TrendFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(TrendFn);
 
-        let arr = args[0].as_array().unwrap();
+impl TrendFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         if arr.len() < 2 {
             return Ok(Value::String("stable".to_string()));
@@ -1395,11 +1397,11 @@ impl Function for TrendFn {
 
 defn!(TrendSlopeFn, vec![arg!(array)], None);
 
-impl Function for TrendSlopeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(TrendSlopeFn);
 
-        let arr = args[0].as_array().unwrap();
+impl TrendSlopeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         if arr.len() < 2 {
             return Ok(number_value(0.0));
@@ -1497,10 +1499,11 @@ impl Function for CumulativeSumFn {
 
 defn!(SkewFn, vec![arg!(array)], None);
 
-impl Function for SkewFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let arr = args[0].as_array().unwrap();
+borrowed_function!(SkewFn);
+
+impl SkewFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
         let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
         let n = numbers.len();
         if n < 3 {
@@ -1523,10 +1526,11 @@ impl Function for SkewFn {
 
 defn!(KurtosisFn, vec![arg!(array)], None);
 
-impl Function for KurtosisFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let arr = args[0].as_array().unwrap();
+borrowed_function!(KurtosisFn);
+
+impl KurtosisFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
         let numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
         let n = numbers.len();
         if n < 4 {
@@ -1549,10 +1553,11 @@ impl Function for KurtosisFn {
 
 defn!(MadFn, vec![arg!(array)], None);
 
-impl Function for MadFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let arr = args[0].as_array().unwrap();
+borrowed_function!(MadFn);
+
+impl MadFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
         let mut numbers: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
         if numbers.is_empty() {
             return Ok(Value::Null);

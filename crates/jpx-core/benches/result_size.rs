@@ -66,5 +66,50 @@ fn bench_length_scaling(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_result_size, bench_length_scaling);
+/// Function calls on a large argument, at 1 and 1,000 items. Built-ins and
+/// opted-in extensions receive borrowed arguments, so `type`, `first`,
+/// `is_empty`, `any_expr` and `get_path` stay flat; `contains`, `max_by` and
+/// `max` visit every element but no longer copy `items` before the call.
+fn bench_function_arguments(c: &mut Criterion) {
+    let mut group = c.benchmark_group("function_arguments");
+    // Extended below when the extension functions are compiled in.
+    #[cfg_attr(not(feature = "ext-core"), allow(unused_mut))]
+    let mut runtime = jpx_core::Runtime::strict();
+    #[cfg_attr(not(feature = "ext-core"), allow(unused_mut))]
+    let mut cases = vec![
+        ("type", "type(items)"),
+        ("contains", "contains(items[*].id, `5`)"),
+        ("max_by", "max_by(items, &id).id"),
+        ("max", "max(items[*].id)"),
+    ];
+    #[cfg(feature = "ext-core")]
+    {
+        let mut registry = jpx_core::FunctionRegistry::new();
+        registry.register_all();
+        registry.apply(&mut runtime);
+        cases.extend([
+            ("first", "first(items).id"),
+            ("is_empty", "is_empty(items)"),
+            ("any_expr", "any_expr(&(id == `5`), items)"),
+            ("get_path", "get_path(@, 'items[0].id')"),
+        ]);
+    }
+    for (name, expr) in cases {
+        let compiled = runtime.compile(expr).unwrap();
+        for item_count in [1, 1000] {
+            let data = document(item_count);
+            group.bench_with_input(BenchmarkId::new(name, item_count), &data, |b, data| {
+                b.iter(|| compiled.search(black_box(data)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_result_size,
+    bench_length_scaling,
+    bench_function_arguments
+);
 criterion_main!(benches);
