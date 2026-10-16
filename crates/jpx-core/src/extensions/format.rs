@@ -3,11 +3,13 @@
 use std::collections::HashSet;
 
 use csv::WriterBuilder;
+use std::borrow::Borrow;
+
 use serde_json::Value;
 
-use crate::functions::{Function, custom_error};
+use crate::functions::{Function, arg, borrowed_function, custom_error};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
 
 /// Convert a serde_json::Value to a string suitable for CSV field.
@@ -77,11 +79,11 @@ fn write_csv_rows(rows: &[Vec<String>], delimiter: u8) -> Result<String, std::io
 
 defn!(ToCsvFn, vec![arg!(array)], None);
 
-impl Function for ToCsvFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ToCsvFn);
 
-        let arr = args[0].as_array().unwrap();
+impl ToCsvFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         if arr.is_empty() {
             return Ok(Value::String(String::new()));
@@ -102,11 +104,11 @@ impl Function for ToCsvFn {
 
 defn!(ToTsvFn, vec![arg!(array)], None);
 
-impl Function for ToTsvFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ToTsvFn);
 
-        let arr = args[0].as_array().unwrap();
+impl ToTsvFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
 
         if arr.is_empty() {
             return Ok(Value::String(String::new()));
@@ -127,11 +129,11 @@ impl Function for ToTsvFn {
 
 defn!(ToCsvRowsFn, vec![arg!(array)], None);
 
-impl Function for ToCsvRowsFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ToCsvRowsFn);
 
-        let rows_var = args[0].as_array().unwrap();
+impl ToCsvRowsFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let rows_var = arg(args, 0).as_array().unwrap();
 
         if rows_var.is_empty() {
             return Ok(Value::String(String::new()));
@@ -161,11 +163,11 @@ impl Function for ToCsvRowsFn {
 
 defn!(ToCsvTableFn, vec![arg!(array)], Some(arg!(array)));
 
-impl Function for ToCsvTableFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ToCsvTableFn);
 
-        let rows = args[0].as_array().unwrap();
+impl ToCsvTableFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let rows = arg(args, 0).as_array().unwrap();
 
         if rows.is_empty() {
             return Ok(Value::String(String::new()));
@@ -173,7 +175,7 @@ impl Function for ToCsvTableFn {
 
         // Determine columns: from second argument or from first object's keys
         let columns: Vec<String> = if args.len() > 1 {
-            args[1]
+            arg(args, 1)
                 .as_array()
                 .unwrap()
                 .iter()
@@ -280,15 +282,15 @@ fn parse_delimited(input: &str, delimiter: u8, ctx: &Context<'_>) -> SearchResul
 
 /// Register format functions filtered by the enabled set.
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
-    register_if_enabled(runtime, "to_csv", enabled, Box::new(ToCsvFn::new()));
-    register_if_enabled(runtime, "to_tsv", enabled, Box::new(ToTsvFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(runtime, "to_csv", enabled, Box::new(ToCsvFn::new()));
+    register_borrowed_if_enabled(runtime, "to_tsv", enabled, Box::new(ToTsvFn::new()));
+    register_borrowed_if_enabled(
         runtime,
         "to_csv_rows",
         enabled,
         Box::new(ToCsvRowsFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "to_csv_table",
         enabled,

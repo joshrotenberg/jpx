@@ -5,12 +5,14 @@
 
 use std::collections::HashSet;
 
+use std::borrow::Borrow;
+
 use serde_json::{Map, Number, Value};
 
 use crate::ast::Ast;
-use crate::functions::{Function, custom_error, number_value};
+use crate::functions::{Function, arg, borrowed_function, custom_error, number_value};
 use crate::interpreter::{SearchResult, interpret};
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::value_ext::{ValueExt, compare_numbers};
 use crate::{Context, Runtime, arg, defn, get_expref_id};
 
@@ -54,16 +56,16 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(FilterExprFn::new()),
     );
-    register_if_enabled(runtime, "any_expr", enabled, Box::new(AnyExprFn::new()));
-    register_if_enabled(runtime, "all_expr", enabled, Box::new(AllExprFn::new()));
-    register_if_enabled(runtime, "find_expr", enabled, Box::new(FindExprFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(runtime, "any_expr", enabled, Box::new(AnyExprFn::new()));
+    register_borrowed_if_enabled(runtime, "all_expr", enabled, Box::new(AllExprFn::new()));
+    register_borrowed_if_enabled(runtime, "find_expr", enabled, Box::new(FindExprFn::new()));
+    register_borrowed_if_enabled(
         runtime,
         "find_index_expr",
         enabled,
         Box::new(FindIndexExprFn::new()),
     );
-    register_if_enabled(runtime, "count_expr", enabled, Box::new(CountExprFn::new()));
+    register_borrowed_if_enabled(runtime, "count_expr", enabled, Box::new(CountExprFn::new()));
     register_if_enabled(
         runtime,
         "sort_by_expr",
@@ -82,13 +84,13 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(PartitionExprFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "min_by_expr",
         enabled,
         Box::new(MinByExprFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "max_by_expr",
         enabled,
@@ -111,8 +113,8 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "mapcat", enabled, Box::new(FlatMapExprFn::new()));
 
     // Lodash-style aliases
-    register_if_enabled(runtime, "some", enabled, Box::new(AnyExprFn::new()));
-    register_if_enabled(runtime, "every", enabled, Box::new(AllExprFn::new()));
+    register_borrowed_if_enabled(runtime, "some", enabled, Box::new(AnyExprFn::new()));
+    register_borrowed_if_enabled(runtime, "every", enabled, Box::new(AllExprFn::new()));
     register_if_enabled(runtime, "reject", enabled, Box::new(RejectFn::new()));
     register_if_enabled(runtime, "map_keys", enabled, Box::new(MapKeysFn::new()));
     register_if_enabled(runtime, "map_values", enabled, Box::new(MapValuesFn::new()));
@@ -129,7 +131,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     // Clojure-style alias for scan_expr
     register_if_enabled(runtime, "reductions", enabled, Box::new(ScanExprFn::new()));
     // none - opposite of any_expr/some
-    register_if_enabled(runtime, "none", enabled, Box::new(NoneFn::new()));
+    register_borrowed_if_enabled(runtime, "none", enabled, Box::new(NoneFn::new()));
     register_if_enabled(runtime, "count_by", enabled, Box::new(CountByFn::new()));
 
     // Partial application functions
@@ -223,14 +225,14 @@ impl Function for FilterExprFn {
 
 defn!(AnyExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for AnyExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(AnyExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl AnyExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         for item in arr {
             let result = interpret(item, &ast, ctx)?;
@@ -249,14 +251,14 @@ impl Function for AnyExprFn {
 
 defn!(NoneFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for NoneFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(NoneFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl NoneFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         // Empty array returns true (vacuously, no elements satisfy the predicate)
         if arr.is_empty() {
@@ -280,14 +282,14 @@ impl Function for NoneFn {
 
 defn!(AllExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for AllExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(AllExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl AllExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         // Empty array returns true (vacuous truth)
         if arr.is_empty() {
@@ -311,14 +313,14 @@ impl Function for AllExprFn {
 
 defn!(FindExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for FindExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(FindExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl FindExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         for item in arr {
             let result = interpret(item, &ast, ctx)?;
@@ -337,14 +339,14 @@ impl Function for FindExprFn {
 
 defn!(FindIndexExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for FindIndexExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(FindIndexExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl FindIndexExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         for (i, item) in arr.iter().enumerate() {
             let result = interpret(item, &ast, ctx)?;
@@ -363,14 +365,14 @@ impl Function for FindIndexExprFn {
 
 defn!(CountExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for CountExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(CountExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl CountExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         let mut count = 0i64;
         for item in arr {
@@ -536,31 +538,31 @@ impl Function for PartitionExprFn {
 
 defn!(MinByExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for MinByExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(MinByExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl MinByExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         if arr.is_empty() {
             return Ok(Value::Null);
         }
 
-        let mut min_item = arr[0].clone();
+        let mut min_item = &arr[0];
         let mut min_key = interpret(&arr[0], &ast, ctx)?;
 
         for item in arr.iter().skip(1) {
             let key = interpret(item, &ast, ctx)?;
             if compare_values(&key, &min_key) == std::cmp::Ordering::Less {
-                min_item = item.clone();
+                min_item = item;
                 min_key = key;
             }
         }
 
-        Ok(min_item)
+        Ok(min_item.clone())
     }
 }
 
@@ -570,31 +572,31 @@ impl Function for MinByExprFn {
 
 defn!(MaxByExprFn, vec![arg!(expref), arg!(array)], None);
 
-impl Function for MaxByExprFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(MaxByExprFn);
 
-        let ast = get_expref_ast(&args[0], ctx)
+impl MaxByExprFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx)
             .ok_or_else(|| custom_error(ctx, "Expected expref"))?
             .clone();
-        let arr = args[1].as_array().unwrap();
+        let arr = arg(args, 1).as_array().unwrap();
 
         if arr.is_empty() {
             return Ok(Value::Null);
         }
 
-        let mut max_item = arr[0].clone();
+        let mut max_item = &arr[0];
         let mut max_key = interpret(&arr[0], &ast, ctx)?;
 
         for item in arr.iter().skip(1) {
             let key = interpret(item, &ast, ctx)?;
             if compare_values(&key, &max_key) == std::cmp::Ordering::Greater {
-                max_item = item.clone();
+                max_item = item;
                 max_key = key;
             }
         }
 
-        Ok(max_item)
+        Ok(max_item.clone())
     }
 }
 

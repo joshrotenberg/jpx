@@ -113,36 +113,41 @@ impl Runtime {
     }
 
     /// Registers all 26 built-in JMESPath functions.
+    ///
+    /// Built-ins registered here receive borrowed arguments from the
+    /// interpreter, so a call such as `type(items)` does not copy `items`.
     pub fn register_builtin_functions(&mut self) {
-        self.register_function("abs", Box::new(AbsFn::new()));
-        self.register_function("avg", Box::new(AvgFn::new()));
-        self.register_function("ceil", Box::new(CeilFn::new()));
-        self.register_function("contains", Box::new(ContainsFn::new()));
-        self.register_function("ends_with", Box::new(EndsWithFn::new()));
-        self.register_function("floor", Box::new(FloorFn::new()));
-        self.register_function("join", Box::new(JoinFn::new()));
-        self.register_function("keys", Box::new(KeysFn::new()));
-        self.functions.insert(
-            "length".to_owned(),
-            RegisteredFunction::Borrowed(Box::new(LengthFn::new())),
-        );
-        self.register_function("map", Box::new(MapFn::new()));
-        self.register_function("min", Box::new(MinFn::new()));
-        self.register_function("max", Box::new(MaxFn::new()));
-        self.register_function("max_by", Box::new(MaxByFn::new()));
-        self.register_function("min_by", Box::new(MinByFn::new()));
-        self.register_function("merge", Box::new(MergeFn::new()));
-        self.register_function("not_null", Box::new(NotNullFn::new()));
-        self.register_function("reverse", Box::new(ReverseFn::new()));
-        self.register_function("sort", Box::new(SortFn::new()));
-        self.register_function("sort_by", Box::new(SortByFn::new()));
-        self.register_function("starts_with", Box::new(StartsWithFn::new()));
-        self.register_function("sum", Box::new(SumFn::new()));
-        self.register_function("to_array", Box::new(ToArrayFn::new()));
-        self.register_function("to_number", Box::new(ToNumberFn::new()));
-        self.register_function("to_string", Box::new(ToStringFn::new()));
-        self.register_function("type", Box::new(TypeFn::new()));
-        self.register_function("values", Box::new(ValuesFn::new()));
+        self.register_borrowed("abs", Box::new(AbsFn::new()));
+        self.register_borrowed("avg", Box::new(AvgFn::new()));
+        self.register_borrowed("ceil", Box::new(CeilFn::new()));
+        self.register_borrowed("contains", Box::new(ContainsFn::new()));
+        self.register_borrowed("ends_with", Box::new(EndsWithFn::new()));
+        self.register_borrowed("floor", Box::new(FloorFn::new()));
+        self.register_borrowed("join", Box::new(JoinFn::new()));
+        self.register_borrowed("keys", Box::new(KeysFn::new()));
+        self.register_borrowed("length", Box::new(LengthFn::new()));
+        self.register_borrowed("map", Box::new(MapFn::new()));
+        self.register_borrowed("min", Box::new(MinFn::new()));
+        self.register_borrowed("max", Box::new(MaxFn::new()));
+        self.register_borrowed("max_by", Box::new(MaxByFn::new()));
+        self.register_borrowed("min_by", Box::new(MinByFn::new()));
+        self.register_borrowed("merge", Box::new(MergeFn::new()));
+        self.register_borrowed("not_null", Box::new(NotNullFn::new()));
+        self.register_borrowed("reverse", Box::new(ReverseFn::new()));
+        self.register_borrowed("sort", Box::new(SortFn::new()));
+        self.register_borrowed("sort_by", Box::new(SortByFn::new()));
+        self.register_borrowed("starts_with", Box::new(StartsWithFn::new()));
+        self.register_borrowed("sum", Box::new(SumFn::new()));
+        self.register_borrowed("to_array", Box::new(ToArrayFn::new()));
+        self.register_borrowed("to_number", Box::new(ToNumberFn::new()));
+        self.register_borrowed("to_string", Box::new(ToStringFn::new()));
+        self.register_borrowed("type", Box::new(TypeFn::new()));
+        self.register_borrowed("values", Box::new(ValuesFn::new()));
+    }
+
+    pub(crate) fn register_borrowed(&mut self, name: &str, f: Box<dyn BorrowedFunction>) {
+        self.functions
+            .insert(name.to_owned(), RegisteredFunction::Borrowed(f));
     }
 }
 
@@ -227,6 +232,73 @@ mod tests {
         assert!(rt.get_function("abs").is_some());
         assert!(rt.get_function("length").is_some());
         assert!(rt.get_function("sort").is_some());
+    }
+
+    #[test]
+    fn every_builtin_uses_borrowed_dispatch() {
+        let rt = Runtime::strict();
+        for name in rt.function_names() {
+            assert!(
+                matches!(
+                    rt.get_registered_function(name),
+                    Some(RegisteredFunction::Borrowed(_))
+                ),
+                "{name}"
+            );
+        }
+    }
+
+    /// Every function on the borrowed path returns what the same function
+    /// returns through the public owned path, for its registry example.
+    #[test]
+    #[cfg(feature = "extensions")]
+    fn borrowed_extensions_match_owned_evaluation_on_examples() {
+        let build = || {
+            let mut rt = Runtime::strict();
+            let mut registry = FunctionRegistry::new();
+            registry.register_all();
+            registry.apply(&mut rt);
+            (rt, registry)
+        };
+        let (borrowed, registry) = build();
+        let (mut owned, _) = build();
+        let names: Vec<String> = borrowed
+            .function_names()
+            .filter(|name| {
+                matches!(
+                    borrowed.get_registered_function(name),
+                    Some(RegisteredFunction::Borrowed(_))
+                )
+            })
+            .map(str::to_owned)
+            .collect();
+        // The 26 built-ins plus the opted-in extensions and their aliases.
+        assert!(names.len() > 70, "{}", names.len());
+        for name in &names {
+            let function = owned.deregister_function(name).unwrap();
+            owned.register_function(name, function);
+        }
+
+        let mut checked = 0;
+        for name in &names {
+            let Some(info) = registry.get_function_by_name_or_alias(name) else {
+                continue;
+            };
+            let Some((expression, _)) = info.example.split_once(" -> ") else {
+                continue;
+            };
+            let run = |rt: &Runtime| {
+                rt.compile(expression)
+                    .map(|e| e.search(&serde_json::Value::Null))
+            };
+            // Skip functions whose result is not deterministic.
+            if run(&owned) != run(&owned) {
+                continue;
+            }
+            assert_eq!(run(&borrowed), run(&owned), "{name}: {expression}");
+            checked += 1;
+        }
+        assert!(checked > 50, "{checked}");
     }
 
     #[test]
