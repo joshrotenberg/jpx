@@ -116,6 +116,11 @@ echo '{"first": "Alice", "last": "Smith", "age": 30}' | jpx '{name: first, surna
 
 ## Literal Values
 
+Bare `null`, `true`, and `false` are field names in both default and strict mode.
+Single-quote the whole shell expression to pass backticks without escaping them.
+See the [bare-literals compatibility decision](../design/bare-literals.md) for
+tested comparisons, numeric ambiguities, and shell/query-file recipes.
+
 Use backticks for literal values:
 
 ```bash

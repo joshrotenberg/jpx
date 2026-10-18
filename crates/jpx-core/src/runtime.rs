@@ -8,9 +8,31 @@ use crate::functions::*;
 use crate::parse;
 use crate::registry::{Category, FunctionRegistry};
 
+/// Dispatch adapter that keeps the public custom-function API unchanged.
+pub(crate) enum RegisteredFunction {
+    Owned(Box<dyn Function>),
+    Borrowed(Box<dyn BorrowedFunction>),
+}
+
+impl RegisteredFunction {
+    pub(crate) fn as_function(&self) -> &dyn Function {
+        match self {
+            Self::Owned(function) => function.as_ref(),
+            Self::Borrowed(function) => function.as_ref(),
+        }
+    }
+
+    fn into_function(self) -> Box<dyn Function> {
+        match self {
+            Self::Owned(function) => function,
+            Self::Borrowed(function) => function,
+        }
+    }
+}
+
 /// Compiles JMESPath expressions and manages registered functions.
 pub struct Runtime {
-    functions: HashMap<String, Box<dyn Function>>,
+    functions: HashMap<String, RegisteredFunction>,
 }
 
 impl Default for Runtime {
@@ -39,6 +61,15 @@ impl Runtime {
         RuntimeBuilder::new()
     }
 
+    /// Returns whether this runtime can compile and evaluate JEP-18 let expressions.
+    ///
+    /// This reflects the features enabled on `jpx-core`, including features
+    /// enabled by other dependencies. Function registration does not affect
+    /// syntax support; higher-level engines may impose additional restrictions.
+    pub const fn supports_let_expressions(&self) -> bool {
+        cfg!(feature = "let-expr")
+    }
+
     /// Creates a new JMESPath expression from an expression string.
     #[inline]
     pub fn compile<'a>(&'a self, expression: &str) -> Result<Expression<'a>, JmespathError> {
@@ -46,20 +77,34 @@ impl Runtime {
     }
 
     /// Adds a new function to the runtime.
+    ///
+    /// Functions registered through this interface receive owned arguments.
+    /// Re-registering a built-in therefore preserves its behavior but bypasses
+    /// any internal borrowed-argument optimization. Use
+    /// [`Self::register_builtin_functions`] to restore optimized built-ins.
     #[inline]
     pub fn register_function(&mut self, name: &str, f: Box<dyn Function>) {
-        self.functions.insert(name.to_owned(), f);
+        self.functions
+            .insert(name.to_owned(), RegisteredFunction::Owned(f));
     }
 
     /// Removes a function from the runtime.
     pub fn deregister_function(&mut self, name: &str) -> Option<Box<dyn Function>> {
-        self.functions.remove(name)
+        self.functions
+            .remove(name)
+            .map(RegisteredFunction::into_function)
     }
 
     /// Gets a function by name from the runtime.
     #[inline]
     pub fn get_function<'a>(&'a self, name: &str) -> Option<&'a dyn Function> {
-        self.functions.get(name).map(AsRef::as_ref)
+        self.functions
+            .get(name)
+            .map(RegisteredFunction::as_function)
+    }
+
+    pub(crate) fn get_registered_function(&self, name: &str) -> Option<&RegisteredFunction> {
+        self.functions.get(name)
     }
 
     /// Returns an iterator over all registered function names.
@@ -77,7 +122,10 @@ impl Runtime {
         self.register_function("floor", Box::new(FloorFn::new()));
         self.register_function("join", Box::new(JoinFn::new()));
         self.register_function("keys", Box::new(KeysFn::new()));
-        self.register_function("length", Box::new(LengthFn::new()));
+        self.functions.insert(
+            "length".to_owned(),
+            RegisteredFunction::Borrowed(Box::new(LengthFn::new())),
+        );
         self.register_function("map", Box::new(MapFn::new()));
         self.register_function("min", Box::new(MinFn::new()));
         self.register_function("max", Box::new(MaxFn::new()));
@@ -182,6 +230,38 @@ mod tests {
     }
 
     #[test]
+    fn builtin_length_restores_borrowed_dispatch_after_public_override() {
+        let mut rt = Runtime::strict();
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Borrowed(_))
+        ));
+        rt.register_function("length", Box::new(LengthFn::new()));
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Owned(_))
+        ));
+        rt.register_builtin_functions();
+        assert!(matches!(
+            rt.get_registered_function("length"),
+            Some(RegisteredFunction::Borrowed(_))
+        ));
+    }
+
+    #[test]
+    fn let_capability_matches_compilation() {
+        // Runtime::strict restricts functions, not syntax. The engine applies
+        // the additional strict-mode syntax restriction.
+        for rt in [Runtime::new(), Runtime::strict()] {
+            let expr = rt.compile("let $value = value in $value");
+            assert_eq!(rt.supports_let_expressions(), expr.is_ok());
+            if let Ok(expr) = expr {
+                assert_eq!(expr.search(&json!({"value": 42})).unwrap(), json!(42));
+            }
+        }
+    }
+
+    #[test]
     fn register_and_get_function() {
         let mut rt = Runtime::new();
         rt.register_function("abs", Box::new(AbsFn::new()));
@@ -242,6 +322,44 @@ mod tests {
             .build();
         assert!(rt.get_function("lower").is_none());
         assert!(rt.get_function("upper").is_some());
+    }
+
+    // Holds under every feature combination: the registry lists only
+    // functions from compiled-in categories, and the runtime can call each.
+    #[test]
+    fn registry_matches_compiled_functions() {
+        let mut registry = FunctionRegistry::new();
+        registry.register_all();
+        let rt = Runtime::builder()
+            .with_standard()
+            .with_all_extensions()
+            .build();
+        for info in registry.functions() {
+            assert!(info.category.is_available(), "{}", info.name);
+            assert!(rt.get_function(info.name).is_some(), "{}", info.name);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ext-core")]
+    fn redact_keys_follows_ext_regex() {
+        let rt = Runtime::builder().with_category(Category::Object).build();
+        assert!(rt.get_function("pick").is_some());
+        assert_eq!(
+            rt.get_function("redact_keys").is_some(),
+            cfg!(feature = "ext-regex")
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "ext-time"))]
+    fn uncompiled_category_registers_nothing() {
+        assert!(!Category::Datetime.is_available());
+        assert_eq!(Category::Datetime.feature_name(), Some("ext-time"));
+        let mut registry = FunctionRegistry::new();
+        registry.register_category(Category::Datetime);
+        assert!(registry.is_empty());
+        assert_eq!(registry.categories().count(), 0);
     }
 
     #[test]

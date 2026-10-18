@@ -16,6 +16,32 @@ jpx [OPTIONS] [EXPRESSIONS]...
 
 ## Options
 
+### Offline Agent Instructions
+
+`jpx --skills` prints a small index. `jpx --skills query-libraries` prints a
+complete, installable `SKILL.md` with tested examples for creating, validating,
+and running `.jpx` query libraries. This is the only shipped topic.
+
+The assets are embedded in the binary: a copied binary works offline from an
+empty directory. Skills return before reading stdin, input files, configuration,
+or initializing the query engine. Save the topic's stdout as
+`jpx-query-libraries/SKILL.md` in your agent's supported skill directory.
+
+| Option | Skills output |
+|--------|---------------|
+| `--skills [TOPIC]` | Exact Markdown (index when no topic is supplied) |
+| `--skills [TOPIC] --json` | Pretty JSON |
+| `--skills [TOPIC] -c` | Compact JSON; also works with `--json` |
+
+JSON contains `content` (the exact Markdown) and either `topics` (an array of
+topic names for the index) or `topic` (the selected name). Only explicit flags
+select the format; `JPX_COMPACT` and config defaults do not affect skills output.
+Other query, execution, and output flags conflict with `--skills`; use shell
+redirection to save the output. Unknown topics point back to `--skills`.
+
+`--json` is supported only with `--skills`. For ordinary queries, omit `--json`:
+JSON is already the default, and `-c` retains its usual compact-output behavior.
+
 ### Input/Output
 
 | Option | Description |
@@ -129,6 +155,19 @@ The available demos are `users`, `geo`, `text`, `datetime`, `ecommerce`,
 `timeseries`, `logs`, and `inventory`. Inside the REPL, `.load` accepts quoted
 paths such as `.load "fixtures/user data.json"`.
 
+Use `.history [count]` to list recent queries and commands, oldest first. It
+shows the last 20 entries by default; `count` must be a whole number from 1 to
+100. History is bounded to the most recent 100 entries, so fewer than `count`
+entries may be shown. History loaded from earlier sessions
+is included, multiline queries appear as a single joined entry, and neither
+`.history` itself nor an immediately repeated entry is recorded. Under
+`--no-history` the command explains that history is disabled.
+
+Entry numbers are one-based and last for the current REPL session: loaded
+entries are numbered from 1 at startup, and an entry keeps its number even as
+older entries are dropped to stay within the limit. Numbers are not saved, so a
+new session numbers its loaded history from 1 again.
+
 ### Other
 
 | Option | Description |
@@ -167,8 +206,9 @@ jpx -r 'config.api_key' -f settings.json
 # Chain expressions, table output
 jpx 'users' '[?active]' -t -f data.json
 
-# Stream NDJSON, filter errors
-cat logs.ndjson | jpx --stream '[?level == `"error"`]'
+# Stream NDJSON, keep error records (each line is an object, so use if(),
+# not an array filter; null results are skipped)
+cat logs.ndjson | jpx --stream "if(level == 'error', @, \`null\`)"
 
 # Analyze structure before querying
 jpx --paths --types -f data.json

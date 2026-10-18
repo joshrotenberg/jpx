@@ -8,7 +8,7 @@ Functions for generating and inspecting identifiers.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| [`nanoid`](#nanoid) | `number? -> string` | Generate nanoid |
+| [`nanoid`](#nanoid) | `number? -> string` | Generate nanoid with an optional whole-number size from 0 through 1024 inclusive (integral floats accepted). Defaults to 21 characters; size 0 returns an empty string. |
 | [`ulid`](#ulid) | `-> string` | Generate ULID |
 | [`ulid_timestamp`](#ulid_timestamp) | `string -> number` | Extract timestamp from ULID |
 
@@ -16,7 +16,7 @@ Functions for generating and inspecting identifiers.
 
 ### nanoid
 
-Generate nanoid
+Generate nanoid with an optional whole-number size from 0 through 1024 inclusive (integral floats accepted). Defaults to 21 characters; size 0 returns an empty string.
 
 **Signature:** `number? -> string`
 

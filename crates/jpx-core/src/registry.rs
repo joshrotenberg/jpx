@@ -97,12 +97,84 @@ impl Category {
 
     /// Returns whether this category is available (compiled in).
     ///
-    /// In jpx-core, all categories are always available when the
-    /// `extensions` feature is enabled. Standard is always available.
+    /// Standard is always available. Each extension category is available
+    /// when its `ext-*` feature is enabled (all of them are with the
+    /// `extensions` feature).
     pub fn is_available(&self) -> bool {
         match self {
             Category::Standard => true,
-            _ => cfg!(feature = "extensions"),
+            Category::String => cfg!(feature = "ext-strings"),
+            Category::Array => cfg!(feature = "ext-core"),
+            Category::Object => cfg!(feature = "ext-core"),
+            Category::Math => cfg!(feature = "ext-core"),
+            Category::Type => cfg!(feature = "ext-core"),
+            Category::Utility => cfg!(feature = "ext-core"),
+            Category::Validation => cfg!(feature = "ext-validation"),
+            Category::Path => cfg!(feature = "ext-core"),
+            Category::Expression => cfg!(feature = "ext-core"),
+            Category::Text => cfg!(feature = "ext-text"),
+            Category::Hash => cfg!(feature = "ext-hash"),
+            Category::Encoding => cfg!(feature = "ext-encoding"),
+            Category::Regex => cfg!(feature = "ext-regex"),
+            Category::Url => cfg!(feature = "ext-encoding"),
+            Category::Uuid => cfg!(feature = "ext-ids"),
+            Category::Rand => cfg!(feature = "ext-ids"),
+            Category::Datetime => cfg!(feature = "ext-time"),
+            Category::Fuzzy => cfg!(feature = "ext-text"),
+            Category::Phonetic => cfg!(feature = "ext-text"),
+            Category::Geo => cfg!(feature = "ext-geo"),
+            Category::Semver => cfg!(feature = "ext-semver"),
+            Category::Network => cfg!(feature = "ext-net"),
+            Category::Ids => cfg!(feature = "ext-ids"),
+            Category::Duration => cfg!(feature = "ext-core"),
+            Category::Color => cfg!(feature = "ext-core"),
+            Category::Computing => cfg!(feature = "ext-core"),
+            Category::MultiMatch => cfg!(feature = "ext-text"),
+            Category::Jsonpatch => cfg!(feature = "ext-jsonpatch"),
+            Category::Format => cfg!(feature = "ext-format"),
+            Category::Language => cfg!(feature = "ext-lang"),
+            Category::Discovery => cfg!(feature = "ext-text"),
+            Category::Units => cfg!(feature = "ext-core"),
+        }
+    }
+
+    /// Returns the cargo feature that compiles this category in, or `None`
+    /// for Standard, which is always compiled.
+    pub fn feature_name(&self) -> Option<&'static str> {
+        match self {
+            Category::Standard => None,
+            Category::String => Some("ext-strings"),
+            Category::Array => Some("ext-core"),
+            Category::Object => Some("ext-core"),
+            Category::Math => Some("ext-core"),
+            Category::Type => Some("ext-core"),
+            Category::Utility => Some("ext-core"),
+            Category::Validation => Some("ext-validation"),
+            Category::Path => Some("ext-core"),
+            Category::Expression => Some("ext-core"),
+            Category::Text => Some("ext-text"),
+            Category::Hash => Some("ext-hash"),
+            Category::Encoding => Some("ext-encoding"),
+            Category::Regex => Some("ext-regex"),
+            Category::Url => Some("ext-encoding"),
+            Category::Uuid => Some("ext-ids"),
+            Category::Rand => Some("ext-ids"),
+            Category::Datetime => Some("ext-time"),
+            Category::Fuzzy => Some("ext-text"),
+            Category::Phonetic => Some("ext-text"),
+            Category::Geo => Some("ext-geo"),
+            Category::Semver => Some("ext-semver"),
+            Category::Network => Some("ext-net"),
+            Category::Ids => Some("ext-ids"),
+            Category::Duration => Some("ext-core"),
+            Category::Color => Some("ext-core"),
+            Category::Computing => Some("ext-core"),
+            Category::MultiMatch => Some("ext-text"),
+            Category::Jsonpatch => Some("ext-jsonpatch"),
+            Category::Format => Some("ext-format"),
+            Category::Language => Some("ext-lang"),
+            Category::Discovery => Some("ext-text"),
+            Category::Units => Some("ext-core"),
         }
     }
 
@@ -259,7 +331,14 @@ impl FunctionRegistry {
     }
 
     /// Registers all functions in a category.
+    ///
+    /// Does nothing for a category that is not compiled in (see
+    /// [`Category::is_available`]), so the registry never lists functions
+    /// the runtime cannot call.
     pub fn register_category(&mut self, category: Category) -> &mut Self {
+        if !category.is_available() {
+            return self;
+        }
         self.categories.insert(category);
         for info in get_category_functions(category) {
             self.registered.insert(info.name, info);
@@ -380,121 +459,160 @@ impl FunctionRegistry {
             return;
         }
 
-        // Extension function registration is gated behind the "extensions" feature.
-        // Each category module provides a register_filtered function that registers
+        // Each extension category is gated behind its `ext-*` feature. Each
+        // category module provides a register_filtered function that registers
         // only the functions in the enabled set.
-        #[cfg(feature = "extensions")]
         match category {
+            #[cfg(feature = "ext-strings")]
             Category::String => {
                 crate::extensions::string::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Array => {
                 crate::extensions::array::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Object => {
                 crate::extensions::object::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Math => {
                 crate::extensions::math::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Type => {
                 crate::extensions::type_conv::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Utility => {
                 crate::extensions::utility::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-validation")]
             Category::Validation => {
                 crate::extensions::validation::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Path => {
                 crate::extensions::path::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Expression => {
                 crate::extensions::expression::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-text")]
             Category::Text => {
                 crate::extensions::text::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-hash")]
             Category::Hash => {
                 crate::extensions::hash::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-encoding")]
             Category::Encoding => {
                 crate::extensions::encoding::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-regex")]
             Category::Regex => {
                 crate::extensions::regex_fns::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-encoding")]
             Category::Url => {
                 crate::extensions::url_fns::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-ids")]
             Category::Uuid => {
                 crate::extensions::random::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-ids")]
             Category::Rand => {
                 crate::extensions::random::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-time")]
             Category::Datetime => {
                 crate::extensions::datetime::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-text")]
             Category::Fuzzy => {
                 crate::extensions::fuzzy::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-text")]
             Category::Phonetic => {
                 crate::extensions::phonetic::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-geo")]
             Category::Geo => {
                 crate::extensions::geo::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-semver")]
             Category::Semver => {
                 crate::extensions::semver_fns::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-net")]
             Category::Network => {
                 crate::extensions::network::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-ids")]
             Category::Ids => {
                 crate::extensions::ids::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Duration => {
                 crate::extensions::duration::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Color => {
                 crate::extensions::color::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Computing => {
                 crate::extensions::computing::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-text")]
             Category::MultiMatch => {
                 crate::extensions::multi_match::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-jsonpatch")]
             Category::Jsonpatch => {
                 crate::extensions::jsonpatch::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-format")]
             Category::Format => {
                 crate::extensions::format::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-lang")]
             Category::Language => {
                 crate::extensions::language::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-text")]
             Category::Discovery => {
                 crate::extensions::discovery::register_filtered(runtime, &enabled_in_category)
             }
+            #[cfg(feature = "ext-core")]
             Category::Units => {
                 crate::extensions::units::register_filtered(runtime, &enabled_in_category)
             }
             Category::Standard => {} // Standard functions are registered via register_builtin_functions()
+            // Categories whose feature is not compiled in have nothing to register.
+            #[allow(unreachable_patterns)]
+            _ => {}
         }
-
-        // When extensions feature is not compiled, only standard functions are available.
-        #[cfg(not(feature = "extensions"))]
-        let _ = (runtime, category);
     }
+}
+
+/// Functions that take a regex pattern but live in categories that otherwise
+/// need no regex engine. They are compiled only with the `ext-regex` feature.
+const REGEX_PATTERN_FUNCTIONS: &[&str] = &["redact_keys", "redact_pattern"];
+
+/// Returns whether a function in an available category is compiled in.
+fn is_function_compiled(name: &str) -> bool {
+    cfg!(feature = "ext-regex") || !REGEX_PATTERN_FUNCTIONS.contains(&name)
 }
 
 /// Gets function metadata for a category (from generated data).
 fn get_category_functions(category: Category) -> Vec<FunctionInfo> {
     generated::FUNCTIONS
         .iter()
-        .filter(|f| f.category == category)
+        .filter(|f| f.category == category && is_function_compiled(f.name))
         .cloned()
         .collect()
 }

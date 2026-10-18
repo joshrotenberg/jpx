@@ -65,8 +65,8 @@ fn large_array_sort_by() {
     }
 }
 
+#[cfg(feature = "extensions")]
 #[test]
-
 fn large_array_group_by() {
     let data: Value = Value::Array(
         (0..10_000)
@@ -98,8 +98,8 @@ fn large_array_flatten() {
     assert_eq!(arr[9_999], json!(9_999));
 }
 
+#[cfg(feature = "extensions")]
 #[test]
-
 fn large_array_unique() {
     // 10K elements with lots of duplicates (values 0..100 repeated)
     let data: Value = Value::Array((0..10_000).map(|i| json!(i % 100)).collect());
@@ -220,8 +220,8 @@ fn large_string_length() {
     assert_eq!(result, json!(1_000_000));
 }
 
+#[cfg(feature = "extensions")]
 #[test]
-
 fn large_string_upper() {
     let big = "a".repeat(100_000);
     let data = json!(big);
@@ -231,8 +231,8 @@ fn large_string_upper() {
     assert!(s.chars().all(|c| c == 'A'));
 }
 
+#[cfg(feature = "extensions")]
 #[test]
-
 fn large_string_split() {
     // 10K commas -> 10,001 parts
     let parts: Vec<String> = (0..10_001).map(|i| format!("v{i}")).collect();

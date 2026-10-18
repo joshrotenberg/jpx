@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- per-category `ext-*` features so downstream crates can compile a subset of the extension functions; `extensions` enables all of them and the default features are unchanged
+- `Category::feature_name` names the feature that compiles a category in
+
+### Changed
+
+- `FunctionRegistry::register_category` skips categories that are not compiled in, so the registry lists only functions the runtime can call
+
 ### Fixed
 
 - reject non-ASCII numeric characters after `-` instead of panicking in the lexer ([#248](https://github.com/joshrotenberg/jpx/issues/248))

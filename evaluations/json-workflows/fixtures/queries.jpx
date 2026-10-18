@@ -1,0 +1,7 @@
+-- :name failed-jobs
+-- :desc Names of failed CI jobs
+jobs[?conclusion == 'failure'].name
+
+-- :name ci-status
+-- :desc Run status and conclusion
+{status: status, conclusion: conclusion}

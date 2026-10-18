@@ -1,0 +1,448 @@
+{
+  "differences": {
+    "null_omission": "Projections ([*].x) drop null results, so per-item alignment is lost; use map(&x, arr) to keep nulls.",
+    "forgiving_json_decode": "json_decode returns null for invalid JSON instead of failing; a null result prints nothing and exits 0.",
+    "tolerant_streaming": "--stream reports unparsable lines on stderr, skips them and still exits 0.",
+    "chained_cli_expressions": "Repeated -e/positional expressions form a pipeline, not independent queries; combine them in one multiselect.",
+    "false_null_exit_status": "-x fails only on false or null; an empty array or object is truthy for exit status."
+  },
+  "cases": [
+    {
+      "id": "ci-select",
+      "category": "selection",
+      "intent": "Pick run status, conclusion and commit from a CI run.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "either",
+      "expect": {"json": {"status": "completed", "conclusion": "failure", "sha": "a1b2c3d"}},
+      "jpx": {"args": ["{status: status, conclusion: conclusion, sha: head_sha}"]},
+      "python": {"code": "d=J();out({'status':d['status'],'conclusion':d['conclusion'],'sha':d['head_sha']})"},
+      "js": {"code": "const d=J();out({status:d.status,conclusion:d.conclusion,sha:d.head_sha})"}
+    },
+    {
+      "id": "ci-failed-jobs",
+      "category": "filter",
+      "intent": "Names of failed CI jobs.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": ["test"]},
+      "jpx": {"args": ["jobs[?conclusion == 'failure'].name"]},
+      "python": {"code": "out([j['name'] for j in J()['jobs'] if j['conclusion']=='failure'])"},
+      "js": {"code": "out(J().jobs.filter(j=>j.conclusion==='failure').map(j=>j.name))"}
+    },
+    {
+      "id": "ci-summary",
+      "category": "ci-summary",
+      "intent": "Job count, failed and pending (null conclusion) job names, total seconds.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": {"total": 4, "failed": ["test"], "pending": ["docs"], "seconds": 147}},
+      "jpx": {"args": ["{total: length(jobs), failed: jobs[?conclusion == 'failure'].name, pending: jobs[?conclusion == `null`].name, seconds: sum(jobs[*].seconds)}"]},
+      "python": {"code": "j=J()['jobs'];out({'total':len(j),'failed':[x['name'] for x in j if x['conclusion']=='failure'],'pending':[x['name'] for x in j if x['conclusion'] is None],'seconds':sum(x['seconds'] for x in j)})"},
+      "js": {"code": "const j=J().jobs;out({total:j.length,failed:j.filter(x=>x.conclusion==='failure').map(x=>x.name),pending:j.filter(x=>x.conclusion===null).map(x=>x.name),seconds:j.reduce((a,x)=>a+x.seconds,0)})"}
+    },
+    {
+      "id": "multiple-queries-combined",
+      "category": "multiple-queries",
+      "intent": "Answer two independent questions (failed count, slowest job) in one call.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": {"failed": 1, "slowest": "test"}},
+      "jpx": {"args": ["{failed: length(jobs[?conclusion == 'failure']), slowest: max_by(jobs, &seconds).name}"]},
+      "python": {"code": "j=J()['jobs'];out({'failed':sum(x['conclusion']=='failure' for x in j),'slowest':max(j,key=lambda x:x['seconds'])['name']})"},
+      "js": {"code": "const j=J().jobs;out({failed:j.filter(x=>x.conclusion==='failure').length,slowest:j.reduce((a,x)=>x.seconds>a.seconds?x:a).name})"}
+    },
+    {
+      "id": "multiple-queries-chained-e",
+      "category": "multiple-queries",
+      "intent": "Status and conclusion as two independent queries in one call.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": {"status": "completed", "conclusion": "failure"}},
+      "jpx": {
+        "args": ["-e", "status", "-e", "conclusion"],
+        "difference": "chained_cli_expressions",
+        "expect": {"status": 0},
+        "note": "'conclusion' is evaluated against the string \"completed\", yields null and prints nothing; see multiple-queries-combined."
+      },
+      "python": {"code": "d=J();out({'status':d['status'],'conclusion':d['conclusion']})"},
+      "js": {"code": "const d=J();out({status:d.status,conclusion:d.conclusion})"}
+    },
+    {
+      "id": "filter-open-bugs",
+      "category": "filter",
+      "intent": "Numbers of open issues labelled bug.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [101, 103]},
+      "jpx": {"args": ["issues[?state == 'open' && contains(labels, 'bug')].number"]},
+      "python": {"code": "out([i['number'] for i in J()['issues'] if i['state']=='open' and 'bug' in i['labels']])"},
+      "js": {"code": "out(J().issues.filter(i=>i.state==='open'&&i.labels.includes('bug')).map(i=>i.number))"}
+    },
+    {
+      "id": "reshape-issues",
+      "category": "reshape",
+      "intent": "One {id, author, labels count} record per issue.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [
+        {"id": 101, "author": "ada", "labels": 2},
+        {"id": 102, "author": "lin", "labels": 1},
+        {"id": 103, "author": "sam", "labels": 1},
+        {"id": 104, "author": "ada", "labels": 1},
+        {"id": 105, "author": "kim", "labels": 1}
+      ]},
+      "jpx": {"args": ["issues[*].{id: number, author: user.login, labels: length(labels)}"]},
+      "python": {"code": "out([{'id':i['number'],'author':i['user']['login'],'labels':len(i['labels'])} for i in J()['issues']])"},
+      "js": {"code": "out(J().issues.map(i=>({id:i.number,author:i.user.login,labels:i.labels.length})))"}
+    },
+    {
+      "id": "count-by-state",
+      "category": "count",
+      "intent": "Issue count per state.",
+      "data": "fixtures/issues.json",
+      "profile": "extensions",
+      "preferred": "jpx",
+      "expect": {"json": {"open": 3, "closed": 2}},
+      "jpx": {"args": ["count_by(&state, issues)"]},
+      "python": {"code": "import collections;out(dict(collections.Counter(i['state'] for i in J()['issues'])))"},
+      "js": {"code": "const c={};for(const i of J().issues)c[i.state]=(c[i.state]||0)+1;out(c)"}
+    },
+    {
+      "id": "group-by-state",
+      "category": "group",
+      "intent": "Issue numbers grouped by state, groups sorted by state.",
+      "data": "fixtures/issues.json",
+      "profile": "extensions",
+      "preferred": "jpx",
+      "expect": {"json": [{"state": "closed", "numbers": [102, 104]}, {"state": "open", "numbers": [101, 103, 105]}]},
+      "jpx": {"args": ["group_by(issues, &state) | items(@) | sort_by(@, &[0]) | [*].{state: [0], numbers: [1][*].number}"]},
+      "python": {"code": "g={}\nfor i in J()['issues']:g.setdefault(i['state'],[]).append(i['number'])\nout([{'state':k,'numbers':g[k]} for k in sorted(g)])"},
+      "js": {"code": "const g={};for(const i of J().issues)(g[i.state]??=[]).push(i.number);out(Object.keys(g).sort().map(k=>({state:k,numbers:g[k]})))"}
+    },
+    {
+      "id": "no-match",
+      "category": "no-match",
+      "intent": "Filter that matches nothing returns an empty list, not an error.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": []},
+      "jpx": {"args": ["issues[?state == 'merged'].number"]},
+      "python": {"code": "out([i['number'] for i in J()['issues'] if i['state']=='merged'])"},
+      "js": {"code": "out(J().issues.filter(i=>i.state==='merged').map(i=>i.number))"}
+    },
+    {
+      "id": "null-vs-missing",
+      "category": "null-missing",
+      "intent": "Distinguish an explicit null assignee from a missing assignee key.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "either",
+      "expect": {"json": [
+        {"n": 101, "has_key": true, "assignee": null},
+        {"n": 102, "has_key": true, "assignee": "ada"},
+        {"n": 103, "has_key": false, "assignee": null},
+        {"n": 104, "has_key": true, "assignee": "sam"},
+        {"n": 105, "has_key": true, "assignee": "lin"}
+      ]},
+      "jpx": {"args": ["issues[*].{n: number, has_key: contains(keys(@), 'assignee'), assignee: assignee}"]},
+      "python": {"code": "out([{'n':i['number'],'has_key':'assignee' in i,'assignee':i.get('assignee')} for i in J()['issues']])"},
+      "js": {"code": "out(J().issues.map(i=>({n:i.number,has_key:'assignee' in i,assignee:i.assignee??null})))"}
+    },
+    {
+      "id": "null-omission",
+      "category": "null-missing",
+      "intent": "One assignee slot per issue, null when unassigned.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [null, "ada", null, "sam", "lin"]},
+      "jpx": {
+        "args": ["issues[*].assignee"],
+        "difference": "null_omission",
+        "expect": {"json": ["ada", "sam", "lin"]}
+      },
+      "python": {"code": "out([i.get('assignee') for i in J()['issues']])"},
+      "js": {"code": "out(J().issues.map(i=>i.assignee??null))"}
+    },
+    {
+      "id": "null-preserving-map",
+      "category": "null-missing",
+      "intent": "One assignee slot per issue, null when unassigned (null-preserving translation).",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [null, "ada", null, "sam", "lin"]},
+      "jpx": {"args": ["map(&assignee, issues)"]},
+      "python": {"code": "out([i.get('assignee') for i in J()['issues']])"},
+      "js": {"code": "out(J().issues.map(i=>i.assignee??null))"}
+    },
+    {
+      "id": "exit-status-empty-match",
+      "category": "no-match",
+      "intent": "Shell conditional: exit nonzero when no issue is merged.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [], "status": 1},
+      "jpx": {
+        "args": ["-x", "issues[?state == 'merged']"],
+        "difference": "false_null_exit_status",
+        "expect": {"json": [], "status": 0},
+        "note": "Use a boolean expression instead; see exit-status-boolean."
+      },
+      "python": {"code": "m=[i for i in J()['issues'] if i['state']=='merged'];out(m);sys.exit(0 if m else 1)"},
+      "js": {"code": "const m=J().issues.filter(i=>i.state==='merged');out(m);process.exitCode=m.length?0:1"}
+    },
+    {
+      "id": "exit-status-boolean",
+      "category": "no-match",
+      "intent": "Shell conditional via a boolean: exit nonzero when no issue is merged.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": false, "status": 1},
+      "jpx": {"args": ["-x", "length(issues[?state == 'merged']) > `0`"]},
+      "python": {"code": "m=any(i['state']=='merged' for i in J()['issues']);out(m);sys.exit(0 if m else 1)"},
+      "js": {"code": "const m=J().issues.some(i=>i.state==='merged');out(m);process.exitCode=m?0:1"}
+    },
+    {
+      "id": "nested-json-string",
+      "category": "nested-json",
+      "intent": "Sum counts inside a JSON document embedded as a string field.",
+      "data": "fixtures/ci-run.json",
+      "profile": "extensions",
+      "preferred": "jpx",
+      "expect": {"json": 5},
+      "jpx": {"args": ["json_decode(body).report.counts | sum(@)"]},
+      "python": {"code": "out(sum(json.loads(J()['body'])['report']['counts']))"},
+      "js": {"code": "out(JSON.parse(J().body).report.counts.reduce((a,b)=>a+b,0))"}
+    },
+    {
+      "id": "nested-json-invalid",
+      "category": "nested-json",
+      "intent": "An embedded string that is not JSON is reported as a failure.",
+      "data": "fixtures/bad-body.json",
+      "profile": "extensions",
+      "preferred": "either",
+      "expect": {"status": "nonzero"},
+      "jpx": {
+        "args": ["json_decode(body)"],
+        "difference": "forgiving_json_decode",
+        "expect": {"status": 0}
+      },
+      "python": {"code": "out(json.loads(J()['body']))"},
+      "js": {"code": "out(JSON.parse(J().body))"}
+    },
+    {
+      "id": "ndjson-stream-field",
+      "category": "ndjson",
+      "intent": "Emit the id of every NDJSON record, one per line.",
+      "data": "fixtures/events.ndjson",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"lines": [1, 2, 3, 4]},
+      "jpx": {"args": ["--stream", "id"]},
+      "python": {"code": "for r in L():out(r['id'])"},
+      "js": {"code": "for(const r of L())out(r.id)"}
+    },
+    {
+      "id": "ndjson-stream-filter",
+      "category": "ndjson",
+      "intent": "Emit only error records from an NDJSON stream.",
+      "data": "fixtures/events.ndjson",
+      "profile": "extensions",
+      "preferred": "jpx",
+      "expect": {"lines": [{"id": 2, "level": "error", "msg": "disk full"}, {"id": 4, "level": "error", "msg": "timeout"}]},
+      "jpx": {"args": ["--stream", "if(level == 'error', @, `null`)"]},
+      "python": {"code": "for r in L():\n if r['level']=='error':out(r)"},
+      "js": {"code": "for(const r of L())if(r.level==='error')out(r)"}
+    },
+    {
+      "id": "ndjson-slurp-count",
+      "category": "ndjson",
+      "intent": "Count error records across an NDJSON file.",
+      "data": "fixtures/events.ndjson",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": 2},
+      "jpx": {"args": ["-s", "length([?level == 'error'])"]},
+      "python": {"code": "out(sum(r['level']=='error' for r in L()))"},
+      "js": {"code": "out(L().filter(r=>r.level==='error').length)"}
+    },
+    {
+      "id": "ndjson-malformed-line",
+      "category": "malformed",
+      "intent": "Emit ids of valid records; a malformed line is reported and fails the run.",
+      "data": "fixtures/events-malformed.ndjson",
+      "profile": "standard",
+      "preferred": "either",
+      "expect": {"lines": [1, 3], "status": "nonzero"},
+      "jpx": {
+        "args": ["--stream", "id"],
+        "difference": "tolerant_streaming",
+        "expect": {"lines": [1, 3], "status": 0, "stderr_contains": ["Failed to parse JSON"]}
+      },
+      "python": {"code": "bad=0\nfor l in open(P):\n if not l.strip():continue\n try:out(json.loads(l)['id'])\n except ValueError as e:bad=1;print(e,file=sys.stderr)\nsys.exit(bad)"},
+      "js": {"code": "let bad=0;for(const l of fs.readFileSync(P,'utf8').split('\\n')){if(!l.trim())continue;try{out(JSON.parse(l).id)}catch(e){bad=1;console.error(e.message)}}process.exitCode=bad"}
+    },
+    {
+      "id": "named-query",
+      "category": "named-query",
+      "intent": "Run a saved query (failed job names) against a CI run.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": ["test"]},
+      "jpx": {"args": ["-Q", "fixtures/queries.jpx:failed-jobs"]},
+      "python": {"code": "out([j['name'] for j in J()['jobs'] if j['conclusion']=='failure'])"},
+      "js": {"code": "out(J().jobs.filter(j=>j.conclusion==='failure').map(j=>j.name))"}
+    },
+    {
+      "id": "named-query-missing",
+      "category": "named-query",
+      "intent": "Asking for an unknown saved query fails and names the valid queries.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"status": 1, "stderr_contains": ["Query 'missing' not found", "Available queries:", "failed-jobs"]},
+      "jpx": {"args": ["-Q", "fixtures/queries.jpx:missing"]},
+      "python": {"unrun": "not applicable: jpx query-library error contract"},
+      "js": {"unrun": "not applicable: jpx query-library error contract"}
+    },
+    {
+      "id": "large-id-roundtrip",
+      "category": "large-id",
+      "intent": "Project 64-bit order ids above 2^53 without losing precision.",
+      "data": "fixtures/orders.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": [9007199254740993, 9007199254740992]},
+      "jpx": {"args": ["orders[*].id"]},
+      "python": {"code": "out([o['id'] for o in J()['orders']])"},
+      "js": {"code": "out(J().orders.map(o=>o.id))", "known_failure": "js-number-precision", "known_result": {"json": [9007199254740992, 9007199254740992]}}
+    },
+    {
+      "id": "large-id-compare",
+      "category": "large-id",
+      "intent": "Compare two adjacent ids above 2^53.",
+      "data": "fixtures/orders.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": {"equal": false, "greater": true}},
+      "jpx": {"args": ["{equal: orders[0].id == orders[1].id, greater: orders[0].id > orders[1].id}"]},
+      "python": {"code": "o=J()['orders'];out({'equal':o[0]['id']==o[1]['id'],'greater':o[0]['id']>o[1]['id']})"},
+      "js": {"code": "const o=J().orders;out({equal:o[0].id===o[1].id,greater:o[0].id>o[1].id})", "known_failure": "js-number-precision", "known_result": {"json": {"equal": true, "greater": false}}}
+    },
+    {
+      "id": "large-id-filter",
+      "category": "large-id",
+      "intent": "Select the order whose id is exactly 9007199254740993.",
+      "data": "fixtures/orders.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": ["A-1"]},
+      "jpx": {"args": ["orders[?id == `9007199254740993`].sku"]},
+      "python": {"code": "out([o['sku'] for o in J()['orders'] if o['id']==9007199254740993])"},
+      "js": {"code": "out(J().orders.filter(o=>o.id===9007199254740993).map(o=>o.sku))", "known_failure": "js-number-precision", "known_result": {"json": ["A-1", "B-2"]}}
+    },
+    {
+      "id": "malformed-input",
+      "category": "malformed",
+      "intent": "Malformed JSON input fails with a nonzero exit.",
+      "data": "fixtures/malformed.json",
+      "profile": "standard",
+      "preferred": "either",
+      "expect": {"status": "nonzero"},
+      "jpx": {"args": ["@"], "expect": {"status": 1, "stderr_contains": ["Failed to parse JSON input", "Keys must be double-quoted"]}},
+      "python": {"code": "out(J())"},
+      "js": {"code": "out(J())"}
+    },
+    {
+      "id": "wrong-type",
+      "category": "malformed",
+      "intent": "Taking the length of a number is a type error, not a silent value.",
+      "data": "fixtures/ci-run.json",
+      "profile": "standard",
+      "preferred": "either",
+      "expect": {"status": "nonzero"},
+      "jpx": {"args": ["length(id)"], "expect": {"status": 1, "stderr_contains": ["expected array|object|string, got number"]}},
+      "python": {"code": "out(len(J()['id']))"},
+      "js": {"code": "out(J().id.length)", "known_failure": "js-undefined-not-error", "known_result": {"stdout": "undefined\n"}}
+    },
+    {
+      "id": "unknown-function",
+      "category": "malformed",
+      "intent": "A misspelled function fails and suggests the intended one.",
+      "data": "fixtures/ci-run.json",
+      "profile": "extensions",
+      "preferred": "jpx",
+      "expect": {"status": 1, "stderr_contains": ["Unknown function: lenght", "Did you mean?", "length"]},
+      "jpx": {"args": ["lenght(jobs)"]},
+      "python": {"unrun": "not applicable: jpx function-discovery error contract"},
+      "js": {"unrun": "not applicable: jpx function-discovery error contract"}
+    },
+    {
+      "id": "strict-profile-rejects-extension",
+      "category": "profile",
+      "intent": "Standard-only mode rejects extension functions with a clear error.",
+      "data": "fixtures/ci-run.json",
+      "profile": "strict",
+      "preferred": "jpx",
+      "expect": {"status": 1, "stderr_contains": ["Unknown function: json_decode"]},
+      "jpx": {"args": ["json_decode(body)"]},
+      "python": {"unrun": "not applicable: jpx feature profile"},
+      "js": {"unrun": "not applicable: jpx feature profile"}
+    },
+    {
+      "id": "bounded-inspection",
+      "category": "inspection",
+      "intent": "Inspect an unfamiliar document's size, fields and one sample without dumping it.",
+      "data": "fixtures/issues.json",
+      "profile": "standard",
+      "preferred": "jpx",
+      "expect": {"json": {"count": 5, "fields": ["assignee", "labels", "number", "state", "title", "user"], "sample": [{"number": 101, "title": "Crash on empty input"}]}},
+      "jpx": {"args": ["{count: length(issues), fields: sort(keys(issues[0])), sample: issues[:1].{number: number, title: title}}"]},
+      "python": {"code": "i=J()['issues'];out({'count':len(i),'fields':sorted(i[0]),'sample':[{'number':x['number'],'title':x['title']} for x in i[:1]]})"},
+      "js": {"code": "const i=J().issues;out({count:i.length,fields:Object.keys(i[0]).sort(),sample:i.slice(0,1).map(x=>({number:x.number,title:x.title}))})"}
+    },
+    {
+      "id": "control-join-files",
+      "category": "control",
+      "intent": "Join issue authors to display names from a second file.",
+      "data": "fixtures/issues.json",
+      "extra_data": ["fixtures/users.json"],
+      "profile": "standard",
+      "preferred": "script",
+      "expect": {"json": [
+        {"number": 101, "author": "Ada L."},
+        {"number": 102, "author": "Lin Q."},
+        {"number": 103, "author": "Sam R."},
+        {"number": 104, "author": "Ada L."},
+        {"number": 105, "author": "Kim P."}
+      ]},
+      "jpx": {"unrun": "deferred: one input document per evaluation; a join must pass the second file through --argjson, which is not evaluated here"},
+      "python": {"code": "u=json.load(open('fixtures/users.json'));out([{'number':i['number'],'author':u[i['user']['login']]} for i in J()['issues']])"},
+      "js": {"code": "const u=JSON.parse(fs.readFileSync('fixtures/users.json','utf8'));out(J().issues.map(i=>({number:i.number,author:u[i.user.login]})))"}
+    },
+    {
+      "id": "control-update-document",
+      "category": "control",
+      "intent": "Turn every flag on and emit the full updated document.",
+      "data": "fixtures/flags.json",
+      "profile": "standard",
+      "preferred": "script",
+      "expect": {"json": {"flags": [{"name": "fast-path", "on": true}, {"name": "new-ui", "on": true}]}},
+      "jpx": {"unrun": "deferred: document update/write-back translations are not evaluated in this slice"},
+      "python": {"code": "d=J()\nfor f in d['flags']:f['on']=True\nout(d)"},
+      "js": {"code": "const d=J();for(const f of d.flags)f.on=true;out(d)"}
+    }
+  ]
+}

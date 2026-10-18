@@ -604,6 +604,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_shell_escape_simple() {
         let runtime = setup_runtime();
         let expr = runtime.compile("shell_escape(@)").unwrap();
@@ -613,6 +614,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_shell_escape_with_single_quote() {
         let runtime = setup_runtime();
         let expr = runtime.compile("shell_escape(@)").unwrap();
@@ -622,6 +624,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_shell_escape_special_chars() {
         let runtime = setup_runtime();
         let expr = runtime.compile("shell_escape(@)").unwrap();
@@ -632,6 +635,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_shell_escape_empty() {
         let runtime = setup_runtime();
         let expr = runtime.compile("shell_escape(@)").unwrap();
@@ -641,6 +645,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ext-strings")]
     fn test_shell_escape_multiple_quotes() {
         let runtime = setup_runtime();
         let expr = runtime.compile("shell_escape(@)").unwrap();

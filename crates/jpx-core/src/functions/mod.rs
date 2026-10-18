@@ -1,18 +1,24 @@
 //! JMESPath functions.
 
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use serde_json::{Number, Value};
 
 use crate::ast::Ast;
 use crate::interpreter::{SearchResult, interpret};
-use crate::value_ext::{JmespathType, ValueExt};
+use crate::value_ext::{JmespathType, ValueExt, compare_numbers, values_equal};
 use crate::{Context, ErrorReason, JmespathError, RuntimeError, get_expref_id};
 
 /// Represents a JMESPath function.
 pub trait Function: Sync + Send {
     /// Evaluates the function against a slice of Value arguments.
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult;
+}
+
+/// Internal opt-in for functions that can inspect arguments without copying them.
+/// The public `Function` interface remains available for direct callers.
+pub(crate) trait BorrowedFunction: Function {
+    fn evaluate_borrowed(&self, args: &[Cow<'_, Value>], ctx: &mut Context<'_>) -> SearchResult;
 }
 
 /// Function argument types used when validating.
@@ -171,14 +177,22 @@ impl Signature {
 
     /// Validates the provided function arguments against the signature.
     pub fn validate(&self, args: &[Value], ctx: &Context<'_>) -> Result<(), JmespathError> {
+        self.validate_values(args.iter(), ctx)
+    }
+
+    fn validate_values<'a>(
+        &self,
+        args: impl ExactSizeIterator<Item = &'a Value>,
+        ctx: &Context<'_>,
+    ) -> Result<(), JmespathError> {
         self.validate_arity(args.len(), ctx)?;
         if let Some(ref variadic) = self.variadic {
-            for (k, v) in args.iter().enumerate() {
+            for (k, v) in args.enumerate() {
                 let validator = self.inputs.get(k).unwrap_or(variadic);
                 self.validate_arg(ctx, k, v, validator)?;
             }
         } else {
-            for (k, v) in args.iter().enumerate() {
+            for (k, v) in args.enumerate() {
                 self.validate_arg(ctx, k, v, &self.inputs[k])?;
             }
         }
@@ -302,7 +316,9 @@ impl Function for ContainsFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
         match &args[0] {
-            Value::Array(arr) => Ok(Value::Bool(arr.contains(&args[1]))),
+            Value::Array(arr) => Ok(Value::Bool(
+                arr.iter().any(|item| values_equal(item, &args[1])),
+            )),
             Value::String(s) => match args[1].as_str() {
                 Some(needle) => Ok(Value::Bool(s.contains(needle))),
                 None => Ok(Value::Bool(false)),
@@ -365,13 +381,27 @@ defn!(LengthFn, vec![arg!(array | object | string)], None);
 impl Function for LengthFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
-        let len = match &args[0] {
+        Ok(Self::length(&args[0]))
+    }
+}
+
+impl BorrowedFunction for LengthFn {
+    fn evaluate_borrowed(&self, args: &[Cow<'_, Value>], ctx: &mut Context<'_>) -> SearchResult {
+        self.signature
+            .validate_values(args.iter().map(Cow::as_ref), ctx)?;
+        Ok(Self::length(&args[0]))
+    }
+}
+
+impl LengthFn {
+    fn length(value: &Value) -> Value {
+        let len = match value {
             Value::Array(a) => a.len(),
             Value::Object(m) => m.len(),
             Value::String(s) => s.chars().count(),
             _ => unreachable!(),
         };
-        Ok(Value::Number(Number::from(len)))
+        Value::Number(Number::from(len))
     }
 }
 
@@ -647,13 +677,12 @@ impl Function for ValuesFn {
 
 // ---- Helper functions ----
 
-/// Compare two Values for sorting. Numbers compare numerically, strings lexicographically.
+/// Compare two Values for sorting. Numbers compare by exact numeric value
+/// (see [`compare_numbers`]), strings lexicographically.
 fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     match (a, b) {
         (Value::Number(a), Value::Number(b)) => {
-            let af = a.as_f64().unwrap_or(0.0);
-            let bf = b.as_f64().unwrap_or(0.0);
-            af.partial_cmp(&bf).unwrap_or(std::cmp::Ordering::Equal)
+            compare_numbers(a, b).unwrap_or(std::cmp::Ordering::Equal)
         }
         (Value::String(a), Value::String(b)) => a.cmp(b),
         _ => std::cmp::Ordering::Equal,

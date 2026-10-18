@@ -47,10 +47,10 @@ map_expr(&upper(name), users)     -- transform each element
 filter_expr(&(age > `18`), users) -- filter by expression
 sort_by_expr(&score, users)       -- sort by expression
 group_by_expr(&type, items)       -- group by expression
-reduce_expr(&(@ + @@), [1,2,3], `0`)  -- reduce with accumulator
+reduce_expr(&add(accumulator, current), `[1,2,3]`, `0`)  -- reduce with accumulator
 ```
 
-In expression function callbacks, `@` is the current element and `@@` is the accumulator (for reduce).
+In most expression function callbacks, `@` is the current element. `reduce_expr` (alias `fold`) instead evaluates its callback against an object with `accumulator`, `current`, and `index` fields.
 
 ## Categories
 
@@ -58,7 +58,7 @@ In expression function callbacks, `@` is the current element and `@@` is the acc
 |----------|-------|---------------|
 | [Array](references/array-functions.md) | 46 | `unique`, `chunk`, `group_by`, `index_by`, `zip`, `flatten_deep`, ... |
 | [String](references/string-functions.md) | 52 | `split`, `upper`, `lower`, `trim`, `replace`, `pad_left`, `template`, ... |
-| [Math](references/math-functions.md) | 49 | `sum`, `avg`, `median`, `round`, `clamp`, `range`, `std_dev`, ... |
+| [Math](references/math-functions.md) | 49 | `sum`, `avg`, `median`, `round`, `clamp`, `range`, `stddev`, ... |
 | [Object](references/object-functions.md) | 54 | `omit`, `pick`, `deep_merge`, `defaults`, `rename_keys`, `flatten_keys`, ... |
 | [Expression](references/expression-functions.md) | 41 | `map_expr`, `filter_expr`, `reduce_expr`, `sort_by_expr`, `group_by_expr`, ... |
 | [Datetime](references/datetime-functions.md) | 28 | `now`, `format_date`, `parse_date`, `date_add`, `date_diff`, ... |
@@ -93,14 +93,14 @@ In expression function callbacks, `@` is the current element and `@@` is the acc
 
 ### Array
 ```
-unique([1,2,2,3])                        -> [1,2,3]
-chunk([1,2,3,4,5], `2`)                  -> [[1,2],[3,4],[5]]
+unique(`[1,2,2,3]`)                      -> [1,2,3]
+chunk(`[1,2,3,4,5]`, `2`)                -> [[1,2],[3,4],[5]]
 group_by(users, &role)                   -> {"admin":[...], "user":[...]}
 index_by(users, &id)                     -> {"1":{...}, "2":{...}}
-zip([1,2], ['a','b'])                    -> [[1,"a"],[2,"b"]]
-flatten_deep([[1,[2]],[3]])              -> [1,2,3]
-first([1,2,3])                           -> 1
-last([1,2,3])                            -> 3
+zip(`[1,2]`, ['a','b'])                  -> [[1,"a"],[2,"b"]]
+flatten_deep(`[[1,[2]],[3]]`)            -> [1,2,3]
+first(`[1,2,3]`)                         -> 1
+last(`[1,2,3]`)                          -> 3
 range(`1`, `6`)                          -> [1,2,3,4,5]
 ```
 
@@ -112,18 +112,18 @@ lower('HELLO')                           -> "hello"
 trim('  hi  ')                           -> "hi"
 replace('hello', 'l', 'r')              -> "herro"
 pad_left('42', `5`, '0')                -> "00042"
-template('Hello, {name}!', {"name":"Jo"}) -> "Hello, Jo!"
+template(`{"name":"Jo"}`, 'Hello, {{name}}!') -> "Hello, Jo!"
 snake_case('helloWorld')                 -> "hello_world"
 ```
 
 ### Math
 ```
-sum([1,2,3])                             -> 6
-avg([1,2,3])                             -> 2.0
-median([1,2,3,4])                        -> 2.5
+sum(`[1,2,3]`)                           -> 6
+avg(`[1,2,3]`)                           -> 2.0
+median(`[1,2,3,4]`)                      -> 2.5
 round(`3.14159`, `2`)                    -> 3.14
 clamp(`15`, `0`, `10`)                   -> 10
-std_dev([2,4,4,4,5,5,7,9])              -> 2.0
+stddev(`[2,4,4,4,5,5,7,9]`)              -> 2.0
 ```
 
 ### Datetime
@@ -139,14 +139,14 @@ date_diff('2024-03-01', '2024-01-01', 'days') -> 60
 omit(obj, ['password', 'secret'])        -> obj without those keys
 pick(obj, ['name', 'email'])             -> obj with only those keys
 deep_merge(base, overlay)               -> recursively merged object
-defaults(obj, {"color": "blue"})        -> fills in missing keys
-rename_keys(obj, {"old": "new"})        -> renamed keys
+defaults(obj, `{"color": "blue"}`)      -> fills in missing keys
+rename_keys(obj, `{"old": "new"}`)      -> renamed keys
 ```
 
 ### Utility
 ```
 if(condition, then_val, else_val)        -> conditional
-coalesce(null, null, 'found')            -> "found"
+coalesce(`null`, `null`, 'found')        -> "found"
 default(value, 'fallback')              -> value or fallback if null
 ```
 

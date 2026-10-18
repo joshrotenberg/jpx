@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use crate::functions::{Function, number_value};
+use crate::functions::{Function, custom_error, number_value};
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -17,12 +17,52 @@ defn!(NanoidFn, vec![], Some(arg!(number)));
 
 impl Function for NanoidFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+        if args.len() > 1 {
+            return Err(crate::JmespathError::from_ctx(
+                ctx,
+                crate::ErrorReason::Runtime(crate::RuntimeError::TooManyArguments {
+                    expected: 1,
+                    actual: args.len(),
+                }),
+            ));
+        }
+        let invalid_size = || {
+            custom_error(
+                ctx,
+                "nanoid size must be a whole number from 0 through 1024 inclusive",
+            )
+        };
+        self.signature
+            .validate(args, ctx)
+            .map_err(|_| invalid_size())?;
 
-        let id = if args.is_empty() {
-            nanoid::nanoid!()
+        let size = if let Some(value) = args.first() {
+            // Preserve exact integers before considering JSON floating-point numbers.
+            if let Some(size) = value.as_u64() {
+                if size > 1024 {
+                    return Err(invalid_size());
+                }
+                size as usize
+            } else if let Some(size) = value.as_i64() {
+                if !(0..=1024).contains(&size) {
+                    return Err(invalid_size());
+                }
+                size as usize
+            } else {
+                let size = value.as_f64().ok_or_else(invalid_size)?;
+                if !(0.0..=1024.0).contains(&size) || size.fract() != 0.0 {
+                    return Err(invalid_size());
+                }
+                size as usize
+            }
         } else {
-            let size = args[0].as_f64().unwrap_or(21.0) as usize;
+            21
+        };
+
+        // nanoid 0.4 loops forever for zero; do not call the dependency for it.
+        let id = if size == 0 {
+            String::new()
+        } else {
             nanoid::nanoid!(size)
         };
 
@@ -110,13 +150,88 @@ mod tests {
     }
 
     #[test]
-    fn test_nanoid_unique() {
+    fn test_nanoid_size_boundaries() {
         let runtime = setup_runtime();
-        let data = json!(null);
-        let expr = runtime.compile("nanoid()").unwrap();
-        let id1 = expr.search(&data).unwrap();
-        let id2 = expr.search(&data).unwrap();
-        assert_ne!(id1.as_str().unwrap(), id2.as_str().unwrap());
+        let expr = runtime.compile("nanoid(@)").unwrap();
+        for (size, expected) in [
+            (json!(0), 0),
+            (json!(0.0), 0),
+            (json!(-0.0), 0),
+            (json!(1), 1),
+            (json!(10.0), 10),
+            (json!(1024), 1024),
+            (json!(1024.0), 1024),
+        ] {
+            assert_eq!(
+                expr.search(&size).unwrap().as_str().unwrap().len(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_nanoid_invalid_sizes() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("nanoid(@)").unwrap();
+        for size in [
+            json!(-1),
+            json!(-0.5),
+            json!(1.5),
+            json!(1024.5),
+            json!(1025),
+            json!(1025.0),
+            json!(i64::MIN),
+            json!(i64::MAX),
+            json!(u64::MAX),
+            json!(9007199254740993_u64),
+            json!(1e100),
+            json!("10"),
+            json!(null),
+            json!(true),
+            json!([]),
+            json!({}),
+        ] {
+            let error = expr.search(&size).unwrap_err().to_string();
+            assert!(
+                error.contains("whole number from 0 through 1024 inclusive"),
+                "{size}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_nanoid_extra_arguments() {
+        let runtime = setup_runtime();
+        let error = runtime
+            .compile("nanoid(`10`, `20`)")
+            .unwrap()
+            .search(&json!(null))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("Too many arguments: expected 1, got 2"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn test_nanoid_custom_size_and_alphabet() {
+        let runtime = setup_runtime();
+        let expr = runtime.compile("nanoid(@)").unwrap();
+
+        // Cover short IDs and lengths around random-byte buffer boundaries.
+        // Assert the output contract, not probabilistic uniqueness or a sequence
+        // that the random generator may change between dependency versions.
+        for size in [1, 2, 21, 22, 63, 64, 65, 255, 256, 257, 1023, 1024] {
+            let result = expr.search(&json!(size)).unwrap();
+            let id = result.as_str().unwrap();
+            assert_eq!(id.len(), size);
+            assert!(
+                id.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-'),
+                "nanoid({size}) contains a character outside its URL-safe alphabet"
+            );
+        }
     }
 
     #[test]
