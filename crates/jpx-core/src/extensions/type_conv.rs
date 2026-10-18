@@ -2,11 +2,14 @@
 
 use std::collections::HashSet;
 
+use std::borrow::Borrow;
+
 use serde_json::Value;
 
 use crate::functions::Function;
+use crate::functions::{arg, borrowed_function};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::value_ext::ValueExt;
 use crate::{Context, Runtime, arg, defn};
 
@@ -62,21 +65,21 @@ impl Function for ToNumberFn {
 
 defn!(ToBooleanFn, vec![arg!(any)], None);
 
-impl Function for ToBooleanFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(ToBooleanFn);
 
-        let result = match &args[0] {
+impl ToBooleanFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let result = match arg(args, 0) {
             Value::Bool(b) => *b,
             Value::Null => false,
             Value::String(s) => !s.is_empty(),
             Value::Number(n) => n.as_f64().map(|f| f != 0.0).unwrap_or(false),
             Value::Array(a) => !a.is_empty(),
             Value::Object(_) => {
-                if args[0].is_expref() {
+                if arg(args, 0).is_expref() {
                     true
                 } else {
-                    !args[0].as_object().unwrap().is_empty()
+                    !arg(args, 0).as_object().unwrap().is_empty()
                 }
             }
         };
@@ -91,11 +94,11 @@ impl Function for ToBooleanFn {
 
 defn!(TypeOfFn, vec![arg!(any)], None);
 
-impl Function for TypeOfFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(TypeOfFn);
 
-        let type_name = args[0].jmespath_type().to_string();
+impl TypeOfFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let type_name = arg(args, 0).jmespath_type().to_string();
         Ok(Value::String(type_name))
     }
 }
@@ -106,10 +109,11 @@ impl Function for TypeOfFn {
 
 defn!(IsStringFn, vec![arg!(any)], None);
 
-impl Function for IsStringFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_string()))
+borrowed_function!(IsStringFn);
+
+impl IsStringFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_string()))
     }
 }
 
@@ -119,10 +123,11 @@ impl Function for IsStringFn {
 
 defn!(IsNumberFn, vec![arg!(any)], None);
 
-impl Function for IsNumberFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_number()))
+borrowed_function!(IsNumberFn);
+
+impl IsNumberFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_number()))
     }
 }
 
@@ -132,10 +137,11 @@ impl Function for IsNumberFn {
 
 defn!(IsBooleanFn, vec![arg!(any)], None);
 
-impl Function for IsBooleanFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_boolean()))
+borrowed_function!(IsBooleanFn);
+
+impl IsBooleanFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_boolean()))
     }
 }
 
@@ -145,10 +151,11 @@ impl Function for IsBooleanFn {
 
 defn!(IsArrayFn, vec![arg!(any)], None);
 
-impl Function for IsArrayFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_array()))
+borrowed_function!(IsArrayFn);
+
+impl IsArrayFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_array()))
     }
 }
 
@@ -158,10 +165,11 @@ impl Function for IsArrayFn {
 
 defn!(IsObjectFn, vec![arg!(any)], None);
 
-impl Function for IsObjectFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_object()))
+borrowed_function!(IsObjectFn);
+
+impl IsObjectFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_object()))
     }
 }
 
@@ -171,10 +179,11 @@ impl Function for IsObjectFn {
 
 defn!(IsNullFn, vec![arg!(any)], None);
 
-impl Function for IsNullFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::Bool(args[0].is_null()))
+borrowed_function!(IsNullFn);
+
+impl IsNullFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::Bool(arg(args, 0).is_null()))
     }
 }
 
@@ -184,11 +193,11 @@ impl Function for IsNullFn {
 
 defn!(IsEmptyFn, vec![arg!(any)], None);
 
-impl Function for IsEmptyFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(IsEmptyFn);
 
-        let is_empty = match &args[0] {
+impl IsEmptyFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let is_empty = match arg(args, 0) {
             Value::String(s) => s.is_empty(),
             Value::Array(a) => a.is_empty(),
             Value::Object(o) => o.is_empty(),
@@ -379,15 +388,15 @@ fn auto_parse_recursive(value: &Value) -> Value {
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "to_string", enabled, Box::new(ToStringFn::new()));
     register_if_enabled(runtime, "to_number", enabled, Box::new(ToNumberFn::new()));
-    register_if_enabled(runtime, "to_boolean", enabled, Box::new(ToBooleanFn::new()));
-    register_if_enabled(runtime, "type_of", enabled, Box::new(TypeOfFn::new()));
-    register_if_enabled(runtime, "is_string", enabled, Box::new(IsStringFn::new()));
-    register_if_enabled(runtime, "is_number", enabled, Box::new(IsNumberFn::new()));
-    register_if_enabled(runtime, "is_boolean", enabled, Box::new(IsBooleanFn::new()));
-    register_if_enabled(runtime, "is_array", enabled, Box::new(IsArrayFn::new()));
-    register_if_enabled(runtime, "is_object", enabled, Box::new(IsObjectFn::new()));
-    register_if_enabled(runtime, "is_null", enabled, Box::new(IsNullFn::new()));
-    register_if_enabled(runtime, "is_empty", enabled, Box::new(IsEmptyFn::new()));
+    register_borrowed_if_enabled(runtime, "to_boolean", enabled, Box::new(ToBooleanFn::new()));
+    register_borrowed_if_enabled(runtime, "type_of", enabled, Box::new(TypeOfFn::new()));
+    register_borrowed_if_enabled(runtime, "is_string", enabled, Box::new(IsStringFn::new()));
+    register_borrowed_if_enabled(runtime, "is_number", enabled, Box::new(IsNumberFn::new()));
+    register_borrowed_if_enabled(runtime, "is_boolean", enabled, Box::new(IsBooleanFn::new()));
+    register_borrowed_if_enabled(runtime, "is_array", enabled, Box::new(IsArrayFn::new()));
+    register_borrowed_if_enabled(runtime, "is_object", enabled, Box::new(IsObjectFn::new()));
+    register_borrowed_if_enabled(runtime, "is_null", enabled, Box::new(IsNullFn::new()));
+    register_borrowed_if_enabled(runtime, "is_empty", enabled, Box::new(IsEmptyFn::new()));
     register_if_enabled(
         runtime,
         "parse_numbers",

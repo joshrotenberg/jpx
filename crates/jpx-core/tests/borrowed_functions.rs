@@ -46,6 +46,119 @@ fn borrowed_length_matches_owned_evaluation() {
     }
 }
 
+/// A strict runtime whose built-ins all went through the public
+/// `register_function`, so each one receives owned arguments.
+fn owned_strict_runtime() -> Runtime {
+    let mut runtime = Runtime::strict();
+    let names: Vec<String> = runtime.function_names().map(str::to_owned).collect();
+    assert_eq!(names.len(), 26);
+    for name in names {
+        let function = runtime.deregister_function(&name).unwrap();
+        runtime.register_function(&name, function);
+    }
+    runtime
+}
+
+#[test]
+fn every_borrowed_builtin_matches_owned_evaluation() {
+    let borrowed = Runtime::strict();
+    let owned = owned_strict_runtime();
+    let data = json!({
+        "items": [
+            {"id": 2, "name": "b", "tag": "first"},
+            {"id": 1, "name": "a", "tag": "second"},
+            {"id": 2, "name": "c", "tag": "third"}
+        ],
+        "nums": [3, 1.0, 1, 2.5, -4],
+        "ties": [1, 1.0],
+        "words": ["pear", "apple", "fig"],
+        "obj": {"x": 1, "y": [1, 2]},
+        "other": {"y": "replaced", "z": null},
+        "text": "hé🦀",
+        "nothing": null
+    });
+
+    let cases = [
+        // Each built-in on borrowed input, including whole subtrees.
+        "abs(nums[-1])",
+        "avg(nums)",
+        "avg(`[]`)",
+        "ceil(nums[3])",
+        "contains(items, items[0])",
+        "contains(nums, `1`)",
+        "contains(text, 'é')",
+        "contains(text, `1`)",
+        "ends_with(text, '🦀')",
+        "floor(nums[3])",
+        "join(', ', words)",
+        "keys(obj)",
+        "length(items)",
+        "map(&name, items)",
+        "map(&missing, items)",
+        "max(nums)",
+        "max(words)",
+        "max(ties)",
+        "max(`[]`)",
+        "min(nums)",
+        "min(words)",
+        "min(ties)",
+        "max_by(items, &id)",
+        "min_by(items, &id)",
+        "max_by(items, &name).tag",
+        "max_by(`[]`, &id)",
+        "merge(obj, other)",
+        "merge(obj)",
+        "not_null(nothing, missing, items[1].name, text)",
+        "not_null(nothing)",
+        "reverse(items)",
+        "reverse(text)",
+        "sort(nums)",
+        "sort(words)",
+        "sort_by(items, &id)",
+        "sort_by(items, &name)[*].tag",
+        "sort_by(`[]`, &id)",
+        "starts_with(text, 'h')",
+        "sum(nums)",
+        "to_array(items)",
+        "to_array(obj)",
+        "to_number('2.5')",
+        "to_number(nums[0])",
+        "to_number(text)",
+        "to_string(obj)",
+        "to_string(text)",
+        "type(items)",
+        "type(nothing)",
+        "values(obj)",
+        // Nesting, so borrowed and owned arguments meet.
+        "length(sort_by(items, &id))",
+        "type(max_by(items, &id))",
+        "max(map(&id, items))",
+        "items[?contains(['a', 'c'], name)].tag",
+        // Errors: arity, argument types, expref return types.
+        "abs()",
+        "abs(text)",
+        "contains(obj, `1`)",
+        "join(', ', nums)",
+        "keys(items)",
+        "max(items)",
+        "max_by(items, &tag)",
+        "max_by(items, &obj)",
+        "min_by(items, &id, &id)",
+        "merge(obj, items)",
+        "sort(items)",
+        "sort_by(items, &obj)",
+        "sort_by(items, &[id])",
+        "values(text)",
+    ];
+    for expression in cases {
+        assert_eq!(
+            borrowed.compile(expression).unwrap().search(&data),
+            owned.compile(expression).unwrap().search(&data),
+            "{expression}"
+        );
+    }
+}
+
 #[test]
 fn length_registration_and_direct_calls_keep_the_public_contract() {
     let mut runtime = Runtime::strict();
