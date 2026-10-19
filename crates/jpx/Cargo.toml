@@ -45,7 +45,7 @@ csv = "1.3"
 tabled = { version = "0.21", default-features = false, features = ["std"] }
 
 # Parquet support (optional)
-parquet = { version = "59", optional = true, default-features = false, features = ["arrow", "snap"] }
+parquet = { version = "60", optional = true, default-features = false, features = ["arrow", "snap"] }
 
 # Restore default SIGPIPE handling so `jpx ... | head` exits cleanly (Unix only).
 [target.'cfg(unix)'.dependencies]
