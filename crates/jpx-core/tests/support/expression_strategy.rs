@@ -12,7 +12,19 @@ fn identifier() -> BoxedStrategy<String> {
 /// Every recursive branch corresponds to a parser production. The depth is
 /// intentionally well below the parser's 128-level guard so this population
 /// explores grammar interactions rather than mostly exercising that guard.
+#[allow(dead_code)] // Not every integration-test binary uses this strategy.
 pub fn grammar_expression() -> BoxedStrategy<String> {
+    grammar_expression_with_let(cfg!(feature = "let-expr"))
+}
+
+/// Standard-only grammar, independent of enabled parser features. Strict runtime
+/// limits function registration, but does not disable JEP-18 parser syntax.
+#[allow(dead_code)] // Not every integration-test binary uses this strategy.
+pub fn standard_grammar_expression() -> BoxedStrategy<String> {
+    grammar_expression_with_let(false)
+}
+
+fn grammar_expression_with_let(include_let: bool) -> BoxedStrategy<String> {
     let atom = prop_oneof![
         Just("@".to_string()),
         identifier(),
@@ -26,7 +38,7 @@ pub fn grammar_expression() -> BoxedStrategy<String> {
         Just("*".to_string()),
     ];
 
-    atom.prop_recursive(6, 192, 8, |inner| {
+    atom.prop_recursive(6, 192, 8, move |inner| {
         let binary = (inner.clone(), inner.clone());
         let field = identifier();
         let standard_productions = prop_oneof![
@@ -82,22 +94,22 @@ pub fn grammar_expression() -> BoxedStrategy<String> {
             (inner.clone(), field).prop_map(|(expr, field)| format!("sort_by({expr}, &{field})")),
         ];
 
-        #[cfg(feature = "let-expr")]
-        {
+        if include_let {
             prop_oneof![
                 standard_productions,
                 // JEP-18 let binding and variable reference.
                 binary.prop_map(|(bound, body)| format!("let $x = {bound} in {body}")),
             ]
+            .boxed()
+        } else {
+            standard_productions.boxed()
         }
-
-        #[cfg(not(feature = "let-expr"))]
-        standard_productions
     })
     .boxed()
 }
 
 /// One known-valid expression for every production family used above.
+#[allow(dead_code)] // Not every integration-test binary uses this strategy.
 pub fn grammar_smoke_expressions() -> Vec<&'static str> {
     let expressions = vec![
         "@",

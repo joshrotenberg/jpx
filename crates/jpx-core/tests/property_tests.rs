@@ -4,7 +4,7 @@
 //! reflexivity/symmetry of equality, and bounded output for slices.
 
 use proptest::prelude::*;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use jpx_core::{Runtime, ValueExt};
 
@@ -13,25 +13,7 @@ use support::{
     compliance_expressions, grammar_expression, grammar_smoke_expressions, near_valid_expression,
 };
 
-/// Generates an arbitrary JSON value with bounded recursion depth.
-fn arb_json_value() -> impl Strategy<Value = Value> {
-    let leaf = prop_oneof![
-        Just(Value::Null),
-        any::<bool>().prop_map(Value::Bool),
-        any::<i64>().prop_map(|n| json!(n)),
-        any::<f64>()
-            .prop_filter("finite", |f| f.is_finite())
-            .prop_map(|n| json!(n)),
-        "[a-zA-Z0-9_ ]{0,20}".prop_map(|s| json!(s)),
-    ];
-    leaf.prop_recursive(4, 64, 8, |inner| {
-        prop_oneof![
-            prop::collection::vec(inner.clone(), 0..8).prop_map(Value::Array),
-            prop::collection::hash_map("[a-z]{1,5}", inner, 0..5)
-                .prop_map(|m| Value::Object(m.into_iter().collect())),
-        ]
-    })
-}
+use support::json_strategy::arb_json_value;
 
 proptest! {
     /// The parser must never panic on arbitrary input strings.

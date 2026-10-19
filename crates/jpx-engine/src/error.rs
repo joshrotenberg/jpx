@@ -202,6 +202,14 @@ pub enum EngineError {
     #[error("Config error: {0}")]
     ConfigError(String),
 
+    /// A caller-supplied limit is malformed or out of range.
+    ///
+    /// Returned by [`InspectLimits`](crate::InspectLimits) constructors and
+    /// [`inspect_value`](crate::inspect_value). The message names the valid
+    /// range and default.
+    #[error("Invalid limit: {0}")]
+    InvalidLimit(String),
+
     /// Internal error (lock poisoning, serialization failure, etc.).
     ///
     /// These errors indicate bugs or unexpected conditions and should

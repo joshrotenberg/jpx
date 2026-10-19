@@ -6,6 +6,7 @@ mod input;
 mod ops;
 mod output;
 mod repl;
+mod skills;
 mod stats;
 mod streaming;
 mod util;
@@ -55,6 +56,19 @@ fn is_truthy(value: &Value) -> bool {
 
 fn run() -> Result<i32> {
     let mut args = Args::parse();
+
+    // Skills are entirely embedded. Return before any config, input, or engine
+    // work, so only explicit CLI flags select their output format.
+    if let Some(topic) = &args.skills {
+        skills::print(topic, args.json, args.compact)?;
+        return Ok(0);
+    }
+    if args.json {
+        anyhow::bail!(
+            "--json is only supported with --skills.\n\
+             Add --skills to read agent instructions, or remove --json: ordinary queries already output JSON by default (use -c for compact JSON)."
+        );
+    }
 
     // Load config and apply defaults (priority: config < env var < CLI flag)
     let config = args::load_config();

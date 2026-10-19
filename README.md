@@ -32,6 +32,15 @@ curl -s https://api.github.com/users/octocat | jpx '{
 # {"login": "octocat", "created": "January 2011"}
 ```
 
+### JSON numbers
+
+JSON decimal and exponent numbers are parsed with correctly rounded IEEE 754
+binary64 conversion, including in backtick expression literals and engine/MCP
+JSON text. Decimal values still approximate the nearest representable binary64
+value; this does not provide arbitrary-precision decimals or recover precision
+already lost by a client. Integer JSON tokens within the signed/unsigned 64-bit
+range retain their exact integer representation.
+
 ## Where jpx fits
 
 Use jpx for shell pipelines, JSONL/NDJSON streams, agent-driven JSON work, and

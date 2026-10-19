@@ -633,6 +633,22 @@ pub fn register_if_enabled(
     }
 }
 
+/// Like [`register_if_enabled`], for functions that inspect their arguments
+/// without copying them. The interpreter passes such functions borrowed
+/// arguments, so a call on a large subtree does not copy the subtree.
+// Unused when no extension category is compiled in.
+#[allow(dead_code)]
+pub(crate) fn register_borrowed_if_enabled(
+    runtime: &mut Runtime,
+    name: &str,
+    enabled: &HashSet<&str>,
+    f: Box<dyn crate::functions::BorrowedFunction>,
+) {
+    if enabled.contains(name) {
+        runtime.register_borrowed(name, f);
+    }
+}
+
 // =============================================================================
 // Synonym mapping for function discovery
 // =============================================================================

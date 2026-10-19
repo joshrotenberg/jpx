@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `FunctionRegistry::register_category` skips categories that are not compiled in, so the registry lists only functions the runtime can call
+- all 26 built-in functions and 53 extension functions receive borrowed arguments from the interpreter, so a call such as `type(items)`, `first(items)`, or `max_by(items, &id)` no longer copies `items` first; `max`, `min`, `sort_by`, `max_by_expr`, `min_by_expr`, and `get_path` also stop copying elements internally. Functions registered through `Runtime::register_function` still receive owned arguments ([#236](https://github.com/joshrotenberg/jpx/issues/236))
 
 ### Fixed
 

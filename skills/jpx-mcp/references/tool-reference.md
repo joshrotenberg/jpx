@@ -1,6 +1,6 @@
 # jpx MCP Tool Reference
 
-Complete parameter reference for all 31 tools.
+Complete parameter reference for all 34 tools.
 
 ## Evaluation Tools
 
@@ -20,6 +20,22 @@ Evaluate multiple expressions against the same JSON input.
 - `input` (string, required): JSON input as string
 
 Returns an array of results, one per expression.
+
+### evaluate_json
+Evaluate a JMESPath expression against a native JSON value.
+- `input` (any JSON value, required): Object, array, string, number, boolean, or explicit `null`. Omitting it is an error. Strings are literal, not parsed as JSON text.
+- `expression` (string, required): JMESPath expression
+
+Arguments must be a JSON object with only these fields; positional arrays and unknown fields such as `input_text` or `file_path` are errors. Returns `{"schema_version": 1, "result": <value>}` as `structuredContent` and equivalent JSON text.
+
+### batch_evaluate_json
+Evaluate multiple expressions against the same native JSON value.
+- `input` (any JSON value, required): Same rules as `evaluate_json`
+- `expressions` (array of strings, required): At most 1000 expressions
+
+Returns `{"schema_version": 1, "results": [...]}` as `structuredContent` and equivalent JSON text. Entries keep expression order; each has `expression` and exactly one of `result` or `error`. A batch with some failing expressions is still a successful call.
+
+Both typed tools limit `input` to 50 MiB of compact serialized UTF-8 JSON. Output size and evaluation allocations are not bounded. Invalid requests, limit violations, and `evaluate_json` evaluation failures return `isError: true` with corrective text and no `structuredContent`.
 
 ### validate
 Check if a JMESPath expression is syntactically valid.
@@ -118,6 +134,25 @@ Extract all paths from JSON in dot notation.
 - `input` (string, required): JSON to extract paths from
 - `include_types` (boolean, optional, default true): Include type for each path
 - `include_values` (boolean, optional, default false): Include values for leaf paths
+
+### inspect
+Bounded structural preview of JSON text. Use before `paths` on large or unfamiliar documents.
+- `input` (string, required): JSON input as text (max 50 MiB)
+- `max_depth` (integer, optional, 0-32, default 3): Deepest level returned; the root is depth 0. `0` returns only the root.
+- `max_paths` (integer, optional, 1-1000, default 100): Maximum path records, including the root
+- `array_sample` (integer, optional, 0-100, default 3): Leading elements visited per array. `0` visits no array elements.
+- `max_bytes` (integer, optional, 512-65536, default 16384): Byte budget for the whole serialized tool result, including JSON text escaping and the content wrapper
+
+Limits must be whole numbers in range. Explicit `null`, negative, fractional, non-numeric and out-of-range values are rejected with a message naming the range and default; omit a limit to use its default. Invalid JSON text is rejected, and a `max_bytes` too small for the root record is an error.
+
+The entire input is parsed and allocated before the walk, so the limits bound traversal and output, not parsing. Leaf values are never returned. Records are in deterministic preorder: object members in parsed document order, arrays prefix-sampled.
+
+Returns JSON text (no `structuredContent`):
+- `complete` (boolean): true only when every structural node is in `paths`
+- `returned_paths` (number): count of records in `paths`
+- `omitted` (object of booleans): `depth`, `paths`, `array_sample`, `bytes`; true only for limits that actually dropped nodes
+- `limits` (object): the applied `max_depth`, `max_paths`, `array_sample`, `max_bytes`
+- `paths` (array): records of `pointer` (RFC 6901 JSON Pointer, `""` is the root), `type` (object, array, string, number, boolean, null), `depth`, and for non-scalar nodes `length`. `truncated` is `depth` or `array_sample` when that node's children were skipped.
 
 ## Query Store Tools
 

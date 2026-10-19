@@ -2,9 +2,12 @@
 //!
 //! This module wraps jpx_engine functionality in MCP tool handlers.
 
+mod typed_json;
+
 use crate::FileAccessPolicy;
 use jpx_engine::{
-    Category, DiscoverySpec, EngineConfig, JpxEngine, ServerInfo as DiscoveryServerInfo, ToolSpec,
+    Category, DiscoverySpec, EngineConfig, InspectLimits, JpxEngine,
+    ServerInfo as DiscoveryServerInfo, ToolSpec,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -173,6 +176,41 @@ fn default_true() -> bool {
     true
 }
 
+/// Keep an explicitly supplied value, including `null`, as `Some`. Paired with
+/// `#[serde(default)]` so only an absent field becomes `None`.
+fn present_value<'de, D>(deserializer: D) -> Result<Option<Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Value::deserialize(deserializer).map(Some)
+}
+
+/// Limits are accepted as raw JSON so malformed, negative, `null` and
+/// out-of-range values get the engine's corrective message instead of a
+/// generic deserialization error or a silent default; the schema still
+/// advertises integer ranges. Absent limits use their defaults.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct InspectParams {
+    /// JSON input to inspect
+    pub input: String,
+    /// Deepest level to return; the root is depth 0 (0-32, default 3). Use 0 to preview only the root.
+    #[serde(default, deserialize_with = "present_value")]
+    #[schemars(with = "u32", range(min = 0, max = 32), extend("default" = 3))]
+    pub max_depth: Option<Value>,
+    /// Maximum path records returned, including the root (1-1000, default 100)
+    #[serde(default, deserialize_with = "present_value")]
+    #[schemars(with = "u32", range(min = 1, max = 1000), extend("default" = 100))]
+    pub max_paths: Option<Value>,
+    /// Leading elements visited per array (0-100, default 3). Use 0 to omit all array elements.
+    #[serde(default, deserialize_with = "present_value")]
+    #[schemars(with = "u32", range(min = 0, max = 100), extend("default" = 3))]
+    pub array_sample: Option<Value>,
+    /// Byte budget for the serialized tool result, including JSON text escaping and the content wrapper (512-65536, default 16384)
+    #[serde(default, deserialize_with = "present_value")]
+    #[schemars(with = "u32", range(min = 512, max = 65536), extend("default" = 16384))]
+    pub max_bytes: Option<Value>,
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct RegisterToolsParams {
     /// Full discovery spec (use this for detailed registration with params, examples, etc.)
@@ -309,7 +347,7 @@ fn error_result(message: impl Into<String>) -> CallToolResult {
 /// cap already enforced for `evaluate_file`, so the inline-JSON tools cannot be
 /// used to drive unbounded memory use from a single request.
 const MAX_INLINE_JSON_BYTES: usize = 50 * 1024 * 1024;
-/// Maximum number of expressions accepted by `batch_evaluate` in one call.
+/// Maximum number of expressions accepted by either batch evaluation tool.
 const MAX_BATCH_EXPRESSIONS: usize = 1000;
 /// Upper bound applied to client-provided result counts (`limit` / `top_k`).
 const MAX_RESULT_LIMIT: usize = 1000;
@@ -323,6 +361,34 @@ fn ensure_json_size(label: &str, s: &str) -> Result<(), Error> {
         )));
     }
     Ok(())
+}
+
+/// Run a bounded inspection whose serialized `CallToolResult` (content wrapper
+/// and JSON text escaping included) fits in `limits.max_bytes`.
+fn inspect_result(
+    engine: &JpxEngine,
+    input: &str,
+    limits: &InspectLimits,
+) -> Result<CallToolResult, Error> {
+    let framing = serde_json::to_vec(&text_result(""))
+        .map_err(|e| Error::tool(format!("Failed to serialize: {}", e)))?
+        .len();
+    let report = engine
+        .inspect(input, limits, framing)
+        .map_err(|e| Error::tool(e.to_string()))?;
+    let text = serde_json::to_string(&report)
+        .map_err(|e| Error::tool(format!("Failed to serialize: {}", e)))?;
+    let result = text_result(text);
+    let size = serde_json::to_vec(&result)
+        .map_err(|e| Error::tool(format!("Failed to serialize: {}", e)))?
+        .len();
+    if size > limits.max_bytes() {
+        return Err(Error::tool(format!(
+            "inspect preview needed {size} bytes, over max_bytes {}. Increase max_bytes or lower max_paths.",
+            limits.max_bytes()
+        )));
+    }
+    Ok(result)
 }
 
 /// Strip natural-language filler from a task description to extract search terms.
@@ -837,6 +903,28 @@ pub fn build_router_from_config_with_file_access(
         })
         .build();
 
+    // -- inspect
+    let e = engine.clone();
+    let inspect = ToolBuilder::new("inspect")
+        .title("Inspect Structure")
+        .description("Bounded structural preview of JSON input. Returns RFC 6901 JSON Pointer paths with JSON types and depths, never leaf values, in deterministic preorder (object members in parsed document order, arrays prefix-sampled). Caller limits: max_depth (default 3), max_paths (default 100), array_sample (default 3) and max_bytes (default 16384, measured on the serialized tool result). 'complete' is true only when every node is shown; 'omitted' says which limits actually dropped nodes. Use before 'paths' on large or unfamiliar documents.")
+        .read_only()
+        .handler(move |params: InspectParams| {
+            let engine = e.clone();
+            async move {
+                ensure_json_size("input", &params.input)?;
+                let limits = InspectLimits::from_json_args(
+                    params.max_depth.as_ref(),
+                    params.max_paths.as_ref(),
+                    params.array_sample.as_ref(),
+                    params.max_bytes.as_ref(),
+                )
+                .map_err(|e| Error::tool(e.to_string()))?;
+                inspect_result(&engine, &params.input, &limits)
+            }
+        })
+        .build();
+
     // =========================================================================
     // Discovery tools
     // =========================================================================
@@ -1170,20 +1258,30 @@ pub fn build_router_from_config_with_file_access(
     let router = McpRouter::new()
         .server_info("jpx-mcp", env!("CARGO_PKG_VERSION"))
         .instructions(
-            "JMESPath query tool with 490+ functions. \
+            "JMESPath query server with 33 tools and 490+ functions. \
             \n\nDISCOVERY: Use 'search' to find functions by keyword, 'similar' to find related functions, \
             'functions' to list all (optionally by category), 'describe' for function details, 'categories' to list categories. \
             \n\nDATA ANALYSIS: Use 'stats' to analyze JSON structure before querying, 'paths' to list all paths in dot notation, \
-            'keys' to extract object keys (optionally recursive). \
+            'keys' to extract object keys (optionally recursive), 'inspect' for a bounded JSON Pointer preview of large documents. \
             \n\nQUERYING: Use 'evaluate' to run JMESPath queries, 'evaluate_file' to query JSON files directly, \
             'batch_evaluate' for multiple expressions against the same input, 'validate' to check expression syntax, \
             'explain' to get a step-by-step breakdown of what an expression does. \
+            \n\nTYPED COMPOSITION: Use 'evaluate_json' or 'batch_evaluate_json' with required native JSON 'input' \
+            (strings stay literal, null is allowed) and 'expression' or 'expressions'. No other fields are accepted. \
+            Both return schema_version: 1 envelopes in structuredContent and equivalent JSON text. \
+            Read structuredContent.result or ordered results entries (each has result or error). \
+            Input is limited to 50 MiB of compact serialized UTF-8 JSON; batches allow at most 1000 expressions. \
+            Transport has already allocated the input; result size and evaluation allocations are not bounded. \
+            For JSON text or exact integers already rounded by a client, use the original text with 'evaluate', \
+            'batch_evaluate', or 'evaluate_file'; typed input cannot repair prior rounding. \
             \n\nJSON UTILITIES: Use 'format' to pretty-print JSON, 'diff' to generate RFC 6902 JSON Patches, \
             'patch' to apply RFC 6902 patches, 'merge' to apply RFC 7396 JSON Merge Patches. \
             \n\nLET EXPRESSIONS: JEP-18 let expressions are supported for variable bindings: \
             'let $var = expr in body'. Use for naming intermediate results and simplifying complex queries."
         )
         .tool(evaluate)
+        .tool(typed_json::evaluate_tool(engine.clone()))
+        .tool(typed_json::batch_evaluate_tool(engine.clone()))
         .tool(functions)
         .tool(describe)
         .tool(batch_describe)
@@ -1202,6 +1300,7 @@ pub fn build_router_from_config_with_file_access(
         .tool(suggest_function)
         .tool(stats)
         .tool(paths)
+        .tool(inspect)
         .tool(register_tools)
         .tool(query_tools)
         .tool(similar_tools)

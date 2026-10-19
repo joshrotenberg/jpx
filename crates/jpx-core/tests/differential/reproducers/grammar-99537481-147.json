@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "population": "grammar",
+  "seed": 99537481,
+  "case_index": 147,
+  "source": null,
+  "expression": "{left: ('-2_W') > ('-'), right: @[3]}",
+  "document": [
+    "J \"aE\"9",
+    null,
+    null
+  ]
+}
