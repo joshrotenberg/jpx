@@ -6,11 +6,13 @@ use heck::{
     ToKebabCase, ToLowerCamelCase, ToShoutyKebabCase, ToShoutySnakeCase, ToSnakeCase, ToTrainCase,
     ToUpperCamelCase,
 };
+use std::borrow::Borrow;
+
 use serde_json::{Map, Number, Value};
 
-use crate::functions::{Function, custom_error, number_value};
+use crate::functions::{Function, arg, borrowed_function, custom_error, number_value};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
 
 /// Register object functions filtered by the enabled set.
@@ -71,17 +73,17 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(FlattenArrayFn::new()),
     );
     register_if_enabled(runtime, "deep_merge", enabled, Box::new(DeepMergeFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "deep_equals",
         enabled,
         Box::new(DeepEqualsFn::new()),
     );
     register_if_enabled(runtime, "deep_diff", enabled, Box::new(DeepDiffFn::new()));
-    register_if_enabled(runtime, "get", enabled, Box::new(GetFn::new()));
-    register_if_enabled(runtime, "get_path", enabled, Box::new(GetFn::new()));
-    register_if_enabled(runtime, "has", enabled, Box::new(HasFn::new()));
-    register_if_enabled(runtime, "has_path", enabled, Box::new(HasFn::new()));
+    register_borrowed_if_enabled(runtime, "get", enabled, Box::new(GetFn::new()));
+    register_borrowed_if_enabled(runtime, "get_path", enabled, Box::new(GetFn::new()));
+    register_borrowed_if_enabled(runtime, "has", enabled, Box::new(HasFn::new()));
+    register_borrowed_if_enabled(runtime, "has_path", enabled, Box::new(HasFn::new()));
     register_if_enabled(runtime, "defaults", enabled, Box::new(DefaultsFn::new()));
     register_if_enabled(
         runtime,
@@ -128,7 +130,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(CompactDeepFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "completeness",
         enabled,
@@ -185,7 +187,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(StructuralDiffFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "has_same_shape",
         enabled,
@@ -204,7 +206,7 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         Box::new(ChunkBySizeFn::new()),
     );
     register_if_enabled(runtime, "paginate", enabled, Box::new(PaginateFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "estimate_size",
         enabled,
@@ -684,12 +686,12 @@ impl Function for DeepMergeFn {
 
 defn!(DeepEqualsFn, vec![arg!(any), arg!(any)], None);
 
-impl Function for DeepEqualsFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(DeepEqualsFn);
 
-        let a_json = serde_json::to_string(&args[0]).unwrap_or_default();
-        let b_json = serde_json::to_string(&args[1]).unwrap_or_default();
+impl DeepEqualsFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let a_json = serde_json::to_string(arg(args, 0)).unwrap_or_default();
+        let b_json = serde_json::to_string(arg(args, 1)).unwrap_or_default();
 
         Ok(Value::Bool(a_json == b_json))
     }
@@ -767,33 +769,29 @@ impl Function for DeepDiffFn {
 
 defn!(GetFn, vec![arg!(any), arg!(string)], Some(arg!(any)));
 
-fn get_at_path(value: &Value, path: &str) -> Option<Value> {
+fn get_at_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     if path.is_empty() {
-        return Some(value.clone());
+        return Some(value);
     }
 
-    let mut current = value.clone();
+    let mut current = value;
 
     let parts = parse_path_parts(path);
 
     for part in parts {
         if let Some(idx) = part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
             if let Ok(index) = idx.parse::<usize>() {
-                let arr = current.as_array()?;
-                current = arr.get(index)?.clone();
+                current = current.as_array()?.get(index)?;
             } else {
                 return None;
             }
         } else if let Ok(index) = part.parse::<usize>() {
-            if let Some(arr) = current.as_array() {
-                current = arr.get(index)?.clone();
-            } else {
-                let obj = current.as_object()?;
-                current = obj.get(&part)?.clone();
-            }
+            current = match current.as_array() {
+                Some(arr) => arr.get(index)?,
+                None => current.as_object()?.get(&part)?,
+            };
         } else {
-            let obj = current.as_object()?;
-            current = obj.get(&part)?.clone();
+            current = current.as_object()?.get(&part)?;
         }
     }
 
@@ -840,23 +838,18 @@ fn parse_path_parts(path: &str) -> Vec<String> {
     parts
 }
 
-impl Function for GetFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(GetFn);
 
-        let path = args[1]
+impl GetFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let path = arg(args, 1)
             .as_str()
             .ok_or_else(|| custom_error(ctx, "Expected string path argument"))?;
 
-        let default_val = if args.len() > 2 {
-            args[2].clone()
-        } else {
-            Value::Null
-        };
-
-        match get_at_path(&args[0], path) {
-            Some(val) => Ok(val),
-            None => Ok(default_val),
+        match get_at_path(arg(args, 0), path) {
+            Some(val) => Ok(val.clone()),
+            None if args.len() > 2 => Ok(arg(args, 2).clone()),
+            None => Ok(Value::Null),
         }
     }
 }
@@ -867,15 +860,15 @@ impl Function for GetFn {
 
 defn!(HasFn, vec![arg!(any), arg!(string)], None);
 
-impl Function for HasFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(HasFn);
 
-        let path = args[1]
+impl HasFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let path = arg(args, 1)
             .as_str()
             .ok_or_else(|| custom_error(ctx, "Expected string path argument"))?;
 
-        let exists = get_at_path(&args[0], path).is_some();
+        let exists = get_at_path(arg(args, 0), path).is_some();
         Ok(Value::Bool(exists))
     }
 }
@@ -1477,10 +1470,11 @@ fn compact_deep_recursive(value: &Value) -> Value {
 
 defn!(CompletenessFn, vec![arg!(object)], None);
 
-impl Function for CompletenessFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let obj = args[0]
+borrowed_function!(CompletenessFn);
+
+impl CompletenessFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let obj = arg(args, 0)
             .as_object()
             .ok_or_else(|| custom_error(ctx, "completeness: expected object"))?;
 
@@ -1491,7 +1485,7 @@ impl Function for CompletenessFn {
         let mut total_fields = 0;
         let mut non_null_fields = 0;
 
-        count_completeness(&args[0], &mut total_fields, &mut non_null_fields);
+        count_completeness(arg(args, 0), &mut total_fields, &mut non_null_fields);
 
         let score = if total_fields > 0 {
             (non_null_fields as f64 / total_fields as f64) * 100.0
@@ -2268,10 +2262,11 @@ fn compare_structure(
 
 defn!(HasSameShapeFn, vec![arg!(any), arg!(any)], None);
 
-impl Function for HasSameShapeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let same = check_same_shape(&args[0], &args[1]);
+borrowed_function!(HasSameShapeFn);
+
+impl HasSameShapeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let same = check_same_shape(arg(args, 0), arg(args, 1));
         Ok(Value::Bool(same))
     }
 }
@@ -2469,10 +2464,11 @@ impl Function for PaginateFn {
 
 defn!(EstimateSizeFn, vec![arg!(any)], None);
 
-impl Function for EstimateSizeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let size = serde_json::to_string(&args[0])
+borrowed_function!(EstimateSizeFn);
+
+impl EstimateSizeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let size = serde_json::to_string(arg(args, 0))
             .map(|s| s.len())
             .unwrap_or(0);
         Ok(Value::Number(Number::from(size as i64)))

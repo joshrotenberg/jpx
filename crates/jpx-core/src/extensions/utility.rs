@@ -2,11 +2,14 @@
 
 use std::collections::HashSet;
 
+use std::borrow::Borrow;
+
 use serde_json::{Number, Value};
 
 use crate::functions::Function;
+use crate::functions::{arg, borrowed_function};
 use crate::interpreter::SearchResult;
-use crate::registry::register_if_enabled;
+use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
 
 // =============================================================================
@@ -69,14 +72,14 @@ impl Function for NowMsFn {
 
 defn!(DefaultFn, vec![arg!(any), arg!(any)], None);
 
-impl Function for DefaultFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(DefaultFn);
 
-        if args[0].is_null() {
-            Ok(args[1].clone())
+impl DefaultFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        if arg(args, 0).is_null() {
+            Ok(arg(args, 1).clone())
         } else {
-            Ok(args[0].clone())
+            Ok(arg(args, 0).clone())
         }
     }
 }
@@ -115,10 +118,12 @@ impl Function for IfFn {
 
 defn!(CoalesceFn, vec![], Some(arg!(any)));
 
-impl Function for CoalesceFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(CoalesceFn);
+
+impl CoalesceFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
         for arg in args {
+            let arg: &Value = arg.borrow();
             if !arg.is_null() {
                 return Ok(arg.clone());
             }
@@ -133,11 +138,11 @@ impl Function for CoalesceFn {
 
 defn!(JsonEncodeFn, vec![arg!(any)], None);
 
-impl Function for JsonEncodeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(JsonEncodeFn);
 
-        let json_str = serde_json::to_string(&args[0])
+impl JsonEncodeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let json_str = serde_json::to_string(arg(args, 0))
             .map_err(|_| crate::functions::custom_error(ctx, "Failed to encode as JSON"))?;
 
         Ok(Value::String(json_str))
@@ -150,25 +155,25 @@ impl Function for JsonEncodeFn {
 
 defn!(PrettyFn, vec![arg!(any)], Some(arg!(number)));
 
-impl Function for PrettyFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(PrettyFn);
 
+impl PrettyFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
         let indent = if args.len() > 1 {
-            args[1].as_f64().unwrap_or(2.0) as usize
+            arg(args, 1).as_f64().unwrap_or(2.0) as usize
         } else {
             2
         };
 
         // For default indent of 2, use built-in to_string_pretty
         if indent == 2 {
-            let pretty_str = serde_json::to_string_pretty(&args[0])
+            let pretty_str = serde_json::to_string_pretty(arg(args, 0))
                 .map_err(|_| crate::functions::custom_error(ctx, "Failed to serialize as JSON"))?;
             return Ok(Value::String(pretty_str));
         }
 
         // For custom indent, manually format
-        let json_str = serde_json::to_string(&args[0])
+        let json_str = serde_json::to_string(arg(args, 0))
             .map_err(|_| crate::functions::custom_error(ctx, "Failed to serialize as JSON"))?;
 
         let pretty_str = pretty_print_json(&json_str, indent);
@@ -275,16 +280,16 @@ impl Function for JsonDecodeFn {
 
 defn!(JsonPointerFn, vec![arg!(any), arg!(string)], None);
 
-impl Function for JsonPointerFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+borrowed_function!(JsonPointerFn);
 
-        let pointer = args[1].as_str().ok_or_else(|| {
+impl JsonPointerFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let pointer = arg(args, 1).as_str().ok_or_else(|| {
             crate::functions::custom_error(ctx, "Expected string pointer argument")
         })?;
 
         // Use serde_json's built-in pointer method directly on the Value
-        match args[0].pointer(pointer) {
+        match arg(args, 0).pointer(pointer) {
             Some(result) => Ok(result.clone()),
             None => Ok(Value::Null),
         }
@@ -335,10 +340,10 @@ impl Function for GetEnvFn {
 pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     register_if_enabled(runtime, "now", enabled, Box::new(NowFn::new()));
     register_if_enabled(runtime, "now_ms", enabled, Box::new(NowMsFn::new()));
-    register_if_enabled(runtime, "default", enabled, Box::new(DefaultFn::new()));
+    register_borrowed_if_enabled(runtime, "default", enabled, Box::new(DefaultFn::new()));
     register_if_enabled(runtime, "if", enabled, Box::new(IfFn::new()));
-    register_if_enabled(runtime, "coalesce", enabled, Box::new(CoalesceFn::new()));
-    register_if_enabled(
+    register_borrowed_if_enabled(runtime, "coalesce", enabled, Box::new(CoalesceFn::new()));
+    register_borrowed_if_enabled(
         runtime,
         "json_encode",
         enabled,
@@ -351,13 +356,13 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
         enabled,
         Box::new(JsonDecodeFn::new()),
     );
-    register_if_enabled(
+    register_borrowed_if_enabled(
         runtime,
         "json_pointer",
         enabled,
         Box::new(JsonPointerFn::new()),
     );
-    register_if_enabled(runtime, "pretty", enabled, Box::new(PrettyFn::new()));
+    register_borrowed_if_enabled(runtime, "pretty", enabled, Box::new(PrettyFn::new()));
     register_if_enabled(runtime, "env", enabled, Box::new(EnvFn::new()));
     register_if_enabled(runtime, "get_env", enabled, Box::new(GetEnvFn::new()));
 }

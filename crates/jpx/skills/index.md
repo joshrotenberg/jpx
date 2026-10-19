@@ -1,0 +1,26 @@
+# jpx agent instructions
+
+jpx queries and transforms JSON using JMESPath, with extension functions and
+reusable query libraries. These instructions ship inside the binary and work
+offline, without reading stdin or configuration.
+
+## Shipped topics
+
+- `query-libraries`: create, validate, and run named queries in `.jpx` files.
+
+Read the complete, installable topic with `jpx --skills query-libraries`.
+Use `jpx --skills` to return to this index. Add `--json` for pretty JSON or
+`-c` for compact JSON; the `content` field contains the exact Markdown.
+
+## Essential conventions
+
+A `.jpx` library starts each query with `-- :name <query-name>`, optionally
+followed by `-- :desc <description>`, then its JMESPath expression. Run a
+named query with `jpx -Q library.jpx:query-name -f data.json`; validate the
+library first with `jpx -Q library.jpx --check`.
+
+JMESPath literals are backtick-delimited JSON, such as `` `true` `` or
+`` `"active"` ``. In a shell, single-quote the whole expression so backticks
+are not interpreted as command substitution. When creating a library with
+a heredoc, quote its delimiter (`<<'JPX'`) to preserve backticks and `$`.
+The query-libraries topic includes a runnable fixture demonstrating both forms.

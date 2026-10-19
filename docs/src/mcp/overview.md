@@ -22,17 +22,28 @@ When working with JSON data in Claude, jpx provides:
 
 ## Available Tools
 
-The MCP server exposes **31 tools** organized by purpose:
+The MCP server exposes **34 tools** organized by purpose:
 
 ### Query Execution
 
 | Tool | Description |
 |------|-------------|
-| `evaluate` | Run a JMESPath expression against JSON input |
+| `evaluate` | Run a JMESPath expression against JSON text input |
+| `evaluate_json` | Query a native JSON value; return a versioned structured result |
 | `evaluate_file` | Query permitted JSON files directly from disk (disabled by default over HTTP) |
 | `batch_evaluate` | Run multiple expressions against the same input |
+| `batch_evaluate_json` | Query a native JSON value with ordered structured results and per-expression errors |
 | `validate` | Check expression syntax without executing |
 | `explain` | Break down an expression into steps with complexity rating |
+
+For programmatic composition, pass a source tool's structured value as the
+required `input` to `evaluate_json` or `batch_evaluate_json`. Strings stay literal;
+explicit null is valid. These two tools advertise output schemas and return
+`schema_version: 1` envelopes in both `structuredContent` and JSON text.
+Input is limited to 50 MiB of compact serialized UTF-8 JSON, and batches to 1000
+expressions. Transport allocation, evaluation allocation and output size are
+not bounded by these checks. See [typed tool contracts](tools.md#evaluate_json)
+and the [programmatic example](examples.md#typed-tool-composition).
 
 ### Function Discovery
 
@@ -59,6 +70,7 @@ Tools for JSON manipulation (RFC 6902/7396):
 | `keys` | Extract object keys (optionally recursive with dot notation) |
 | `stats` | Analyze JSON structure (type, size, depth, field analysis) |
 | `paths` | Extract all paths in dot notation (e.g., `users[0].name`) |
+| `inspect` | Bounded JSON Pointer preview with depth, path, sample and byte limits |
 
 ### Query Store
 
@@ -96,7 +108,7 @@ Tools for semantic search across multiple MCP servers (see [Discovery](./discove
 1. **Analyze data**: Use `stats` and `paths` to understand the JSON structure
 2. **Discover functions**: Use `search` to find relevant functions, `similar` to explore alternatives
 3. **Build query**: Use `validate` to check syntax, `explain` to understand complex expressions
-4. **Execute**: Use `evaluate` or `batch_evaluate` to run queries
+4. **Execute**: Use `evaluate`/`batch_evaluate` for JSON text or `evaluate_json`/`batch_evaluate_json` for native JSON values
 5. **Iterate**: Use `define_query` and `run_query` to save and refine queries
 6. **Transform**: Use `diff`, `patch`, or `merge` for modifications
 

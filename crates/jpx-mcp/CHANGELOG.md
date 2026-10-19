@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- add `evaluate_json` and `batch_evaluate_json` tools that evaluate against
+  native JSON input values (up to 50 MiB) and return versioned
+  `structuredContent` envelopes; arguments must be a JSON object with named
+  fields ([#261](https://github.com/joshrotenberg/jpx/issues/261))
+- add an `inspect` tool that returns a bounded JSON Pointer preview of a
+  document's structure, with `max_depth`, `max_paths`, `array_sample`, and
+  `max_bytes` limits and an `omitted` report of what was skipped
+  ([#262](https://github.com/joshrotenberg/jpx/issues/262))
+
 ### Security
 
 - disable `evaluate_file` over HTTP by default and add repeatable canonical

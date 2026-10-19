@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "population": "compliance",
+  "seed": 249,
+  "case_index": 322,
+  "source": "functions.json:0:17",
+  "expression": "avg(empty_list)",
+  "document": {
+    "array": [
+      -1,
+      3,
+      4,
+      5,
+      "a",
+      "100"
+    ],
+    "decimals": [
+      1.01,
+      1.2,
+      -1.5
+    ],
+    "empty_hash": {},
+    "empty_list": [],
+    "false": false,
+    "foo": -1,
+    "null_key": null,
+    "numbers": [
+      -1,
+      3,
+      4,
+      5
+    ],
+    "objects": {
+      "bar": "baz",
+      "foo": "bar"
+    },
+    "str": "Str",
+    "strings": [
+      "a",
+      "b",
+      "c"
+    ],
+    "zero": 0
+  }
+}

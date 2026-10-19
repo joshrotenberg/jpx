@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "population": "grammar",
+  "seed": 99537481,
+  "case_index": 184,
+  "source": null,
+  "expression": "(`\" \"`) > (`\"Y3-\"`)",
+  "document": [
+    [
+      9223372036854775807
+    ],
+    [],
+    4683362833211753464,
+    "tλC  7Uhr\\'\\λ''__\""
+  ]
+}

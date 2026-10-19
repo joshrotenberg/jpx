@@ -64,7 +64,7 @@ serde = { version = "1.0", features = ["derive"] }
 [dev-dependencies]
 serde_json = { workspace = true }
 criterion = { workspace = true }
-jmespath = "0.3"
+jmespath = "0.5"
 proptest = "1.6"
 
 [[bench]]

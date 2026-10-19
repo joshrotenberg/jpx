@@ -1,6 +1,9 @@
 //! JMESPath functions.
 
-use std::{borrow::Cow, fmt};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt,
+};
 
 use serde_json::{Number, Value};
 
@@ -180,7 +183,7 @@ impl Signature {
         self.validate_values(args.iter(), ctx)
     }
 
-    fn validate_values<'a>(
+    pub(crate) fn validate_values<'a>(
         &self,
         args: impl ExactSizeIterator<Item = &'a Value>,
         ctx: &Context<'_>,
@@ -275,23 +278,66 @@ macro_rules! defn {
 }
 
 // ---- 26 Built-in JMESPath Functions ----
+//
+// Each built-in is written once, generic over `A: Borrow<Value>`, so the same
+// body serves the public `Function::evaluate(&[Value])` and the interpreter's
+// borrowed dispatch (`&[Cow<Value>]`) without copying arguments on either path.
+
+/// Implements `Function` and `BorrowedFunction` for a function whose body is an
+/// inherent `call<A: Borrow<Value>>(&self, args: &[A], ctx)` method. Arguments
+/// are validated against the signature before `call` runs.
+macro_rules! borrowed_function {
+    ($name:ident) => {
+        impl $crate::functions::Function for $name {
+            fn evaluate(
+                &self,
+                args: &[serde_json::Value],
+                ctx: &mut $crate::Context<'_>,
+            ) -> $crate::interpreter::SearchResult {
+                self.signature.validate(args, ctx)?;
+                self.call(args, ctx)
+            }
+        }
+
+        impl $crate::functions::BorrowedFunction for $name {
+            fn evaluate_borrowed(
+                &self,
+                args: &[std::borrow::Cow<'_, serde_json::Value>],
+                ctx: &mut $crate::Context<'_>,
+            ) -> $crate::interpreter::SearchResult {
+                self.signature
+                    .validate_values(args.iter().map(std::borrow::Cow::as_ref), ctx)?;
+                self.call(args, ctx)
+            }
+        }
+    };
+}
+// Unused when no extension category is compiled in.
+#[allow(unused_imports)]
+pub(crate) use borrowed_function;
+
+/// The `i`th argument as a reference, whichever way the arguments are held.
+#[inline]
+pub(crate) fn arg<A: Borrow<Value>>(args: &[A], i: usize) -> &Value {
+    args[i].borrow()
+}
 
 defn!(AbsFn, vec![arg!(number)], None);
+borrowed_function!(AbsFn);
 
-impl Function for AbsFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
+impl AbsFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let n = arg(args, 0).as_f64().unwrap();
         Ok(number_value(n.abs()))
     }
 }
 
 defn!(AvgFn, vec![arg!(array_number)], None);
+borrowed_function!(AvgFn);
 
-impl Function for AvgFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let arr = args[0].as_array().unwrap();
+impl AvgFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let arr = arg(args, 0).as_array().unwrap();
         if arr.is_empty() {
             return Ok(Value::Null);
         }
@@ -301,25 +347,26 @@ impl Function for AvgFn {
 }
 
 defn!(CeilFn, vec![arg!(number)], None);
+borrowed_function!(CeilFn);
 
-impl Function for CeilFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
+impl CeilFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let n = arg(args, 0).as_f64().unwrap();
         Ok(number_value(n.ceil()))
     }
 }
 
 defn!(ContainsFn, vec![arg!(string | array), arg!(any)], None);
+borrowed_function!(ContainsFn);
 
-impl Function for ContainsFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        match &args[0] {
+impl ContainsFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let needle = arg(args, 1);
+        match arg(args, 0) {
             Value::Array(arr) => Ok(Value::Bool(
-                arr.iter().any(|item| values_equal(item, &args[1])),
+                arr.iter().any(|item| values_equal(item, needle)),
             )),
-            Value::String(s) => match args[1].as_str() {
+            Value::String(s) => match needle.as_str() {
                 Some(needle) => Ok(Value::Bool(s.contains(needle))),
                 None => Ok(Value::Bool(false)),
             },
@@ -329,94 +376,80 @@ impl Function for ContainsFn {
 }
 
 defn!(EndsWithFn, vec![arg!(string), arg!(string)], None);
+borrowed_function!(EndsWithFn);
 
-impl Function for EndsWithFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let subject = args[0].as_str().unwrap();
-        let search = args[1].as_str().unwrap();
+impl EndsWithFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let subject = arg(args, 0).as_str().unwrap();
+        let search = arg(args, 1).as_str().unwrap();
         Ok(Value::Bool(subject.ends_with(search)))
     }
 }
 
 defn!(FloorFn, vec![arg!(number)], None);
+borrowed_function!(FloorFn);
 
-impl Function for FloorFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
+impl FloorFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let n = arg(args, 0).as_f64().unwrap();
         Ok(number_value(n.floor()))
     }
 }
 
 defn!(JoinFn, vec![arg!(string), arg!(array_string)], None);
+borrowed_function!(JoinFn);
 
-impl Function for JoinFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let glue = args[0].as_str().unwrap();
-        let values = args[1].as_array().unwrap();
+impl JoinFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let glue = arg(args, 0).as_str().unwrap();
+        let values = arg(args, 1).as_array().unwrap();
         let result: String = values
             .iter()
-            .map(|v| v.as_str().unwrap().to_owned())
-            .collect::<Vec<String>>()
+            .map(|v| v.as_str().unwrap())
+            .collect::<Vec<&str>>()
             .join(glue);
         Ok(Value::String(result))
     }
 }
 
 defn!(KeysFn, vec![arg!(object)], None);
+borrowed_function!(KeysFn);
 
-impl Function for KeysFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let obj = args[0].as_object().unwrap();
+impl KeysFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let obj = arg(args, 0).as_object().unwrap();
         let keys: Vec<Value> = obj.keys().map(|k| Value::String(k.clone())).collect();
         Ok(Value::Array(keys))
     }
 }
 
 defn!(LengthFn, vec![arg!(array | object | string)], None);
-
-impl Function for LengthFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Self::length(&args[0]))
-    }
-}
-
-impl BorrowedFunction for LengthFn {
-    fn evaluate_borrowed(&self, args: &[Cow<'_, Value>], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature
-            .validate_values(args.iter().map(Cow::as_ref), ctx)?;
-        Ok(Self::length(&args[0]))
-    }
-}
+borrowed_function!(LengthFn);
 
 impl LengthFn {
-    fn length(value: &Value) -> Value {
-        let len = match value {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let len = match arg(args, 0) {
             Value::Array(a) => a.len(),
             Value::Object(m) => m.len(),
             Value::String(s) => s.chars().count(),
             _ => unreachable!(),
         };
-        Value::Number(Number::from(len))
+        Ok(Value::Number(Number::from(len)))
     }
 }
 
 defn!(MapFn, vec![arg!(expref), arg!(array)], None);
+borrowed_function!(MapFn);
 
-impl Function for MapFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let ast = get_expref_ast(&args[0], ctx).ok_or_else(|| {
+impl MapFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let ast = get_expref_ast(arg(args, 0), ctx).ok_or_else(|| {
             JmespathError::new("", 0, ErrorReason::Parse("Expected expref".to_owned()))
         })?;
         // Clone the AST since we need to borrow ctx mutably
         let ast = ast.clone();
-        let values = args[1].as_array().unwrap();
-        let mut results = vec![];
+        let values = arg(args, 1).as_array().unwrap();
+        let mut results = Vec::with_capacity(values.len());
         for value in values {
             results.push(interpret(value, &ast, ctx)?);
         }
@@ -425,66 +458,60 @@ impl Function for MapFn {
 }
 
 defn!(MaxFn, vec![arg!(array_string | array_number)], None);
+borrowed_function!(MaxFn);
 
-impl Function for MaxFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let values = args[0].as_array().unwrap();
-        if values.is_empty() {
-            return Ok(Value::Null);
-        }
-        let result = values
-            .iter()
-            .skip(1)
-            .fold(values[0].clone(), |acc, item| max_value(acc, item.clone()));
-        Ok(result)
+impl MaxFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let values = arg(args, 0).as_array().unwrap();
+        Ok(fold_extreme(values, |best, item| {
+            compare_values(best, item).is_ge()
+        }))
     }
 }
 
 defn!(MinFn, vec![arg!(array_string | array_number)], None);
+borrowed_function!(MinFn);
 
-impl Function for MinFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let values = args[0].as_array().unwrap();
-        if values.is_empty() {
-            return Ok(Value::Null);
-        }
-        let result = values
-            .iter()
-            .skip(1)
-            .fold(values[0].clone(), |acc, item| min_value(acc, item.clone()));
-        Ok(result)
+impl MinFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let values = arg(args, 0).as_array().unwrap();
+        Ok(fold_extreme(values, |best, item| {
+            compare_values(best, item).is_le()
+        }))
     }
 }
 
 defn!(MaxByFn, vec![arg!(array), arg!(expref)], None);
+borrowed_function!(MaxByFn);
 
-impl Function for MaxByFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        min_max_by(ctx, &args[0], &args[1], |a, b| compare_values(a, b).is_gt())
+impl MaxByFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        min_max_by(ctx, arg(args, 0), arg(args, 1), |a, b| {
+            compare_values(a, b).is_gt()
+        })
     }
 }
 
 defn!(MinByFn, vec![arg!(array), arg!(expref)], None);
+borrowed_function!(MinByFn);
 
-impl Function for MinByFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        min_max_by(ctx, &args[0], &args[1], |a, b| compare_values(a, b).is_lt())
+impl MinByFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        min_max_by(ctx, arg(args, 0), arg(args, 1), |a, b| {
+            compare_values(a, b).is_lt()
+        })
     }
 }
 
 defn!(MergeFn, vec![arg!(object)], Some(arg!(object)));
+borrowed_function!(MergeFn);
 
-impl Function for MergeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
+impl MergeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
         let mut result = serde_json::Map::new();
         for arg in args {
-            if let Some(obj) = arg.as_object() {
-                result.extend(obj.clone());
+            if let Some(obj) = arg.borrow().as_object() {
+                result.extend(obj.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
         }
         Ok(Value::Object(result))
@@ -492,60 +519,53 @@ impl Function for MergeFn {
 }
 
 defn!(NotNullFn, vec![arg!(any)], Some(arg!(any)));
+borrowed_function!(NotNullFn);
 
-impl Function for NotNullFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        for arg in args {
-            if !arg.is_null() {
-                return Ok(arg.clone());
-            }
-        }
-        Ok(Value::Null)
+impl NotNullFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(args
+            .iter()
+            .map(Borrow::borrow)
+            .find(|arg: &&Value| !arg.is_null())
+            .cloned()
+            .unwrap_or(Value::Null))
     }
 }
 
 defn!(ReverseFn, vec![arg!(array | string)], None);
+borrowed_function!(ReverseFn);
 
-impl Function for ReverseFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        match &args[0] {
-            Value::Array(arr) => {
-                let mut reversed = arr.clone();
-                reversed.reverse();
-                Ok(Value::Array(reversed))
-            }
-            Value::String(s) => {
-                let reversed: String = s.chars().rev().collect();
-                Ok(Value::String(reversed))
-            }
+impl ReverseFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        match arg(args, 0) {
+            Value::Array(arr) => Ok(Value::Array(arr.iter().rev().cloned().collect())),
+            Value::String(s) => Ok(Value::String(s.chars().rev().collect())),
             _ => unreachable!(),
         }
     }
 }
 
 defn!(SortFn, vec![arg!(array_string | array_number)], None);
+borrowed_function!(SortFn);
 
-impl Function for SortFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let mut values = args[0].as_array().unwrap().clone();
+impl SortFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let mut values = arg(args, 0).as_array().unwrap().clone();
         values.sort_by(compare_values);
         Ok(Value::Array(values))
     }
 }
 
 defn!(SortByFn, vec![arg!(array), arg!(expref)], None);
+borrowed_function!(SortByFn);
 
-impl Function for SortByFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let vals = args[0].as_array().unwrap();
+impl SortByFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], ctx: &mut Context<'_>) -> SearchResult {
+        let vals = arg(args, 0).as_array().unwrap();
         if vals.is_empty() {
             return Ok(Value::Array(vec![]));
         }
-        let ast = get_expref_ast(&args[1], ctx)
+        let ast = get_expref_ast(arg(args, 1), ctx)
             .ok_or_else(|| {
                 JmespathError::new("", 0, ErrorReason::Parse("Expected expref".to_owned()))
             })?
@@ -564,7 +584,9 @@ impl Function for SortByFn {
             return Err(JmespathError::from_ctx(ctx, reason));
         }
 
-        let mut mapped: Vec<(Value, Value)> = vec![(vals[0].clone(), first_value)];
+        // Sort references and copy each element once, into the result.
+        let mut mapped: Vec<(&Value, Value)> = Vec::with_capacity(vals.len());
+        mapped.push((&vals[0], first_value));
         for (invocation, v) in vals.iter().enumerate().skip(1) {
             let mapped_value = interpret(v, &ast, ctx)?;
             if mapped_value.jmespath_type() != first_type {
@@ -578,31 +600,31 @@ impl Function for SortByFn {
                     }),
                 ));
             }
-            mapped.push((v.clone(), mapped_value));
+            mapped.push((v, mapped_value));
         }
         mapped.sort_by(|a, b| compare_values(&a.1, &b.1));
-        let result = mapped.into_iter().map(|(orig, _)| orig).collect();
+        let result = mapped.into_iter().map(|(orig, _)| orig.clone()).collect();
         Ok(Value::Array(result))
     }
 }
 
 defn!(StartsWithFn, vec![arg!(string), arg!(string)], None);
+borrowed_function!(StartsWithFn);
 
-impl Function for StartsWithFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let subject = args[0].as_str().unwrap();
-        let search = args[1].as_str().unwrap();
+impl StartsWithFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let subject = arg(args, 0).as_str().unwrap();
+        let search = arg(args, 1).as_str().unwrap();
         Ok(Value::Bool(subject.starts_with(search)))
     }
 }
 
 defn!(SumFn, vec![arg!(array_number)], None);
+borrowed_function!(SumFn);
 
-impl Function for SumFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let sum: f64 = args[0]
+impl SumFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let sum: f64 = arg(args, 0)
             .as_array()
             .unwrap()
             .iter()
@@ -613,24 +635,26 @@ impl Function for SumFn {
 }
 
 defn!(ToArrayFn, vec![arg!(any)], None);
+borrowed_function!(ToArrayFn);
 
-impl Function for ToArrayFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        match &args[0] {
-            Value::Array(_) => Ok(args[0].clone()),
-            _ => Ok(Value::Array(vec![args[0].clone()])),
+impl ToArrayFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let value = arg(args, 0);
+        match value {
+            Value::Array(_) => Ok(value.clone()),
+            _ => Ok(Value::Array(vec![value.clone()])),
         }
     }
 }
 
 defn!(ToNumberFn, vec![arg!(any)], None);
+borrowed_function!(ToNumberFn);
 
-impl Function for ToNumberFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        match &args[0] {
-            Value::Number(_) => Ok(args[0].clone()),
+impl ToNumberFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let value = arg(args, 0);
+        match value {
+            Value::Number(_) => Ok(value.clone()),
             Value::String(s) => match serde_json::from_str::<Value>(s) {
                 Ok(Value::Number(n)) => Ok(Value::Number(n)),
                 _ => Ok(Value::Null),
@@ -645,32 +669,33 @@ defn!(
     vec![arg!(object | array | bool | number | string | null)],
     None
 );
+borrowed_function!(ToStringFn);
 
-impl Function for ToStringFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        match &args[0] {
-            Value::String(_) => Ok(args[0].clone()),
+impl ToStringFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let value = arg(args, 0);
+        match value {
+            Value::String(_) => Ok(value.clone()),
             other => Ok(Value::String(other.to_string())),
         }
     }
 }
 
 defn!(TypeFn, vec![arg!(any)], None);
+borrowed_function!(TypeFn);
 
-impl Function for TypeFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        Ok(Value::String(args[0].jmespath_type().to_string()))
+impl TypeFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        Ok(Value::String(arg(args, 0).jmespath_type().to_string()))
     }
 }
 
 defn!(ValuesFn, vec![arg!(object)], None);
+borrowed_function!(ValuesFn);
 
-impl Function for ValuesFn {
-    fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        self.signature.validate(args, ctx)?;
-        let map = args[0].as_object().unwrap();
+impl ValuesFn {
+    fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
+        let map = arg(args, 0).as_object().unwrap();
         Ok(Value::Array(map.values().cloned().collect()))
     }
 }
@@ -689,12 +714,20 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     }
 }
 
-fn max_value(a: Value, b: Value) -> Value {
-    if compare_values(&a, &b).is_ge() { a } else { b }
-}
-
-fn min_value(a: Value, b: Value) -> Value {
-    if compare_values(&a, &b).is_le() { a } else { b }
+/// The element `keep` prefers over every later one, compared by reference and
+/// copied once. `keep(best, item)` returns true to keep the current best, so
+/// ties resolve to the earliest element, as the previous fold did.
+fn fold_extreme(values: &[Value], keep: impl Fn(&Value, &Value) -> bool) -> Value {
+    let mut iter = values.iter();
+    let Some(mut best) = iter.next() else {
+        return Value::Null;
+    };
+    for item in iter {
+        if !keep(best, item) {
+            best = item;
+        }
+    }
+    best.clone()
 }
 
 /// Shared implementation for max_by and min_by.
@@ -728,7 +761,7 @@ fn min_max_by(
         ));
     }
 
-    let mut candidate = (vals[0].clone(), initial);
+    let mut candidate = (&vals[0], initial);
     for (invocation, v) in vals.iter().enumerate().skip(1) {
         let mapped = interpret(v, &ast, ctx)?;
         if mapped.jmespath_type() != entered_type {
@@ -743,8 +776,8 @@ fn min_max_by(
             ));
         }
         if is_better(&mapped, &candidate.1) {
-            candidate = (v.clone(), mapped);
+            candidate = (v, mapped);
         }
     }
-    Ok(candidate.0)
+    Ok(candidate.0.clone())
 }

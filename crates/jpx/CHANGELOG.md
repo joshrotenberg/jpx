@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- add `--skills` to print an offline guide index and the `query-libraries` topic embedded in the binary, with `--json` output ([#224](https://github.com/joshrotenberg/jpx/issues/224))
 - add `--per-file` corpus evaluation with repeated inputs and a `$file` path binding ([#220](https://github.com/joshrotenberg/jpx/issues/220))
 - add explicit `--columns` selection and ordering for table, CSV, and TSV output ([#217](https://github.com/joshrotenberg/jpx/issues/217))
 - add `--no-history` and explicit `-f/--file` startup data to the REPL ([#233](https://github.com/joshrotenberg/jpx/issues/233))
+- add a `.history [count]` REPL command that lists recent entries with stable numbering ([#233](https://github.com/joshrotenberg/jpx/issues/233))
 
 ### Fixed
 

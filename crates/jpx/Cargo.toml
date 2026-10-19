@@ -61,3 +61,4 @@ assert_cmd = "2"
 predicates = "3"
 serde-saphyr = { version = "1.3", default-features = false, features = ["deserialize"] }
 tempfile = "3"
+insta = "1"

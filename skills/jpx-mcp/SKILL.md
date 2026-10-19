@@ -10,17 +10,19 @@ compatibility: Requires jpx-mcp server (stdio or HTTP transport)
 
 # jpx MCP Server Guide
 
-The jpx MCP server exposes 31 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 470+ extension functions beyond the JMESPath specification.
+The jpx MCP server exposes 34 tools for JMESPath evaluation, function discovery, JSON utilities, and more. It supports 470+ extension functions beyond the JMESPath specification.
 
 ## Tool Groups
 
-### Evaluation (5 tools)
+### Evaluation (7 tools)
 
 | Tool | Use when... |
 |------|-------------|
-| `evaluate` | Running a JMESPath expression against inline JSON data |
+| `evaluate` | Running a JMESPath expression against inline JSON text |
+| `evaluate_json` | Running an expression against a native JSON value, with a typed result |
 | `evaluate_file` | Querying a JSON file on disk (avoids passing large data through protocol) |
-| `batch_evaluate` | Running multiple expressions against the same input (parses once) |
+| `batch_evaluate` | Running multiple expressions against the same JSON text (parses once) |
+| `batch_evaluate_json` | Running multiple expressions against a native JSON value, with typed results |
 | `validate` | Checking if an expression is syntactically valid before running it |
 | `explain` | Understanding what an expression does step by step |
 
@@ -30,6 +32,17 @@ The jpx MCP server exposes 31 tools for JMESPath evaluation, function discovery,
 ```
 
 **`batch_evaluate`** is more efficient than calling `evaluate` multiple times when you need several values from the same data -- it parses the input JSON once.
+
+**`evaluate_json`** (`input`, `expression`) and **`batch_evaluate_json`** (`input`, `expressions`) take a native JSON value instead of encoded text:
+```json
+{"input": {"users": [{"name": "alice", "age": 35}]}, "expression": "users[?age > `30`].name"}
+```
+- Arguments must be a JSON object with only these named fields; positional arrays and extra fields (`input_text`, `file_path`) are errors.
+- `input` is required and may be any JSON value. Explicit `null` is valid; omitting `input` is an error. Strings stay literal (`"[1,2]"` is a string), so use `evaluate` for JSON text.
+- Success returns `{"schema_version": 1, "result": ...}` (or `"results": [...]`) as `structuredContent` plus equivalent JSON text.
+- Batch entries keep expression order and have `expression` plus exactly one of `result` or `error`; a mixed batch is still a successful call.
+- Limits: 50 MiB of compact serialized UTF-8 `input`, at most 1000 expressions. Output size and evaluation allocations are unbounded.
+- Request errors, limit violations, and single-expression failures return `isError: true` with corrective text and no `structuredContent`.
 
 **`explain`** returns a structured breakdown with node types, functions used, and complexity rating. Works on invalid expressions too (returns parse error details).
 
@@ -52,7 +65,7 @@ The jpx MCP server exposes 31 tools for JMESPath evaluation, function discovery,
 
 **`suggest_function`** accepts plain English: "remove duplicates from an array" returns ranked suggestions with relevance explanations.
 
-### JSON Utilities (7 tools)
+### JSON Utilities (8 tools)
 
 | Tool | Use when... |
 |------|-------------|
@@ -63,10 +76,11 @@ The jpx MCP server exposes 31 tools for JMESPath evaluation, function discovery,
 | `keys` | Extracting object keys (optionally recursive with dot notation) |
 | `stats` | Analyzing JSON structure (type, size, depth, field analysis) |
 | `paths` | Listing all paths in dot notation (optionally with types/values) |
+| `inspect` | Previewing large or unfamiliar JSON with bounded traversal and output |
 
 **Data exploration workflow:**
 1. `stats` to understand overall structure
-2. `paths` to see all available fields
+2. `inspect` for a bounded preview, or `paths` to see all available fields
 3. `keys` with `recursive: true` for nested structure
 4. `evaluate` with expressions informed by the structure
 

@@ -232,6 +232,48 @@ mod random_integer_bounds {
 mod arguments {
     use super::*;
 
+    #[test]
+    fn skills_unknown_topic_points_to_the_index() {
+        jpx()
+            .args(["--skills", "unknown"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(
+                "Use --skills to list available topics",
+            ));
+    }
+
+    #[test]
+    fn skills_conflicts_name_the_incompatible_options() {
+        for conflict in [
+            vec!["-f", "missing.json"],
+            vec!["-Q", "missing.jpx"],
+            vec!["--repl"],
+            vec!["--csv"],
+        ] {
+            jpx()
+                .arg("--skills")
+                .args(conflict)
+                .assert()
+                .failure()
+                .stderr(
+                    predicate::str::contains("--skills")
+                        .and(predicate::str::contains("cannot be used with")),
+                );
+        }
+    }
+
+    #[test]
+    fn json_without_skills_explains_ordinary_json_output() {
+        jpx().args(["--json", "-n", "@"]).assert().failure().stderr(
+            predicate::str::contains("--json is only supported with --skills")
+                .and(predicate::str::contains("remove --json"))
+                .and(predicate::str::contains(
+                    "ordinary queries already output JSON by default",
+                )),
+        );
+    }
+
     /// The other exemplar from the issue: `-Q` plus a trailing positional. The
     /// message must name the workaround, not just the conflict.
     #[test]
@@ -410,6 +452,31 @@ mod arguments {
                     .and(predicate::str::contains(".load"))
                     .and(predicate::str::contains(".demo")),
             );
+    }
+
+    #[test]
+    fn invalid_repl_history_count_teaches_syntax_and_range() {
+        jpx()
+            .args(["--repl", "--no-history", "--color", "never"])
+            .write_stdin(".history 0\n.exit\n")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("Usage: .history [count]")
+                    .and(predicate::str::contains("from 1 to 100 ")),
+            );
+    }
+
+    #[test]
+    fn repl_history_when_disabled_says_how_to_enable() {
+        jpx()
+            .args(["--repl", "--no-history", "--color", "never"])
+            .write_stdin(".history\n.exit\n")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Restart the REPL without --no-history",
+            ));
     }
 
     #[test]
