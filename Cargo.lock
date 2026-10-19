@@ -3319,9 +3319,9 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
 name = "tower-mcp"
-version = "0.22.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27669d0d57887647f3b51a8c44f7232cfbeee3c038652a8752e2f57990984ce4"
+checksum = "92eb2791f3849563616d9f55661ae272c2f5c2361ef000ad86ccece587c0b525"
 dependencies = [
  "async-trait",
  "axum",
@@ -3331,6 +3331,7 @@ dependencies = [
  "http",
  "http-body-util",
  "hyper",
+ "libc",
  "pin-project-lite",
  "regex",
  "schemars",
@@ -3349,9 +3350,9 @@ dependencies = [
 
 [[package]]
 name = "tower-mcp-types"
-version = "0.22.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bded48fa1a3a2bd6595c1452007f53137e405d6a48e03cefe6d550c32f18632c"
+checksum = "564ffd8de47940618b0475e4535fc7398c40c1636b3199c56df2a7b80efb27f0"
 dependencies = [
  "base64 0.23.1",
  "indexmap",
