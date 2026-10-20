@@ -84,20 +84,29 @@ fn interpret_cow_inner<'a>(
         // result, a projection) can only be borrowed from locally, so its
         // result is materialised here; that copy is result-sized, not
         // input-sized.
-        Ast::Subexpr { lhs, rhs, .. } => match interpret_cow(data, lhs, ctx)? {
-            Cow::Borrowed(left) => interpret_cow(left, rhs, ctx),
-            Cow::Owned(left) => Ok(Cow::Owned(interpret_cow(&left, rhs, ctx)?.into_owned())),
-        },
+        Ast::Subexpr { lhs, rhs, .. } => {
+            // A variable belongs to the mutable context, so its reference cannot
+            // escape into Cow. For pure paths, select while borrowing the scope
+            // and copy only the final subtree, before any context mutation.
+            #[cfg(feature = "let-expr")]
+            if !ctx.scopes.is_empty() {
+                // Resolve ordinary input paths too, so a deep input path in a
+                // let body is walked once rather than reprobed at every hop.
+                if let Some(value) = select_path(data, node, ctx.eval_depth) {
+                    return Ok(Cow::Borrowed(value));
+                }
+                if let Some(value) = variable_path(node, ctx, ctx.eval_depth) {
+                    return Ok(Cow::Owned(value.clone()));
+                }
+            }
+            match interpret_cow(data, lhs, ctx)? {
+                Cow::Borrowed(left) => interpret_cow(left, rhs, ctx),
+                Cow::Owned(left) => Ok(Cow::Owned(interpret_cow(&left, rhs, ctx)?.into_owned())),
+            }
+        }
         Ast::Identity { .. } => Ok(Cow::Borrowed(data)),
         Ast::Literal { value, .. } => Ok(Cow::Borrowed(value)),
-        Ast::Index { idx, .. } => {
-            let element = if *idx >= 0 {
-                data.get_index_ref(*idx as usize)
-            } else {
-                data.get_negative_index_ref((-idx) as usize)
-            };
-            Ok(Cow::Borrowed(element.unwrap_or(&NULL)))
-        }
+        Ast::Index { idx, .. } => Ok(Cow::Borrowed(index_ref(data, *idx))),
         Ast::Or { lhs, rhs, .. } => {
             let left = interpret_cow(data, lhs, ctx)?;
             if left.is_truthy() {
@@ -181,6 +190,53 @@ fn interpret_cow_inner<'a>(
         },
         #[cfg(feature = "let-expr")]
         Ast::Let { bindings, expr, .. } => eval_let(data, bindings, expr, ctx),
+    }
+}
+
+fn index_ref(data: &Value, idx: i32) -> &Value {
+    let element = if idx >= 0 {
+        data.get_index_ref(idx as usize)
+    } else {
+        data.get_negative_index_ref((-idx) as usize)
+    };
+    element.unwrap_or(&NULL)
+}
+
+/// Borrow only variable-rooted field/index/identity paths. Every other AST
+/// node uses the ordinary evaluator, retaining function calls, scope changes,
+/// error offsets and projection semantics. Depth is checked against the same
+/// nesting the ordinary evaluator would visit; over-limit paths fall back to
+/// that evaluator to produce its existing error and unwind normally.
+#[cfg(feature = "let-expr")]
+#[inline(never)]
+fn variable_path<'a>(node: &Ast, ctx: &'a Context<'_>, depth: usize) -> Option<&'a Value> {
+    if depth > MAX_EVAL_DEPTH {
+        return None;
+    }
+    match node {
+        Ast::VariableRef { name, .. } => ctx.get_variable_ref(name),
+        Ast::Subexpr { lhs, rhs, .. } => {
+            let left = variable_path(lhs, ctx, depth + 1)?;
+            select_path(left, rhs, depth + 1)
+        }
+        _ => None,
+    }
+}
+
+#[cfg(feature = "let-expr")]
+fn select_path<'a>(data: &'a Value, node: &Ast, depth: usize) -> Option<&'a Value> {
+    if depth > MAX_EVAL_DEPTH {
+        return None;
+    }
+    match node {
+        Ast::Field { name, .. } => Some(data.get_field_ref(name).unwrap_or(&NULL)),
+        Ast::Index { idx, .. } => Some(index_ref(data, *idx)),
+        Ast::Identity { .. } => Some(data),
+        Ast::Subexpr { lhs, rhs, .. } => {
+            let left = select_path(data, lhs, depth + 1)?;
+            select_path(left, rhs, depth + 1)
+        }
+        _ => None,
     }
 }
 
@@ -366,6 +422,23 @@ mod tests {
     use serde_json::json;
 
     use crate::Runtime;
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn input_paths_still_borrow_with_a_scope_present() {
+        let runtime = Runtime::strict();
+        let input = json!({"items": [{"id": 1}]});
+        let mut ctx = crate::Context::new("items[0]", &runtime);
+        ctx.push_scope(std::collections::HashMap::from([(
+            "unused".into(),
+            json!(null),
+        )]));
+        let ast = crate::parse(ctx.expression).unwrap();
+        let result = super::interpret_cow(&input, &ast, &mut ctx).unwrap();
+        assert!(
+            matches!(result, std::borrow::Cow::Borrowed(value) if std::ptr::eq(value, &input["items"][0]))
+        );
+    }
 
     fn search(expr: &str, data: &serde_json::Value) -> serde_json::Value {
         let rt = Runtime::strict();

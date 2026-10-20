@@ -212,9 +212,17 @@ impl<'a> Context<'a> {
     #[cfg(feature = "let-expr")]
     #[inline]
     pub fn get_variable(&self, name: &str) -> Option<Value> {
+        self.get_variable_ref(name).cloned()
+    }
+
+    /// Borrow a scoped value for an interpreter operation that cannot mutate
+    /// the context. Public callers still receive an independent owned value.
+    #[cfg(feature = "let-expr")]
+    #[inline]
+    pub(crate) fn get_variable_ref(&self, name: &str) -> Option<&Value> {
         for scope in self.scopes.iter().rev() {
             if let Some(value) = scope.get(name) {
-                return Some(value.clone());
+                return Some(value);
             }
         }
         None
