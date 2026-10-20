@@ -89,10 +89,15 @@ See [Output Formats](./output-formats.md) for detailed examples.
 
 | Option | Description |
 |--------|-------------|
-| `--strict` | Strict mode - only standard JMESPath functions |
+| `--strict` | Standard JMESPath functions and comparison semantics |
 | `-v, --verbose` | Show expression details and timing |
 | `-q, --quiet` | Suppress errors and warnings |
 | `-x, --exit-status` | Exit 1 when the result is false or null |
+
+In strict mode, `<`, `<=`, `>` and `>=` compare numbers only. Other operand
+types produce null, as required by the [JMESPath specification](https://jmespath.org/specification.html#ordering-operators).
+String equality and standard string-sorting functions remain available.
+Default mode retains lexicographic string ordering.
 
 ### JSON Patch Operations
 

@@ -33,12 +33,14 @@ impl RegisteredFunction {
 /// Compiles JMESPath expressions and manages registered functions.
 pub struct Runtime {
     functions: HashMap<String, RegisteredFunction>,
+    numeric_ordering_only: bool,
 }
 
 impl Default for Runtime {
     fn default() -> Self {
         Runtime {
             functions: HashMap::with_capacity(26),
+            numeric_ordering_only: false,
         }
     }
 }
@@ -49,11 +51,18 @@ impl Runtime {
         Default::default()
     }
 
-    /// Creates a strict-mode runtime with only the 26 spec functions.
+    /// Creates a runtime with the 26 spec functions and numeric-only ordering
+    /// operators. Parser syntax remains controlled by crate features.
     pub fn strict() -> Runtime {
         let mut rt = Runtime::new();
+        rt.numeric_ordering_only = true;
         rt.register_builtin_functions();
         rt
+    }
+
+    #[inline]
+    pub(crate) fn numeric_ordering_only(&self) -> bool {
+        self.numeric_ordering_only
     }
 
     /// Creates a RuntimeBuilder for selective function registration.
@@ -322,7 +331,7 @@ mod tests {
 
     #[test]
     fn let_capability_matches_compilation() {
-        // Runtime::strict restricts functions, not syntax. The engine applies
+        // Runtime::strict restricts functions and ordering, not syntax. The engine applies
         // the additional strict-mode syntax restriction.
         for rt in [Runtime::new(), Runtime::strict()] {
             let expr = rt.compile("let $value = value in $value");

@@ -145,6 +145,15 @@ fn interpret_cow_inner<'a>(
         } => {
             let left = interpret_cow(data, lhs, ctx)?;
             let right = interpret_cow(data, rhs, ctx)?;
+            if ctx.runtime.numeric_ordering_only()
+                && !matches!(
+                    comparator,
+                    crate::ast::Comparator::Equal | crate::ast::Comparator::NotEqual
+                )
+                && !(left.is_number() && right.is_number())
+            {
+                return Ok(Cow::Borrowed(&NULL));
+            }
             Ok(Cow::Owned(
                 left.compare(comparator, right.as_ref())
                     .map_or(Value::Null, Value::Bool),
