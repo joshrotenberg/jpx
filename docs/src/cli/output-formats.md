@@ -363,6 +363,12 @@ explicit null in that schema column, so a missing field is emitted as `null`
 when read back. Queries such as `keys(@)` and `length(@)` therefore include
 nullable schema fields.
 
+JSON-to-Parquet export accepts null elements inside lists of objects or lists,
+including when null-only rows precede the first non-null element. Null elements
+provide no type evidence during inference; the original values and positions
+are preserved in the stored data. A list with only null or empty observations
+has Arrow's null element type until non-null evidence is available.
+
 ## Combining with Expressions
 
 Output formats work with any JMESPath expression:

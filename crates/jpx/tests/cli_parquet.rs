@@ -78,3 +78,30 @@ fn parquet_read_preserves_nullable_nested_objects_and_lists() {
     assert_eq!(output[0]["items"][0].get("optional"), Some(&Value::Null));
     assert_eq!(output[1].get("record"), Some(&Value::Null));
 }
+
+#[test]
+fn parquet_write_accepts_nullable_object_list_elements_in_either_order() {
+    for items in [
+        json!([null,{"name":"x","optional":null}]),
+        json!([{"name":"x","optional":null},null]),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let input = json!([{"items":items}]);
+        let parquet = write_parquet(&input, dir.path());
+        assert_eq!(read_query(&parquet, "@"), input);
+    }
+}
+
+#[test]
+fn parquet_write_preserves_nested_null_object_lists_after_null_only_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = json!([
+        {"items":[null,null],"matrix":[null,[1,null]],"all_nulls":[null,null]},
+        {"items":[],"matrix":[],"all_nulls":[]},
+        {"items":null,"matrix":null,"all_nulls":null},
+        {"items":[null,{"children":[{"name":"x","optional":null},null]}],
+            "matrix":[[],[2,null]],"all_nulls":[null]}
+    ]);
+    let parquet = write_parquet(&input, dir.path());
+    assert_eq!(read_query(&parquet, "@"), input);
+}
