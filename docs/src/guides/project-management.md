@@ -731,8 +731,10 @@ cat projects.json | jpx 'frequencies([*].status)'
 cat projects.json | jpx '[*].{name: details.name, tags: join('\'', '\'', details.tags)}'
 ```
 
-Or use the interactive REPL:
+Or load the dataset into the interactive REPL:
 
 ```bash
-jpx --repl < projects.json
+jpx --repl -f projects.json
 ```
+
+Use `-f/--file` for initial data. Redirected stdin supplies REPL commands.
