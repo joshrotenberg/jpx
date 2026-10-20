@@ -155,11 +155,40 @@ fn bench_let_paths(c: &mut Criterion) {
 #[cfg(not(feature = "let-expr"))]
 fn bench_let_paths(_: &mut Criterion) {}
 
+/// Flatten an owned intermediate without copying its elements again. Borrowed
+/// input is a control: it still needs to copy values into the owned result.
+fn bench_flatten_intermediates(c: &mut Criterion) {
+    let mut group = c.benchmark_group("flatten_intermediates");
+    let runtime = jpx_core::Runtime::strict();
+    for item_count in [1000, 10_000] {
+        let data = document(item_count);
+        for (name, source) in [
+            ("owned_list", "[items][]"),
+            ("owned_function", "to_array(items)[]"),
+            ("owned_projection", "to_array(items)[].id"),
+            ("borrowed_input", "items[]"),
+        ] {
+            let compiled = runtime.compile(source).unwrap();
+            let expected = if name == "owned_projection" {
+                Value::Array((0..item_count).map(|id| json!(id)).collect())
+            } else {
+                data["items"].clone()
+            };
+            assert_eq!(compiled.search(&data).unwrap(), expected);
+            group.bench_with_input(BenchmarkId::new(name, item_count), &data, |b, data| {
+                b.iter(|| compiled.search(black_box(data)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_result_size,
     bench_length_scaling,
     bench_function_arguments,
-    bench_let_paths
+    bench_let_paths,
+    bench_flatten_intermediates
 );
 criterion_main!(benches);
