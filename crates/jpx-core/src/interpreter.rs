@@ -234,6 +234,18 @@ fn eval_projection<'a>(
 #[inline(never)]
 fn eval_flatten<'a>(data: &'a Value, node: &'a Ast, ctx: &mut Context<'_>) -> EvalResult<'a> {
     let result = interpret_cow(data, node, ctx)?;
+    // Consume an owned intermediate instead of copying all of its elements.
+    // Borrowed input still needs the copying path below.
+    if let Cow::Owned(Value::Array(arr)) = result {
+        let mut collected = vec![];
+        for element in arr {
+            match element {
+                Value::Array(inner) => collected.extend(inner),
+                other => collected.push(other),
+            }
+        }
+        return Ok(Cow::Owned(Value::Array(collected)));
+    }
     match result.as_ref().as_array() {
         None => Ok(Cow::Borrowed(&NULL)),
         Some(arr) => {
