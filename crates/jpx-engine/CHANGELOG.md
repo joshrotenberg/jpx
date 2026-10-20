@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/joshrotenberg/jpx/compare/jpx-engine-v0.4.1...jpx-engine-v0.4.2) - 2026-10-20
+
+### Added
+
+- *(mcp)* add bounded structural inspection ([#287](https://github.com/joshrotenberg/jpx/pull/287))
+
+### Fixed
+
+- infer nullable lists for Parquet export ([#310](https://github.com/joshrotenberg/jpx/pull/310))
+- preserve null keys when reading Parquet ([#309](https://github.com/joshrotenberg/jpx/pull/309))
+- parse JSON floats with correctly rounded binary64 conversion ([#271](https://github.com/joshrotenberg/jpx/pull/271))
+- report effective let-expression support ([#273](https://github.com/joshrotenberg/jpx/pull/273))
+
+### Other
+
+- Restrict strict ordering operators to numeric operands ([#314](https://github.com/joshrotenberg/jpx/pull/314))
+- *(deps)* bump dirs from 6.0.0 to 7.0.0 ([#305](https://github.com/joshrotenberg/jpx/pull/305))
+- *(deps)* bump arrow and parquet to 60 ([#299](https://github.com/joshrotenberg/jpx/pull/299))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+
 ### Added
 
 - add a public `inspect` module with `JpxEngine::inspect`, `inspect_value`,
