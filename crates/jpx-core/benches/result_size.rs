@@ -106,6 +106,55 @@ fn bench_function_arguments(c: &mut Criterion) {
     group.finish();
 }
 
+/// Selecting small paths from the same let-bound container should not copy
+/// the whole container on each reference. Binding still owns one input copy.
+#[cfg(feature = "let-expr")]
+fn bench_let_paths(c: &mut Criterion) {
+    let mut group = c.benchmark_group("let_paths");
+    let runtime = jpx_core::Runtime::strict();
+    let cases = [
+        ("native_control", "items[0].id"),
+        (
+            "scoped_input_control",
+            "let $unused = `null` in items[0].id",
+        ),
+        ("one_lookup", "let $x = items in $x[0].id"),
+        (
+            "repeated_lookup",
+            "let $x = items in [$x[0].id, $x[-1].value, $x[1].score, $x[0].id]",
+        ),
+        ("whole_value_control", "let $x = items in $x"),
+    ];
+    for (name, source) in cases {
+        let expression = runtime.compile(source).unwrap();
+        for item_count in [1, 1000, 10_000] {
+            let data = document(item_count);
+            group.bench_with_input(BenchmarkId::new(name, item_count), &data, |b, data| {
+                b.iter(|| expression.search(black_box(data)).unwrap());
+            });
+        }
+    }
+    for depth in [1, 25, 50] {
+        let mut data = json!({"id": 7});
+        for _ in 0..depth {
+            data = json!({"child": data});
+        }
+        let source = format!("let $unused = `null` in {}id", "child.".repeat(depth));
+        let expression = runtime.compile(&source).unwrap();
+        group.bench_with_input(
+            BenchmarkId::new("scoped_depth_control", depth),
+            &data,
+            |b, data| {
+                b.iter(|| expression.search(black_box(data)).unwrap());
+            },
+        );
+    }
+    group.finish();
+}
+
+#[cfg(not(feature = "let-expr"))]
+fn bench_let_paths(_: &mut Criterion) {}
+
 /// Flatten an owned intermediate without copying its elements again. Borrowed
 /// input is a control: it still needs to copy values into the owned result.
 fn bench_flatten_intermediates(c: &mut Criterion) {
@@ -139,6 +188,7 @@ criterion_group!(
     bench_result_size,
     bench_length_scaling,
     bench_function_arguments,
+    bench_let_paths,
     bench_flatten_intermediates
 );
 criterion_main!(benches);

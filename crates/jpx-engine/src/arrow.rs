@@ -50,11 +50,12 @@
 //! - **Interoperability**: Bridge between columnar and row-based data formats
 
 use crate::{EngineError, Result};
-use arrow::json::reader::infer_json_schema;
-use arrow::json::{LineDelimitedWriter, ReaderBuilder};
+use arrow::json::reader::infer_json_schema_from_iterator;
+use arrow::json::{LineDelimitedWriter, ReaderBuilder, WriterBuilder};
 use arrow::record_batch::RecordBatch;
+use serde::{Serialize, Serializer};
 use serde_json::Value;
-use std::io::{BufReader, Cursor, Seek};
+use std::io::{BufReader, Cursor};
 use std::sync::Arc;
 
 /// Convert Arrow RecordBatches to a JSON Value (array of objects).
@@ -69,6 +70,11 @@ use std::sync::Arc;
 /// # Returns
 ///
 /// A JSON Value containing an array of objects, one per row.
+///
+/// Every schema field is emitted, including null fields in nested objects.
+/// Null objects/lists and null list elements remain null. Arrow cannot distinguish
+/// an originally absent JSON field from an explicit null in the same column;
+/// both are emitted as a present key with a null value.
 ///
 /// # Example
 ///
@@ -87,7 +93,9 @@ pub fn record_batches_to_json(batches: &[RecordBatch]) -> Result<Value> {
     // Convert to JSON using Arrow's LineDelimitedWriter
     let mut json_output = Vec::new();
     {
-        let mut writer = LineDelimitedWriter::new(&mut json_output);
+        let mut writer: LineDelimitedWriter<_> = WriterBuilder::new()
+            .with_explicit_nulls(true)
+            .build(&mut json_output);
         for batch in batches {
             writer
                 .write(batch)
@@ -119,10 +127,52 @@ pub fn record_batch_to_json(batch: &RecordBatch) -> Result<Value> {
     record_batches_to_json(std::slice::from_ref(batch))
 }
 
+// Null list elements provide validity, not an element type. Arrow 60's schema
+// inference dispatches on the first element and rejects nulls beside containers.
+// Omit them only from the inference representation; the reader receives original
+// JSON below, preserving null positions, list lengths and null/empty distinctions.
+struct InferenceValue<'a>(&'a Value);
+
+impl Serialize for InferenceValue<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        match self.0 {
+            Value::Array(values) => serializer.collect_seq(
+                values
+                    .iter()
+                    .filter(|value| !value.is_null())
+                    .map(InferenceValue),
+            ),
+            Value::Object(fields) => serializer.collect_map(
+                fields
+                    .iter()
+                    .map(|(key, value)| (key, InferenceValue(value))),
+            ),
+            value => value.serialize(serializer),
+        }
+    }
+}
+
+fn infer_nullable_schema<'a>(
+    rows: impl Iterator<Item = &'a Value>,
+) -> Result<arrow::datatypes::Schema> {
+    let records = rows.map(|row| {
+        // Process one row at a time and retain the previous serde JSON parsing
+        // limits and numeric conversion, without building a second whole document.
+        let text = serde_json::to_string(&InferenceValue(row))
+            .map_err(|error| arrow::error::ArrowError::JsonError(error.to_string()))?;
+        serde_json::from_str::<Value>(&text)
+            .map_err(|error| arrow::error::ArrowError::JsonError(error.to_string()))
+    });
+    infer_json_schema_from_iterator(records)
+        .map_err(|error| EngineError::ArrowError(error.to_string()))
+}
+
 /// Convert a JSON Value (array of objects) to Arrow RecordBatches.
 ///
 /// Takes a JSON array of objects and converts them to Arrow RecordBatches.
-/// The schema is inferred from the JSON data.
+/// The schema is inferred from all rows. Null list elements contribute no type
+/// evidence; they remain in the data read into Arrow. Lists without any non-null
+/// element evidence use Arrow's null element type.
 ///
 /// # Arguments
 ///
@@ -190,17 +240,10 @@ pub fn json_to_record_batches_with_batch_size(
         ndjson.push('\n');
     }
 
-    // Infer schema from JSON
-    let mut cursor = Cursor::new(ndjson.as_bytes());
-    let (schema, _) =
-        infer_json_schema(&mut cursor, None).map_err(|e| EngineError::ArrowError(e.to_string()))?;
+    let schema = infer_nullable_schema(array.iter())?;
 
-    cursor
-        .rewind()
-        .map_err(|e| EngineError::ArrowError(e.to_string()))?;
-
-    // Create JSON reader with inferred schema
-    let buf_reader = BufReader::new(cursor);
+    // Read the original JSON, including every null element omitted for inference.
+    let buf_reader = BufReader::new(Cursor::new(ndjson.as_bytes()));
     let json_reader = ReaderBuilder::new(Arc::new(schema))
         .with_batch_size(batch_size)
         .build(buf_reader)
@@ -230,7 +273,8 @@ pub fn json_to_record_batches_with_batch_size(
 ///
 /// # Returns
 ///
-/// The inferred Arrow Schema.
+/// The inferred Arrow Schema, sampling at most the first 100 rows. Null list
+/// elements contribute no type evidence. Conversion uses all rows instead.
 pub fn infer_schema_from_json(value: &Value) -> Result<arrow::datatypes::Schema> {
     let array = value
         .as_array()
@@ -242,21 +286,7 @@ pub fn infer_schema_from_json(value: &Value) -> Result<arrow::datatypes::Schema>
         ));
     }
 
-    // Convert first few rows to NDJSON for schema inference
-    let sample_size = array.len().min(100);
-    let mut ndjson = String::new();
-    for item in array.iter().take(sample_size) {
-        ndjson.push_str(
-            &serde_json::to_string(item).map_err(|e| EngineError::InvalidJson(e.to_string()))?,
-        );
-        ndjson.push('\n');
-    }
-
-    let mut cursor = Cursor::new(ndjson.as_bytes());
-    let (schema, _) =
-        infer_json_schema(&mut cursor, None).map_err(|e| EngineError::ArrowError(e.to_string()))?;
-
-    Ok(schema)
+    infer_nullable_schema(array.iter().take(100))
 }
 
 #[cfg(test)]
@@ -508,14 +538,10 @@ mod tests {
         let arr = output.as_array().unwrap();
         assert_eq!(arr.len(), 2);
 
-        // After roundtrip, all-null columns may be omitted or preserved as null
-        // depending on the Arrow JSON writer behavior. Verify the rows exist.
         for row in arr {
-            let obj = row.as_object().unwrap();
-            if let Some(val) = obj.get("a") {
-                assert!(val.is_null());
-            }
+            assert_eq!(row.as_object().unwrap().get("a"), Some(&Value::Null));
         }
+        assert_eq!(output, input);
     }
 
     #[test]
@@ -532,9 +558,192 @@ mod tests {
 
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0]["a"], 1);
-        // The null row should either be absent or explicitly null
-        assert!(arr[1].get("a").is_none() || arr[1]["a"].is_null());
+        assert_eq!(arr[1].as_object().unwrap().get("a"), Some(&Value::Null));
         assert_eq!(arr[2]["a"], 3);
+    }
+
+    #[test]
+    fn test_nullable_types_across_batches() {
+        let input = json!([
+            {"id":1,"text":null,"flag":null,"integer":null,"float":null},
+            {"id":2,"text":"café 🦀","flag":false,"integer":-7,"float":1.25},
+            {"id":3,"text":null,"flag":true,"integer":0,"float":null}
+        ]);
+        let batches = json_to_record_batches_with_batch_size(&input, 1).unwrap();
+        assert_eq!(batches.len(), 3);
+        let output = record_batches_to_json(&batches).unwrap();
+        assert_eq!(output, input);
+        for field in ["text", "flag", "integer", "float"] {
+            assert_eq!(
+                output[0].as_object().unwrap().get(field),
+                Some(&Value::Null)
+            );
+        }
+    }
+
+    #[test]
+    fn test_nullable_nested_structs_and_lists() {
+        let input = json!([
+            {"id":1,"record":{"name":"a","note":null},
+                "items":[{"name":"x","note":null}],"tags":["a",null]},
+            {"id":2,"record":null,"items":[],"tags":null},
+            {"id":3,"record":{"name":null,"note":"present"},"items":null,"tags":[]}
+        ]);
+        let batches = json_to_record_batches(&input).unwrap();
+        let output = record_batches_to_json(&batches).unwrap();
+        assert_eq!(output, input);
+        assert_eq!(output[0]["record"].get("note"), Some(&Value::Null));
+        assert_eq!(output[0]["items"][0].get("note"), Some(&Value::Null));
+        assert_eq!(output[1].get("record"), Some(&Value::Null));
+    }
+
+    #[test]
+    fn test_arrow_null_struct_list_elements_are_preserved() {
+        use arrow::array::{Array, ListBuilder, StringBuilder, StructBuilder};
+        use arrow::datatypes::{DataType, Field, Schema};
+
+        // External Arrow/Parquet data can contain null list elements of struct
+        // type, even though JSON schema inference currently rejects that shape.
+        let fields = vec![
+            Field::new("name", DataType::Utf8, true),
+            Field::new("note", DataType::Utf8, true),
+        ];
+        let fields = arrow::datatypes::Fields::from(fields);
+        let mut items = ListBuilder::new(StructBuilder::from_fields(fields, 2));
+        for (name, valid) in [(Some("x"), true), (None, false)] {
+            items
+                .values()
+                .field_builder::<StringBuilder>(0)
+                .unwrap()
+                .append_option(name);
+            items
+                .values()
+                .field_builder::<StringBuilder>(1)
+                .unwrap()
+                .append_null();
+            items.values().append(valid);
+        }
+        items.append(true);
+        items.append(false);
+        let items = Arc::new(items.finish());
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "items",
+            items.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![items]).unwrap();
+        assert_eq!(
+            record_batch_to_json(&batch).unwrap(),
+            json!([{"items":[{"name":"x","note":null},null]}, {"items":null}])
+        );
+    }
+
+    #[test]
+    fn test_json_nullable_object_lists_in_either_order() {
+        for items in [
+            json!([null, {"name":"x","optional":null}]),
+            json!([{"name":"x","optional":null}, null]),
+        ] {
+            let input = json!([{"items":items}]);
+            let original = input.clone();
+            let schema = infer_schema_from_json(&input).unwrap();
+            let batches = json_to_record_batches(&input).unwrap();
+            assert_eq!(schema, *batches[0].schema());
+            assert_eq!(record_batches_to_json(&batches).unwrap(), input);
+            assert_eq!(input, original);
+        }
+    }
+
+    #[test]
+    fn test_null_only_lists_before_struct_evidence_across_batches() {
+        let input = json!([
+            {"items":[null,null]},
+            {"items":[]},
+            {"items":null},
+            {"items":[null,{"name":"x","optional":null}]},
+            {"items":[{"name":null,"optional":"present"},null]}
+        ]);
+        let batches = json_to_record_batches_with_batch_size(&input, 1).unwrap();
+        assert_eq!(batches.len(), 5);
+        assert_eq!(record_batches_to_json(&batches).unwrap(), input);
+        let mut reversed = input.as_array().unwrap().clone();
+        reversed.reverse();
+        let reversed = Value::Array(reversed);
+        let batches = json_to_record_batches_with_batch_size(&reversed, 2).unwrap();
+        assert_eq!(record_batches_to_json(&batches).unwrap(), reversed);
+    }
+
+    #[test]
+    fn test_nested_nullable_lists_preserve_nulls_and_empty_lists() {
+        let input = json!([
+            {"items":[null,{"children":[null,{"value":"x","optional":null}]}],
+                "matrix":[null,[null,1],[]],"only_nulls":[null,null]},
+            {"items":[{"children":null}],"matrix":null,"only_nulls":[]},
+            {"items":null,"matrix":[[2,null]],"only_nulls":null}
+        ]);
+        let batches = json_to_record_batches(&input).unwrap();
+        assert_eq!(record_batches_to_json(&batches).unwrap(), input);
+    }
+
+    #[test]
+    fn test_nullable_schema_preview_keeps_sample_limit_but_conversion_uses_all_rows() {
+        use arrow::datatypes::DataType;
+        let mut rows = vec![json!({"items":[null]}); 100];
+        rows.push(json!({"items":[{"name":"last"},null]}));
+        let input = Value::Array(rows);
+        let schema = infer_schema_from_json(&input).unwrap();
+        let DataType::List(item) = schema.field_with_name("items").unwrap().data_type() else {
+            panic!("items must remain a list");
+        };
+        assert_eq!(item.data_type(), &DataType::Null);
+        let batches = json_to_record_batches_with_batch_size(&input, 10).unwrap();
+        assert_eq!(record_batches_to_json(&batches).unwrap(), input);
+    }
+
+    #[test]
+    fn test_schema_inference_retains_json_recursion_limit() {
+        let mut nested = json!(0);
+        for _ in 0..130 {
+            nested = json!([nested]);
+        }
+        let input = json!([{"nested":nested}]);
+        for result in [
+            infer_schema_from_json(&input).map(|_| ()),
+            json_to_record_batches(&input).map(|_| ()),
+        ] {
+            let error = result.unwrap_err().to_string();
+            assert!(error.contains("recursion limit exceeded"), "{error}");
+        }
+    }
+
+    #[test]
+    fn test_nullable_lists_still_reject_mixed_container_and_scalar_types() {
+        for input in [
+            json!([{"items":[null,{"name":"x"},1]}]),
+            json!([{"items":[null,[1],{"name":"x"}]}]),
+        ] {
+            assert!(infer_schema_from_json(&input).is_err());
+            assert!(json_to_record_batches(&input).is_err());
+        }
+    }
+
+    #[test]
+    fn test_schema_fields_missing_in_json_become_explicit_nulls() {
+        // Arrow represents an absent JSON field and explicit null identically.
+        let input = json!([
+            {"id":1,"record":{"name":"a"}},
+            {"id":2,"record":{},"optional":"present"},
+            {"id":3}
+        ]);
+        let batches = json_to_record_batches(&input).unwrap();
+        assert_eq!(
+            record_batches_to_json(&batches).unwrap(),
+            json!([
+                {"id":1,"record":{"name":"a"},"optional":null},
+                {"id":2,"record":{"name":null},"optional":"present"},
+                {"id":3,"record":null,"optional":null}
+            ])
+        );
     }
 
     #[test]

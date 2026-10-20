@@ -355,6 +355,20 @@ Parquet input is also supported -- jpx auto-detects `.parquet` and `.pq` file ex
 jpx 'length(@)' -f data.parquet
 ```
 
+Reading Parquet emits every schema field as a JSON key, including fields whose
+value is `null`. This also applies to fields inside non-null nested objects;
+a null object or list remains `null`, and null list elements are preserved.
+Arrow/Parquet cannot distinguish an originally missing JSON field from an
+explicit null in that schema column, so a missing field is emitted as `null`
+when read back. Queries such as `keys(@)` and `length(@)` therefore include
+nullable schema fields.
+
+JSON-to-Parquet export accepts null elements inside lists of objects or lists,
+including when null-only rows precede the first non-null element. Null elements
+provide no type evidence during inference; the original values and positions
+are preserved in the stored data. A list with only null or empty observations
+has Arrow's null element type until non-null evidence is available.
+
 ## Combining with Expressions
 
 Output formats work with any JMESPath expression:

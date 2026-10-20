@@ -305,8 +305,14 @@ pub fn build_runtime_from_config(
 ) -> (Runtime, FunctionRegistry) {
     use crate::introspection::parse_category;
 
-    let mut runtime = Runtime::new();
-    runtime.register_builtin_functions();
+    let mut runtime = if strict {
+        Runtime::strict()
+    } else {
+        Runtime::new()
+    };
+    if !strict {
+        runtime.register_builtin_functions();
+    }
 
     let mut registry = FunctionRegistry::new();
 

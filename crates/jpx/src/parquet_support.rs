@@ -172,6 +172,9 @@ mod tests {
         assert_eq!(arr.len(), 2);
         assert_eq!(arr[0]["string_val"], "hello world");
         assert_eq!(arr[1]["bool_val"], false);
+        for row in arr {
+            assert_eq!(row.as_object().unwrap().get("null_val"), Some(&Value::Null));
+        }
     }
 
     #[test]
