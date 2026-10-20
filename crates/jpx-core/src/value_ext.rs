@@ -323,7 +323,9 @@ pub(crate) fn values_equal(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Ordering comparison per JMESPath spec - only numbers and strings.
+/// Shared numeric/string ordering. The interpreter applies runtime-specific
+/// restrictions to relational operators; standard sorting functions also need
+/// string ordering.
 fn compare_ordered(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
     match (a, b) {
         (Value::Number(a), Value::Number(b)) => compare_numbers(a, b),

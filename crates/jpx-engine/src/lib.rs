@@ -400,8 +400,14 @@ impl JpxEngine {
     /// assert!(strict_engine.is_strict());
     /// ```
     pub fn with_options(strict: bool) -> Self {
-        let mut runtime = Runtime::new();
-        runtime.register_builtin_functions();
+        let mut runtime = if strict {
+            Runtime::strict()
+        } else {
+            Runtime::new()
+        };
+        if !strict {
+            runtime.register_builtin_functions();
+        }
 
         let mut registry = FunctionRegistry::new();
         registry.register_all();

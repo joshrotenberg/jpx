@@ -55,7 +55,7 @@ The populations are:
 - **grammar**: shared recursive grammar (depth 6, target size 192, branch bound 8),
   paired with generated JSON. The differential entry point explicitly excludes
   JEP-18 even with `let-expr`/all features. Strict runtime restricts registered
-  functions, not parser syntax. The original property population still includes
+  functions and ordering operators, not parser syntax. The original property population still includes
   let expressions when enabled, with the same production weights.
 - **near-valid**: shared one-edit mutations of successful vendored compliance
   expressions, paired with generated JSON. Truncation, deletion, replacement,
@@ -195,7 +195,7 @@ replay always computes current behavior. `ALLOWLIST` remains empty;
 | Reproducer | Classification and evidence |
 | --- | --- |
 | `compliance-249-322.json`, `compliance-249-872.json` | Reviewed reference bug, covered by `REFERENCE_FAILURES`: `avg(empty_list)` returns null in jpx, but the reference computes 0/0 and returns a Parse error during search. This is present in `jmespath` 0.3 and still present in 0.5. The harness reports it as unexpected, not syntax. The [specification](https://jmespath.org/specification.html#avg) and vendored `functions.json` case both require null. |
-| `grammar-99537481-147.json`, `grammar-99537481-184.json`, `grammar-99537481-557.json` | Likely jpx strict-conformance gap: string ordering produces a boolean in jpx and null in the reference. The [ordering specification](https://jmespath.org/specification.html#ordering-operators) limits these operators to numbers. Existing string comparison code establishes behavior, not an approved exception to strict semantics. |
+| `grammar-99537481-147.json`, `grammar-99537481-184.json`, `grammar-99537481-557.json` | Fixed jpx strict-ordering bug ([#313](https://github.com/joshrotenberg/jpx/issues/313)): strict ordering now returns null for non-numeric operands, matching the [ordering specification](https://jmespath.org/specification.html#ordering-operators). Default-mode string ordering, equality and standard string-sorting functions remain unchanged. These inputs remain as replayable regressions. |
 
 Replay any row by selecting its filename; for example:
 
@@ -209,21 +209,20 @@ JPX_DIFF_REPLAY="$PWD/crates/jpx-core/tests/differential/reproducers/grammar-995
   --test differential differential_replay -- --ignored --exact --nocapture
 ```
 
-The `compliance-*` replay passes because its reviewed `REFERENCE_FAILURES` entry
-covers it. The `grammar-*` replays and a manually dispatched larger campaign
-currently exit nonzero: each configuration reports 3 divergences and 2
-allowlisted cases out of 6,144 comparisons. The normal smoke suite is green.
-This is a known initial state, not evidence that either implementation is fully
-conformant.
-The workflow starts as manual-only; its failing test exit is preserved, and full
-logs and reproducers are uploaded even on failure. Track follow-up work in
-[issue #249](https://github.com/joshrotenberg/jpx/issues/249). Before enabling a
-schedule, resolve or deliberately review the exact discrepancies documented above
-in separate follow-up work (the string-ordering cases either by a jpx strict-mode
-fix or by reviewed exact `ALLOWLIST` entries, since both outcomes are JSON), confirm that both configurations pass the unchanged
-1,024-case-per-population campaign with seeds 249 and 99537481, and validate
-failure reporting and artifact handling. Enable the schedule only in a separately
-reviewed PR. Runtime/reference corrections are separate from this readiness patch.
-No generator, seed, comparator or allowlist was weakened to hide the findings.
+The `compliance-*` replay passes because its reviewed `REFERENCE_FAILURES`
+entry covers it. After the strict-ordering fix, the `grammar-*` replays also
+pass. The unchanged 1,024-case-per-population campaign with seeds 249 and
+99537481 passes in both minimal and all-feature configurations: each performs
+6,144 comparisons with zero unallowed divergences and two reviewed reference
+failures. `ALLOWLIST` remains empty; neither the generator, seeds, comparator,
+reference exception nor retained inputs were weakened to obtain these results.
+
+This is agreement for a finite input set, not proof of full conformance.
+The workflow remains manual-only, preserves failing test exits and uploads full
+logs and reproducers even on failure. Enabling a schedule remains separate,
+reviewed work under [issue #249](https://github.com/joshrotenberg/jpx/issues/249);
+the runtime fix does not change that policy or complete the broader profile
+audit in #235. Keep failure reporting and artifact handling validated before
+changing the workflow's triggers.
 The sampled compliance population supplements the existing exhaustive vendored
 suite; it does not replace it or promise every corpus pair appears in one run.
