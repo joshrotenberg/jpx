@@ -51,7 +51,7 @@
 
 use crate::{EngineError, Result};
 use arrow::json::reader::infer_json_schema;
-use arrow::json::{LineDelimitedWriter, ReaderBuilder};
+use arrow::json::{LineDelimitedWriter, ReaderBuilder, WriterBuilder};
 use arrow::record_batch::RecordBatch;
 use serde_json::Value;
 use std::io::{BufReader, Cursor, Seek};
@@ -70,6 +70,11 @@ use std::sync::Arc;
 ///
 /// A JSON Value containing an array of objects, one per row.
 ///
+/// Every schema field is emitted, including null fields in nested objects.
+/// Null objects/lists and null list elements remain null. Arrow cannot distinguish
+/// an originally absent JSON field from an explicit null in the same column;
+/// both are emitted as a present key with a null value.
+///
 /// # Example
 ///
 /// ```rust,ignore
@@ -87,7 +92,9 @@ pub fn record_batches_to_json(batches: &[RecordBatch]) -> Result<Value> {
     // Convert to JSON using Arrow's LineDelimitedWriter
     let mut json_output = Vec::new();
     {
-        let mut writer = LineDelimitedWriter::new(&mut json_output);
+        let mut writer: LineDelimitedWriter<_> = WriterBuilder::new()
+            .with_explicit_nulls(true)
+            .build(&mut json_output);
         for batch in batches {
             writer
                 .write(batch)
@@ -508,14 +515,10 @@ mod tests {
         let arr = output.as_array().unwrap();
         assert_eq!(arr.len(), 2);
 
-        // After roundtrip, all-null columns may be omitted or preserved as null
-        // depending on the Arrow JSON writer behavior. Verify the rows exist.
         for row in arr {
-            let obj = row.as_object().unwrap();
-            if let Some(val) = obj.get("a") {
-                assert!(val.is_null());
-            }
+            assert_eq!(row.as_object().unwrap().get("a"), Some(&Value::Null));
         }
+        assert_eq!(output, input);
     }
 
     #[test]
@@ -532,9 +535,103 @@ mod tests {
 
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0]["a"], 1);
-        // The null row should either be absent or explicitly null
-        assert!(arr[1].get("a").is_none() || arr[1]["a"].is_null());
+        assert_eq!(arr[1].as_object().unwrap().get("a"), Some(&Value::Null));
         assert_eq!(arr[2]["a"], 3);
+    }
+
+    #[test]
+    fn test_nullable_types_across_batches() {
+        let input = json!([
+            {"id":1,"text":null,"flag":null,"integer":null,"float":null},
+            {"id":2,"text":"café 🦀","flag":false,"integer":-7,"float":1.25},
+            {"id":3,"text":null,"flag":true,"integer":0,"float":null}
+        ]);
+        let batches = json_to_record_batches_with_batch_size(&input, 1).unwrap();
+        assert_eq!(batches.len(), 3);
+        let output = record_batches_to_json(&batches).unwrap();
+        assert_eq!(output, input);
+        for field in ["text", "flag", "integer", "float"] {
+            assert_eq!(
+                output[0].as_object().unwrap().get(field),
+                Some(&Value::Null)
+            );
+        }
+    }
+
+    #[test]
+    fn test_nullable_nested_structs_and_lists() {
+        let input = json!([
+            {"id":1,"record":{"name":"a","note":null},
+                "items":[{"name":"x","note":null}],"tags":["a",null]},
+            {"id":2,"record":null,"items":[],"tags":null},
+            {"id":3,"record":{"name":null,"note":"present"},"items":null,"tags":[]}
+        ]);
+        let batches = json_to_record_batches(&input).unwrap();
+        let output = record_batches_to_json(&batches).unwrap();
+        assert_eq!(output, input);
+        assert_eq!(output[0]["record"].get("note"), Some(&Value::Null));
+        assert_eq!(output[0]["items"][0].get("note"), Some(&Value::Null));
+        assert_eq!(output[1].get("record"), Some(&Value::Null));
+    }
+
+    #[test]
+    fn test_arrow_null_struct_list_elements_are_preserved() {
+        use arrow::array::{Array, ListBuilder, StringBuilder, StructBuilder};
+        use arrow::datatypes::{DataType, Field, Schema};
+
+        // External Arrow/Parquet data can contain null list elements of struct
+        // type, even though JSON schema inference currently rejects that shape.
+        let fields = vec![
+            Field::new("name", DataType::Utf8, true),
+            Field::new("note", DataType::Utf8, true),
+        ];
+        let fields = arrow::datatypes::Fields::from(fields);
+        let mut items = ListBuilder::new(StructBuilder::from_fields(fields, 2));
+        for (name, valid) in [(Some("x"), true), (None, false)] {
+            items
+                .values()
+                .field_builder::<StringBuilder>(0)
+                .unwrap()
+                .append_option(name);
+            items
+                .values()
+                .field_builder::<StringBuilder>(1)
+                .unwrap()
+                .append_null();
+            items.values().append(valid);
+        }
+        items.append(true);
+        items.append(false);
+        let items = Arc::new(items.finish());
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "items",
+            items.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![items]).unwrap();
+        assert_eq!(
+            record_batch_to_json(&batch).unwrap(),
+            json!([{"items":[{"name":"x","note":null},null]}, {"items":null}])
+        );
+    }
+
+    #[test]
+    fn test_schema_fields_missing_in_json_become_explicit_nulls() {
+        // Arrow represents an absent JSON field and explicit null identically.
+        let input = json!([
+            {"id":1,"record":{"name":"a"}},
+            {"id":2,"record":{},"optional":"present"},
+            {"id":3}
+        ]);
+        let batches = json_to_record_batches(&input).unwrap();
+        assert_eq!(
+            record_batches_to_json(&batches).unwrap(),
+            json!([
+                {"id":1,"record":{"name":"a"},"optional":null},
+                {"id":2,"record":{"name":null},"optional":"present"},
+                {"id":3,"record":null,"optional":null}
+            ])
+        );
     }
 
     #[test]
