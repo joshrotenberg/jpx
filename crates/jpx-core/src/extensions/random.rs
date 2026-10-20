@@ -45,7 +45,7 @@ impl RandomFn {
 
 impl Function for RandomFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use rand::Rng;
+        use rand::RngExt;
 
         // Manual validation: accept 0 or 2 arguments
         if !args.is_empty() && args.len() != 2 {
@@ -77,7 +77,7 @@ impl Function for RandomFn {
                     "random() requires finite bounds with a finite difference. Use a narrower range.",
                 ));
             }
-            // rand 0.9 may round floating-point samples up to max. Reject
+            // Floating-point sampling may round samples up to max. Reject
             // those values to preserve this function's half-open range.
             loop {
                 let sample = rng.random_range(min..max);
@@ -166,7 +166,7 @@ fn random_int_bound(value: &Value) -> Option<i64> {
 
 impl Function for RandomIntFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
-        use rand::Rng;
+        use rand::RngExt;
 
         if args.len() != 2 {
             return Err(custom_error(ctx, "random_int() takes 2 arguments"));
@@ -290,12 +290,10 @@ impl Function for SampleFn {
                 .ok_or_else(|| custom_error(ctx, "Expected number for seed"))?
                 as u64;
             let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-            arr.choose_multiple(&mut rng, n.min(arr.len()))
-                .cloned()
-                .collect()
+            arr.sample(&mut rng, n.min(arr.len())).cloned().collect()
         } else {
             // Random sample
-            arr.choose_multiple(&mut rand::rng(), n.min(arr.len()))
+            arr.sample(&mut rand::rng(), n.min(arr.len()))
                 .cloned()
                 .collect()
         };
