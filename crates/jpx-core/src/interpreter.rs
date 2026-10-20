@@ -197,7 +197,8 @@ fn index_ref(data: &Value, idx: i32) -> &Value {
     let element = if idx >= 0 {
         data.get_index_ref(idx as usize)
     } else {
-        data.get_negative_index_ref((-idx) as usize)
+        // i32::MIN has no positive i32 counterpart; its unsigned magnitude is valid.
+        data.get_negative_index_ref(idx.unsigned_abs() as usize)
     };
     element.unwrap_or(&NULL)
 }
