@@ -20,7 +20,7 @@ The `jpx` binary also embeds an offline guide: run `jpx --skills` for the index 
 ## Project overview
 
 jpx is a JMESPath CLI and toolchain with 470+ extension functions.
-Written in Rust (edition 2024, rust-version 1.90), dual-licensed MIT/Apache-2.0.
+Written in Rust (edition 2024, rust-version 1.95), dual-licensed MIT/Apache-2.0.
 
 ### Workspace crates
 
