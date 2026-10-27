@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.1...jpx-v0.5.2) - 2026-10-27
+
+### Added
+
+- embed offline query-library guide ([#284](https://github.com/joshrotenberg/jpx/pull/284))
+- inspect bounded REPL history ([#283](https://github.com/joshrotenberg/jpx/pull/283))
+- resolve prioritized CLI and MCP backlog ([#253](https://github.com/joshrotenberg/jpx/pull/253))
+
+### Fixed
+
+- *(cli)* exclude input clone and result drop from --bench timings ([#324](https://github.com/joshrotenberg/jpx/pull/324))
+- infer nullable lists for Parquet export ([#310](https://github.com/joshrotenberg/jpx/pull/310))
+- preserve null keys when reading Parquet ([#309](https://github.com/joshrotenberg/jpx/pull/309))
+- parse JSON floats with correctly rounded binary64 conversion ([#271](https://github.com/joshrotenberg/jpx/pull/271))
+- *(cli)* replace unmaintained YAML serialization dependency ([#294](https://github.com/joshrotenberg/jpx/pull/294))
+- validate nanoid size before allocation ([#282](https://github.com/joshrotenberg/jpx/pull/282))
+- preserve exact random integer bounds ([#279](https://github.com/joshrotenberg/jpx/pull/279))
+- preserve exact numeric comparisons across query operations ([#268](https://github.com/joshrotenberg/jpx/pull/268))
+
+### Other
+
+- *(deps)* bump rustyline from 17.0.2 to 19.0.0 ([#318](https://github.com/joshrotenberg/jpx/pull/318))
+- Restrict strict ordering operators to numeric operands ([#314](https://github.com/joshrotenberg/jpx/pull/314))
+- *(deps)* bump tabled from 0.21.0 to 0.22.0 ([#303](https://github.com/joshrotenberg/jpx/pull/303))
+- *(deps)* bump serde-saphyr from 1.3.0 to 2.0.0 ([#304](https://github.com/joshrotenberg/jpx/pull/304))
+- *(deps)* bump dirs from 6.0.0 to 7.0.0 ([#305](https://github.com/joshrotenberg/jpx/pull/305))
+- *(deps)* bump arrow and parquet to 60 ([#299](https://github.com/joshrotenberg/jpx/pull/299))
+- add reproducible JMESPath compatibility audit probes ([#295](https://github.com/joshrotenberg/jpx/pull/295))
+- *(cli)* test and explain bare literal compatibility ([#293](https://github.com/joshrotenberg/jpx/pull/293))
+- make agent recipes correct and executable ([#269](https://github.com/joshrotenberg/jpx/pull/269))
+- *(deps)* bump rand from 0.8.7 to 0.9.5 ([#230](https://github.com/joshrotenberg/jpx/pull/230))
+- *(deps)* bump nanoid from 0.4.0 to 0.5.0 ([#252](https://github.com/joshrotenberg/jpx/pull/252))
+- treat error messages as a contract, and enforce it ([#243](https://github.com/joshrotenberg/jpx/pull/243))
+- *(deps)* bump toml from 0.9.12+spec-1.1.0 to 1.1.4+spec-1.1.0 ([#228](https://github.com/joshrotenberg/jpx/pull/228))
+
 ### Added
 
 - add `--skills` to print an offline guide index and the `query-libraries` topic embedded in the binary, with `--json` output ([#224](https://github.com/joshrotenberg/jpx/issues/224))
