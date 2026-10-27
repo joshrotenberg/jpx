@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 249,
+  "case_index": 1720,
+  "source": null,
+  "expression": "True &&& Number",
+  "document": [
+    false,
+    5267.75,
+    {},
+    9007199254740993,
+    9007199254740993,
+    {
+      "oi": 9223372036854775807,
+      "u": 9223372036854775807,
+      "y": null
+    }
+  ]
+}

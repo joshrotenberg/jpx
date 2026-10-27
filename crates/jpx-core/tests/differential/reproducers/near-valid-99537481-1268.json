@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 99537481,
+  "case_index": 1268,
+  "source": null,
+  "expression": "!False &&& !EmptyList",
+  "document": [
+    true,
+    {
+      "items": -1240.75,
+      "q": null
+    },
+    "o\\\\\\'\n_B1'b\netmA\n\nλ"
+  ]
+}

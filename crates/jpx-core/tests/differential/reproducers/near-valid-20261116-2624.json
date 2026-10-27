@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 20261116,
+  "case_index": 2624,
+  "source": null,
+  "expression": "!True &&& False",
+  "document": {}
+}
