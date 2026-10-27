@@ -79,7 +79,7 @@ defn!(UlidFn, vec![], None);
 impl Function for UlidFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
-        let id = ulid::Ulid::new().to_string();
+        let id = ulid::Ulid::generate().to_string();
         Ok(Value::String(id))
     }
 }
@@ -259,7 +259,7 @@ mod tests {
     fn test_ulid_timestamp() {
         let runtime = setup_runtime();
         // Generate a ULID and extract its timestamp
-        let ulid = ulid::Ulid::new();
+        let ulid = ulid::Ulid::generate();
         let ulid_str = ulid.to_string();
         let expected_ts = ulid.timestamp_ms();
 
