@@ -1,6 +1,9 @@
 name: JMESPath differential campaign
 
 on:
+  schedule:
+    # Weekly on Monday at 07:00 UTC, after the benchmark baseline
+    - cron: "0 7 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +37,16 @@ jobs:
       # The campaign itself is offline and never invokes another service.
       - name: Fetch locked dependencies
         run: cargo fetch --locked
+      # Manual runs replay the reviewed baseline. Scheduled runs keep both
+      # reviewed seeds and add the run date as a seed, so each week explores
+      # new inputs while every failure stays reproducible from the summary.
+      - name: Select campaign inputs
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            echo "JPX_DIFF_CASES=4096" >> "$GITHUB_ENV"
+            echo "JPX_DIFF_SEEDS=249,99537481,$(date -u +%Y%m%d)" >> "$GITHUB_ENV"
+          fi
       - name: Run bounded deterministic campaign
         shell: bash
         run: |
@@ -41,6 +54,8 @@ jobs:
           mkdir -p target/tmp/due-scratch
           rustc -vV > target/tmp/due-scratch/toolchain.txt
           git rev-parse HEAD > target/tmp/due-scratch/revision.txt
+          echo "Seeds: $JPX_DIFF_SEEDS; cases per population per seed: $JPX_DIFF_CASES" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           cargo test --offline --locked -p jpx-core ${{ matrix.features }} \
             --test differential differential_large -- --ignored --exact --nocapture \
             2>&1 | tee target/tmp/due-scratch/differential-campaign.log

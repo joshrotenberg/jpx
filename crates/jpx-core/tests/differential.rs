@@ -300,6 +300,74 @@ fn reference_failure_reason(
         .map(|entry| entry.reason.to_owned())
 }
 
+// A reviewed reference grammar violation, matched structurally rather than by
+// exact expression. The JMESPath grammar defines `&expression` only as a
+// function-arg; jpx rejects it elsewhere, while the reference accepts it in any
+// position and then evaluates the stray expression reference. Covered only
+// when all of these hold:
+// - jpx fails compilation with its misplaced-expref parse error;
+// - the reference parses the expression and its AST holds an expref that is
+//   not a direct function argument;
+// - the reference outcome is a JSON result, a typed error, or the specific
+//   non-JSON expref result. Panics and conversion failures are never covered.
+const JPX_MISPLACED_EXPREF: &str = "only allowed as function arguments";
+const REFERENCE_EXPREF_RESULT: &str = "reference returned a non-JSON expression reference";
+const MISPLACED_EXPREF_REASON: &str = "Reference grammar violation in the jmespath crate (0.5): it \
+     accepts `&expression` outside function arguments, which the specification's \
+     function-arg/expression-type grammar does not allow, and evaluates the stray \
+     expref. jpx rejects it with a parse error. See differential/README.md and issue #249.";
+
+fn reference_has_misplaced_expref(ast: &jmespath::ast::Ast) -> bool {
+    use jmespath::ast::Ast as A;
+    // Exhaustive: a new reference AST variant must be reviewed here.
+    fn walk(ast: &A, direct_argument: bool) -> bool {
+        match ast {
+            A::Expref { ast, .. } => !direct_argument || walk(ast, false),
+            A::Function { args, .. } => args.iter().any(|arg| walk(arg, true)),
+            A::Comparison { lhs, rhs, .. }
+            | A::Projection { lhs, rhs, .. }
+            | A::And { lhs, rhs, .. }
+            | A::Or { lhs, rhs, .. }
+            | A::Subexpr { lhs, rhs, .. } => walk(lhs, false) || walk(rhs, false),
+            A::Condition {
+                predicate, then, ..
+            } => walk(predicate, false) || walk(then, false),
+            A::Flatten { node, .. } | A::Not { node, .. } | A::ObjectValues { node, .. } => {
+                walk(node, false)
+            }
+            A::MultiList { elements, .. } => elements.iter().any(|e| walk(e, false)),
+            A::MultiHash { elements, .. } => elements.iter().any(|kv| walk(&kv.value, false)),
+            A::Identity { .. }
+            | A::Field { .. }
+            | A::Index { .. }
+            | A::Literal { .. }
+            | A::Slice { .. } => false,
+        }
+    }
+    walk(ast, false)
+}
+
+fn misplaced_expref_reason(repro: &Repro, jpx: &Outcome, reference: &Outcome) -> Option<String> {
+    if jpx != &Outcome::Error(ErrorClass::Syntax) {
+        return None;
+    }
+    match reference {
+        Outcome::Json(_) | Outcome::Error(_) => {}
+        Outcome::Unexpected(message) if message == REFERENCE_EXPREF_RESULT => {}
+        _ => return None,
+    }
+    let jpx_rejects_expref = match Runtime::strict().compile(&repro.expression) {
+        Err(error) => matches!(
+            &error.reason,
+            jpx_core::ErrorReason::Parse(message) if message.contains(JPX_MISPLACED_EXPREF)
+        ),
+        Ok(_) => false,
+    };
+    let reference_accepts_expref =
+        jmespath::parse(&repro.expression).is_ok_and(|ast| reference_has_misplaced_expref(&ast));
+    (jpx_rejects_expref && reference_accepts_expref).then(|| MISPLACED_EXPREF_REASON.to_owned())
+}
+
 fn allowed_reason(
     repro: &Repro,
     jpx: &Outcome,
@@ -331,7 +399,8 @@ fn record(repro: Repro) -> Record {
     Record {
         agreement: agrees(&jpx, &reference),
         allowlist_reason: allowed_reason(&repro, &jpx, &reference, ALLOWLIST)
-            .or_else(|| reference_failure_reason(&repro, &jpx, &reference, REFERENCE_FAILURES)),
+            .or_else(|| reference_failure_reason(&repro, &jpx, &reference, REFERENCE_FAILURES))
+            .or_else(|| misplaced_expref_reason(&repro, &jpx, &reference)),
         repro,
         jpx,
         reference,
@@ -806,6 +875,109 @@ mod tests {
         assert!(allowed_reason(&repro, &reference, &jpx, &entries).is_none());
         entries[0].reason = " ";
         assert!(allowed_reason(&repro, &jpx, &reference, &entries).is_none());
+    }
+
+    // Retained near-valid inputs from the 4096-case, eight-seed campaign that
+    // found the misplaced-expref grammar violation.
+    const MISPLACED_EXPREF_REPRODUCERS: &[&str] = &[
+        "near-valid-99537481-1268.json",
+        "near-valid-20261102-303.json",
+        "near-valid-20261109-1630.json",
+        "near-valid-20261109-3679.json",
+        "near-valid-20261116-2624.json",
+        "near-valid-20261116-3262.json",
+        "near-valid-20261123-4094.json",
+        "near-valid-249-1720.json",
+    ];
+
+    #[test]
+    fn misplaced_expref_rule_covers_retained_reproducers() {
+        for name in MISPLACED_EXPREF_REPRODUCERS {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/differential/reproducers")
+                .join(name);
+            let record = replay_json(&fs::read(&path).expect("read retained reproducer"));
+            assert!(
+                !record.agreement,
+                "{name} no longer diverges; review the rule"
+            );
+            assert_eq!(record.jpx, Outcome::Error(ErrorClass::Syntax), "{name}");
+            assert_eq!(
+                record.allowlist_reason.as_deref(),
+                Some(MISPLACED_EXPREF_REASON),
+                "{name}"
+            );
+            assert!(require_agreement(&record).is_ok());
+        }
+    }
+
+    #[test]
+    fn misplaced_expref_detection_follows_function_argument_positions() {
+        let misplaced = |expr: &str| {
+            reference_has_misplaced_expref(&jmespath::parse(expr).expect("reference parses"))
+        };
+        for expr in [
+            "sort_by(@, &a)",
+            "f(&a, &b)",
+            "f(g(&a))",
+            "max_by(@, &a | b)",
+        ] {
+            assert!(!misplaced(expr), "{expr}");
+        }
+        for expr in [
+            "&a",
+            "a | &b",
+            "a && &b",
+            "!&a",
+            "[&a]",
+            "{x: &a}",
+            "a[?&b]",
+            "f([&a])",
+            "f(a | &b)",
+            "f(&[&a])",
+        ] {
+            assert!(misplaced(expr), "{expr}");
+        }
+    }
+
+    #[test]
+    fn misplaced_expref_rule_is_narrow() {
+        let syntax = Outcome::Error(ErrorClass::Syntax);
+        let covered = |expr: &str, jpx: &Outcome, reference: &Outcome| {
+            misplaced_expref_reason(&repro(expr, json!(null)), jpx, reference).is_some()
+        };
+        let expref = Outcome::Unexpected(REFERENCE_EXPREF_RESULT.into());
+        for reference in [
+            Outcome::Json(json!(null)),
+            Outcome::Error(ErrorClass::InvalidArity),
+            expref.clone(),
+        ] {
+            assert!(covered("a |& b", &syntax, &reference));
+        }
+        // jpx must report a syntax error, not a result or another failure.
+        for jpx in [
+            Outcome::Json(json!(null)),
+            Outcome::Error(ErrorClass::InvalidType),
+            Outcome::Panic("injected".into()),
+            Outcome::Unexpected("injected".into()),
+        ] {
+            assert!(!covered("a |& b", &jpx, &expref));
+        }
+        // Reference panics, conversion failures and other unexpected errors
+        // are never covered.
+        for reference in [
+            Outcome::Panic(REFERENCE_EXPREF_RESULT.into()),
+            Outcome::ConversionFailure(REFERENCE_EXPREF_RESULT.into()),
+            Outcome::Unexpected("parse error during search: injected".into()),
+        ] {
+            assert!(!covered("a |& b", &syntax, &reference));
+        }
+        // A valid function-argument expref, or a jpx syntax error for another
+        // reason, is not covered even if both outcomes are injected.
+        assert!(!covered("sort_by(@, &a)", &syntax, &expref));
+        assert!(!covered("a[", &syntax, &Outcome::Json(json!(null))));
+        // jpx and the reference must both see the misplaced expref.
+        assert!(!covered("a | b", &syntax, &Outcome::Json(json!(null))));
     }
 
     #[test]

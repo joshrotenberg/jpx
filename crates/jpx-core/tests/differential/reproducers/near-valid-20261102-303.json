@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 20261102,
+  "case_index": 303,
+  "source": null,
+  "expression": "!(True |& False)",
+  "document": {
+    "b": 2395675243760639345,
+    "mph": null,
+    "nd": null
+  }
+}
