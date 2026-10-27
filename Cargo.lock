@@ -2641,17 +2641,17 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rphonetic"
-version = "3.0.6"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "281c97095b4c3d5de9fae5abc43299a9d0035a9ffa8fb513371da7e641f7f3e2"
+checksum = "ff25b017e5fc22fd7b340d08779112a2a2fe2f448a9fb53cb629258f342ee018"
 dependencies = [
  "document-features",
  "either",
  "enum-iterator",
- "lazy_static",
  "nom",
  "regex",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
