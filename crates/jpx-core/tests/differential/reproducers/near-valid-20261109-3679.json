@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 20261109,
+  "case_index": 3679,
+  "source": null,
+  "expression": "True |& False",
+  "document": [
+    4234985531528143725,
+    {},
+    5930.0,
+    {
+      "gramd": 11483981567718240992
+    },
+    "\n\n\\qλ5OIk'_\n\"a",
+    null
+  ]
+}

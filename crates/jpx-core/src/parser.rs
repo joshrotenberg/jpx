@@ -34,6 +34,10 @@ struct Parser<'a> {
     expr: &'a str,
     offset: usize,
     depth: usize,
+    /// Set immediately before parsing a function argument or a let binding
+    /// value, and consumed by the next `nud`. The grammar only permits
+    /// `&expression` in those positions.
+    expref_allowed: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -44,6 +48,7 @@ impl<'a> Parser<'a> {
             expr,
             offset: 0,
             depth: 0,
+            expref_allowed: false,
         }
     }
 
@@ -131,6 +136,7 @@ impl<'a> Parser<'a> {
     }
 
     fn nud_inner(&mut self) -> ParseResult {
+        let expref_allowed = std::mem::take(&mut self.expref_allowed);
         let (offset, token) = self.advance_with_pos();
         match token {
             Token::At => Ok(Ast::Identity { offset }),
@@ -177,6 +183,13 @@ impl<'a> Parser<'a> {
                 })
             }
             t @ Token::Ampersand => {
+                if !expref_allowed {
+                    return Err(self.err(
+                        &t,
+                        "Expression references (&expr) are only allowed as function arguments or let binding values",
+                        false,
+                    ));
+                }
                 let rhs = self.expr(t.lbp())?;
                 Ok(Ast::Expref {
                     ast: Box::new(rhs),
@@ -300,6 +313,7 @@ impl<'a> Parser<'a> {
                             ));
                         }
                     }
+                    self.expref_allowed = true;
                     let value = self.parse_let_binding_expr()?;
                     bindings.push((var_name, value));
                     match self.peek(0) {
@@ -564,6 +578,7 @@ impl<'a> Parser<'a> {
     fn parse_list(&mut self, closing: Token<'_>) -> Result<Vec<Ast>, JmespathError> {
         let mut nodes = vec![];
         while self.peek(0) != &closing {
+            self.expref_allowed = closing == Token::Rparen;
             nodes.push(self.expr(0)?);
             if self.peek(0) == &Token::Comma {
                 self.advance();
@@ -784,9 +799,49 @@ mod tests {
     }
 
     #[test]
-    fn parse_expref() {
-        let ast = parse("&foo").unwrap();
-        assert!(matches!(ast, Ast::Expref { .. }));
+    fn parse_expref_as_function_argument() {
+        for expr in [
+            "sort_by(@, &foo)",
+            "max_by(@, &foo | bar)",
+            "f(&a, &b)",
+            "f(g(&a))",
+        ] {
+            assert!(parse(expr).is_ok(), "{expr}");
+        }
+        match parse("sort_by(@, &foo)").unwrap() {
+            Ast::Function { args, .. } => assert!(matches!(args[1], Ast::Expref { .. })),
+            _ => panic!("expected Function"),
+        }
+    }
+
+    #[test]
+    fn reject_expref_outside_function_arguments() {
+        // The grammar only defines `&expression` as a function-arg; elsewhere
+        // it previously parsed and evaluated to a stray expref (shown as null).
+        for expr in [
+            "&foo",
+            "a | &b",
+            "a |& b",
+            "a && &b",
+            "!a &&& b",
+            "!&a",
+            "(&a)",
+            "[&a, &b]",
+            "{x: &a}",
+            "a[?&b]",
+            "a == &b",
+            "f([&a])",
+            "f({x: &a})",
+            "f(a | &b)",
+            "f(!&a)",
+        ] {
+            let err = parse(expr).expect_err(expr);
+            assert!(
+                err.to_string()
+                    .contains("only allowed as function arguments"),
+                "{expr}: {err}"
+            );
+        }
     }
 
     #[test]
@@ -888,6 +943,24 @@ mod tests {
     fn parse_nesting_within_limit_ok() {
         assert!(parse(&format!("{}a", "!".repeat(100))).is_ok());
         assert!(parse(&format!("a{}", ".a".repeat(100))).is_ok());
+    }
+
+    #[cfg(feature = "let-expr")]
+    #[test]
+    fn parse_expref_as_let_binding_value() {
+        for expr in [
+            "let $f = &a in sort_by(@, $f)",
+            "let $x = a, $f = &b in max_by($x, $f)",
+        ] {
+            assert!(parse(expr).is_ok(), "{expr}");
+        }
+        for expr in [
+            "let $f = [&a] in $f",
+            "let $f = a in &b",
+            "let $f = a | &b in $f",
+        ] {
+            assert!(parse(expr).is_err(), "{expr}");
+        }
     }
 
     #[cfg(feature = "let-expr")]

@@ -188,6 +188,16 @@ echo '[1, 2, 3]' | jpx 'map(&@ * `2`, @)'
 # [2, 4, 6]
 ```
 
+An expression reference is only valid as a function argument, or as a `let`
+binding value that is later passed to a function:
+
+```bash
+echo '[{"age": 30}, {"age": 20}]' | jpx 'let $by_age = &age in sort_by(@, $by_age)'
+# [{"age": 20}, {"age": 30}]
+```
+
+Anywhere else, such as `a | &b` or `[&a]`, is a parse error.
+
 ## Let Expressions (JEP-18)
 
 Bind intermediate results to variables with `let`:

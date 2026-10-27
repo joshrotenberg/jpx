@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 20261109,
+  "case_index": 1630,
+  "source": null,
+  "expression": "True |& Number",
+  "document": {
+    "cd": 2601495844233686445
+  }
+}

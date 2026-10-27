@@ -70,6 +70,20 @@ pub(crate) fn run_benchmark(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    // Search the borrowed input directly so each iteration neither clones the
+    // input nor pays to drop that clone inside the timed region.
+    let run_chain = || -> Result<Value> {
+        let mut exprs = compiled.iter();
+        let mut result = match exprs.next() {
+            Some(expr) => expr.search(data).map_err(|e| anyhow::anyhow!("{}", e))?,
+            None => data.clone(),
+        };
+        for expr in exprs {
+            result = expr.search(&result).map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        Ok(result)
+    };
+
     // Combined expression string for display
     let expr_display = if expressions.len() == 1 {
         expressions[0].clone()
@@ -104,10 +118,7 @@ pub(crate) fn run_benchmark(
         print!("{} {} iterations... ", label("Warmup:"), warmup);
         io::stdout().flush()?;
         for _ in 0..warmup {
-            let mut result: Value = data.clone();
-            for expr in &compiled {
-                result = expr.search(&result).map_err(|e| anyhow::anyhow!("{}", e))?;
-            }
+            run_chain()?;
         }
         println!("done");
     }
@@ -123,12 +134,11 @@ pub(crate) fn run_benchmark(
     let mut timings: Vec<f64> = Vec::with_capacity(iterations as usize);
 
     for _ in 0..iterations {
-        let mut result: Value = data.clone();
         let start = Instant::now();
-        for expr in &compiled {
-            result = expr.search(&result).map_err(|e| anyhow::anyhow!("{}", e))?;
-        }
+        let result = run_chain()?;
         let elapsed = start.elapsed();
+        // Drop the result outside the timed region.
+        drop(result);
         timings.push(elapsed.as_secs_f64() * 1000.0); // Convert to milliseconds
     }
 

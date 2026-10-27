@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "population": "near-valid",
+  "seed": 20261116,
+  "case_index": 3262,
+  "source": null,
+  "expression": "sort_by(people| &age)[].name",
+  "document": {
+    "b": null,
+    "uc": "z6'Be\"\\\\'Of\\p4R\\K"
+  }
+}

@@ -30,10 +30,19 @@ JPX_DIFF_CASES=1024 JPX_DIFF_SEEDS=249,99537481 \
 ```
 
 Replace `--no-default-features` with `--all-features` to exercise the feature-rich
-build. `.github/workflows/differential.yml` initially runs both configurations
-only via `workflow_dispatch`, with read-only repository permissions, a 20-minute
-job limit, and artifact upload even on failure. Cold CI runners first fetch the
-existing locked dependencies; campaign evaluation is offline.
+build. `.github/workflows/differential.yml` runs both configurations with
+read-only repository permissions, a 20-minute job limit, and artifact upload even
+on failure. Cold CI runners first fetch the existing locked dependencies;
+campaign evaluation is offline.
+
+| Trigger | Cases per population per seed | Seeds |
+| --- | --- | --- |
+| `workflow_dispatch` | 1024 | `249,99537481` (the reviewed baseline) |
+| weekly schedule (Monday 07:00 UTC) | 4096 | `249,99537481,<run date as YYYYMMDD>` |
+
+The dated seed gives each scheduled run new inputs. The job summary and
+`summary.json` record the seeds, so a scheduled failure replays locally with the
+same `JPX_DIFF_CASES` and `JPX_DIFF_SEEDS`.
 
 | Control | Default | Bound |
 | --- | --- | --- |
@@ -156,8 +165,8 @@ is supporting evidence; otherwise mark it unclassified. Do not change runtime
 code, remove a population, alter seeds, or narrow generation merely to obtain a
 passing campaign. Runtime fixes and policy decisions are separate follow-ups.
 
-There are two reviewed exception lists, and both require a non-blank reason.
-Tests enforce the matching rules below.
+There are two reviewed exception lists and one reviewed structural rule; all
+require a non-blank reason. Tests enforce the matching rules below.
 
 `ALLOWLIST` covers a divergence where both engines returned a JSON result or a
 typed error. It is deliberately empty. A future entry must include a reason and
@@ -173,6 +182,19 @@ jpx outcome, which must be a JSON result or a typed error. The document is not
 part of the key. jpx-side panics, jpx-side unexpected errors, and conversion
 failures or panics on either side are never covered. The reason must name the
 reference bug and its evidence.
+
+The **misplaced-expref rule** covers one reviewed reference grammar violation.
+The specification defines `&expression` only as a function argument; jpx rejects
+it elsewhere (and accepts it as a `let` binding value), while the reference
+accepts it in any position and evaluates the stray expression reference. Because
+generated inputs produce endless variants (`a |& b`, `a &&& b`, `f(a | &b)`), the
+rule is structural rather than keyed by expression. It applies only when jpx
+fails compilation with its misplaced-expref parse error, the reference parses
+the expression into an AST holding an expref that is not a direct function
+argument, and the reference outcome is a JSON result, a typed error, or a
+non-JSON expref result. Reference panics, conversion failures and other
+unexpected errors are never covered. The AST walk matches every reference
+variant exhaustively, so a reference upgrade that adds one must be reviewed.
 
 There are no broad regex or error-class exemptions. Keep a reproducer and
 regression alongside any approved exception; never silently add an exception
@@ -195,6 +217,7 @@ replay always computes current behavior. `ALLOWLIST` remains empty;
 | Reproducer | Classification and evidence |
 | --- | --- |
 | `compliance-249-322.json`, `compliance-249-872.json` | Reviewed reference bug, covered by `REFERENCE_FAILURES`: `avg(empty_list)` returns null in jpx, but the reference computes 0/0 and returns a Parse error during search. This is present in `jmespath` 0.3 and still present in 0.5. The harness reports it as unexpected, not syntax. The [specification](https://jmespath.org/specification.html#avg) and vendored `functions.json` case both require null. |
+| `near-valid-*.json` (eight files) | Reviewed reference grammar violation, covered by the misplaced-expref rule. Found by a 4,096-case campaign over eight seeds; jpx previously accepted the same inputs and returned `null` or a truthy stray expref. jpx now rejects `&` outside function arguments and let binding values, per the [function-arg grammar](https://jmespath.org/specification.html#grammar). |
 | `grammar-99537481-147.json`, `grammar-99537481-184.json`, `grammar-99537481-557.json` | Fixed jpx strict-ordering bug ([#313](https://github.com/joshrotenberg/jpx/issues/313)): strict ordering now returns null for non-numeric operands, matching the [ordering specification](https://jmespath.org/specification.html#ordering-operators). Default-mode string ordering, equality and standard string-sorting functions remain unchanged. These inputs remain as replayable regressions. |
 
 Replay any row by selecting its filename; for example:
@@ -217,12 +240,16 @@ pass. The unchanged 1,024-case-per-population campaign with seeds 249 and
 failures. `ALLOWLIST` remains empty; neither the generator, seeds, comparator,
 reference exception nor retained inputs were weakened to obtain these results.
 
-This is agreement for a finite input set, not proof of full conformance.
-The workflow remains manual-only, preserves failing test exits and uploads full
-logs and reproducers even on failure. Enabling a schedule remains separate,
-reviewed work under [issue #249](https://github.com/joshrotenberg/jpx/issues/249);
-the runtime fix does not change that policy or complete the broader profile
-audit in #235. Keep failure reporting and artifact handling validated before
-changing the workflow's triggers.
+A follow-up campaign at 4,096 cases per population over eight seeds (the two
+reviewed seeds plus six dated seeds) found the misplaced-expref divergences. After
+the parser fix and the reviewed rule, that campaign and a further sixteen dated
+seeds pass in both configurations with zero unallowed divergences, before the
+weekly schedule was enabled ([issue #249](https://github.com/joshrotenberg/jpx/issues/249)).
+
+This is agreement for a finite input set, not proof of full conformance, and it
+does not complete the broader profile audit in #235. The workflow preserves
+failing test exits and uploads full logs and reproducers even on failure; a red
+scheduled run is a finding to classify, not a reason to change seeds or
+generation.
 The sampled compliance population supplements the existing exhaustive vendored
 suite; it does not replace it or promise every corpus pair appears in one run.
