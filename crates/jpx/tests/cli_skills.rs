@@ -622,7 +622,9 @@ fn example_parser_pairs_output_and_rejects_ambiguous_fences() {
 #[test]
 fn every_embedded_shell_example_prints_its_documented_output() {
     let binary_dir = tempfile::tempdir().unwrap();
-    fs::copy(env!("CARGO_BIN_EXE_jpx"), binary_dir.path().join("jpx")).unwrap();
+    // A symlink, not a copy: a copied binary can fail with ETXTBSY when a
+    // concurrently forked test process still holds the copy's write handle.
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_jpx"), binary_dir.path().join("jpx")).unwrap();
     let path = std::env::join_paths([
         binary_dir.path(),
         std::path::Path::new("/usr/bin"),
