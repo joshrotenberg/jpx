@@ -6,7 +6,10 @@ use std::borrow::Borrow;
 
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, arg, borrowed_function, number_value};
+use crate::functions::{
+    Function, abs_value, arg, borrowed_function, exact_int, int_value, integral_value,
+    number_value, rounded_value,
+};
 use crate::interpreter::SearchResult;
 use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::{Context, Runtime, arg, defn};
@@ -122,6 +125,13 @@ pub fn register_filtered(runtime: &mut Runtime, enabled: &HashSet<&str>) {
     );
 }
 
+/// Applies a checked integer operation when both operands are integer-stored
+/// numbers. Returns `None` for float operands, a failed operation, or a result
+/// outside the `i64`/`u64` range, so the caller can fall back to `f64`.
+fn exact_int_op(a: &Value, b: &Value, op: impl Fn(i128, i128) -> Option<i128>) -> Option<Value> {
+    int_value(op(exact_int(a)?, exact_int(b)?)?)
+}
+
 // =============================================================================
 // round(number, precision?) -> number
 // =============================================================================
@@ -140,6 +150,11 @@ impl Function for RoundFn {
             0
         };
 
+        // An integer is already rounded to any non-negative precision.
+        if precision >= 0 && exact_int(&args[0]).is_some() {
+            return Ok(args[0].clone());
+        }
+
         let result = if precision == 0 {
             n.round()
         } else {
@@ -147,7 +162,11 @@ impl Function for RoundFn {
             (n * multiplier).round() / multiplier
         };
 
-        Ok(number_value(result))
+        if precision <= 0 {
+            Ok(integral_value(result))
+        } else {
+            Ok(number_value(result))
+        }
     }
 }
 
@@ -160,8 +179,7 @@ defn!(FloorFnExt, vec![arg!(number)], None);
 impl Function for FloorFnExt {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
-        Ok(Value::Number(Number::from(n.floor() as i64)))
+        Ok(rounded_value(&args[0], f64::floor))
     }
 }
 
@@ -174,8 +192,7 @@ defn!(CeilFnExt, vec![arg!(number)], None);
 impl Function for CeilFnExt {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
-        Ok(Value::Number(Number::from(n.ceil() as i64)))
+        Ok(rounded_value(&args[0], f64::ceil))
     }
 }
 
@@ -188,8 +205,7 @@ defn!(AbsFnExt, vec![arg!(number)], None);
 impl Function for AbsFnExt {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
-        let n = args[0].as_f64().unwrap();
-        Ok(number_value(n.abs()))
+        Ok(abs_value(&args[0]))
     }
 }
 
@@ -210,6 +226,10 @@ impl Function for ModFn {
             return Err(crate::functions::custom_error(ctx, "Division by zero"));
         }
 
+        if let Some(result) = exact_int_op(&args[0], &args[1], i128::checked_rem) {
+            return Ok(result);
+        }
+
         Ok(number_value(n % divisor))
     }
 }
@@ -223,6 +243,11 @@ defn!(PowFn, vec![arg!(number), arg!(number)], None);
 impl Function for PowFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
+        if let Some(result) = exact_int_op(&args[0], &args[1], |base, exp| {
+            base.checked_pow(u32::try_from(exp).ok()?)
+        }) {
+            return Ok(result);
+        }
         let base = args[0].as_f64().unwrap();
         let exp = args[1].as_f64().unwrap();
         Ok(number_value(base.powf(exp)))
@@ -294,6 +319,15 @@ defn!(
 impl Function for ClampFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
+
+        if let (Some(n), Some(min), Some(max)) = (
+            exact_int(&args[0]),
+            exact_int(&args[1]),
+            exact_int(&args[2]),
+        ) && let Some(result) = int_value(n.max(min).min(max))
+        {
+            return Ok(result);
+        }
 
         let n = args[0].as_f64().unwrap();
         let min = args[1].as_f64().unwrap();
@@ -570,6 +604,9 @@ defn!(AddFn, vec![arg!(number), arg!(number)], None);
 impl Function for AddFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
+        if let Some(result) = exact_int_op(&args[0], &args[1], i128::checked_add) {
+            return Ok(result);
+        }
         let a = args[0].as_f64().unwrap();
         let b = args[1].as_f64().unwrap();
         Ok(number_value(a + b))
@@ -585,6 +622,9 @@ defn!(SubtractFn, vec![arg!(number), arg!(number)], None);
 impl Function for SubtractFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
+        if let Some(result) = exact_int_op(&args[0], &args[1], i128::checked_sub) {
+            return Ok(result);
+        }
         let a = args[0].as_f64().unwrap();
         let b = args[1].as_f64().unwrap();
         Ok(number_value(a - b))
@@ -600,6 +640,9 @@ defn!(MultiplyFn, vec![arg!(number), arg!(number)], None);
 impl Function for MultiplyFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
+        if let Some(result) = exact_int_op(&args[0], &args[1], i128::checked_mul) {
+            return Ok(result);
+        }
         let a = args[0].as_f64().unwrap();
         let b = args[1].as_f64().unwrap();
         Ok(number_value(a * b))
@@ -1477,8 +1520,21 @@ impl Function for CumulativeSumFn {
         self.signature.validate(args, ctx)?;
 
         let arr = args[0].as_array().unwrap();
+        let numbers: Vec<&Value> = arr.iter().filter(|v| v.is_number()).collect();
 
-        let values: Vec<f64> = arr.iter().filter_map(|v| v.as_f64()).collect();
+        let mut exact_sum = 0i128;
+        let exact: Option<Vec<Value>> = numbers
+            .iter()
+            .map(|v| {
+                exact_sum = exact_sum.checked_add(exact_int(v)?)?;
+                int_value(exact_sum)
+            })
+            .collect();
+        if let Some(cumsum) = exact {
+            return Ok(Value::Array(cumsum));
+        }
+
+        let values: Vec<f64> = numbers.iter().filter_map(|v| v.as_f64()).collect();
 
         let mut running_sum = 0.0;
         let cumsum: Vec<Value> = values

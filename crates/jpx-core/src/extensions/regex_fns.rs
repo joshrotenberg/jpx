@@ -6,7 +6,6 @@ use serde_json::Value;
 
 use crate::functions::Function;
 use crate::functions::custom_error;
-use crate::functions::number_value;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -144,7 +143,7 @@ impl Function for RegexCountFn {
             .map_err(|e| custom_error(ctx, &format!("Invalid regex pattern: {e}")))?;
 
         let count = re.find_iter(input).count();
-        Ok(number_value(count as f64))
+        Ok(Value::from(count))
     }
 }
 
@@ -228,7 +227,7 @@ mod tests {
 
         let data = json!("abc123def456ghi789");
         let result = expr.search(&data).unwrap();
-        assert_eq!(result, json!(3.0));
+        assert_eq!(result, json!(3));
     }
 
     #[test]
@@ -238,7 +237,7 @@ mod tests {
 
         let data = json!("abcdef");
         let result = expr.search(&data).unwrap();
-        assert_eq!(result, json!(0.0));
+        assert_eq!(result, json!(0));
     }
 
     #[test]
@@ -248,7 +247,7 @@ mod tests {
 
         let data = json!("hello world");
         let result = expr.search(&data).unwrap();
-        assert_eq!(result, json!(3.0));
+        assert_eq!(result, json!(3));
     }
 
     #[test]

@@ -176,7 +176,7 @@ mod extension_functions {
             r#"[1, 2, 3, 4, 5]"#,
             "reduce_expr(&add(accumulator, current), @, `0`)",
         );
-        assert_eq!(result, "15.0");
+        assert_eq!(result, "15");
     }
 
     #[test]

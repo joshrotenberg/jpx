@@ -10,7 +10,7 @@ use std::borrow::Borrow;
 use serde_json::{Map, Number, Value};
 
 use crate::ast::Ast;
-use crate::functions::{Function, arg, borrowed_function, custom_error, number_value};
+use crate::functions::{Function, arg, borrowed_function, custom_error};
 use crate::interpreter::{SearchResult, interpret};
 use crate::registry::{register_borrowed_if_enabled, register_if_enabled};
 use crate::value_ext::{ValueExt, compare_numbers};
@@ -351,11 +351,11 @@ impl FindIndexExprFn {
         for (i, item) in arr.iter().enumerate() {
             let result = interpret(item, &ast, ctx)?;
             if result.is_truthy() {
-                return Ok(number_value(i as f64));
+                return Ok(Value::from(i));
             }
         }
 
-        Ok(number_value(-1.0))
+        Ok(Value::from(-1))
     }
 }
 

@@ -265,7 +265,7 @@
   },
   {
     "id": "reduce-context",
-    "outcome": "Reduce callbacks read accumulator and current fields; numeric addition yields 6.0.",
+    "outcome": "Reduce callbacks read accumulator and current fields; integer addition yields 6.",
     "docs": [
       "skills/jpx-functions/SKILL.md"
     ],
@@ -276,7 +276,7 @@
     ],
     "expected": {
       "status": 0,
-      "stdout": "6.0\n"
+      "stdout": "6\n"
     }
   },
   {

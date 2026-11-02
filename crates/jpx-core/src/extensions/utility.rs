@@ -22,12 +22,8 @@ impl Function for NowFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
 
-        if let Some(fallback) = args.first()
-            && let Some(n) = fallback.as_f64()
-        {
-            return Ok(Value::Number(
-                Number::from_f64(n).unwrap_or_else(|| Number::from(0)),
-            ));
+        if let Some(fallback @ Value::Number(_)) = args.first() {
+            return Ok(fallback.clone());
         }
 
         let timestamp = std::time::SystemTime::now()
@@ -49,12 +45,8 @@ impl Function for NowMsFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
 
-        if let Some(fallback) = args.first()
-            && let Some(n) = fallback.as_f64()
-        {
-            return Ok(Value::Number(
-                Number::from_f64(n).unwrap_or_else(|| Number::from(0)),
-            ));
+        if let Some(fallback @ Value::Number(_)) = args.first() {
+            return Ok(fallback.clone());
         }
 
         let timestamp = std::time::SystemTime::now()

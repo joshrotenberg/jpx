@@ -232,6 +232,60 @@ pub fn number_value(n: f64) -> Value {
     Number::from_f64(n).map_or(Value::Null, Value::Number)
 }
 
+/// Applies an integral rounding operation (`ceil`, `floor`, `round`). Integer
+/// input is already integral and is returned unchanged, without an `f64`
+/// round trip that would lose precision on large values.
+pub(crate) fn rounded_value(value: &Value, op: fn(f64) -> f64) -> Value {
+    if exact_int(value).is_some() {
+        return value.clone();
+    }
+    integral_value(op(value.as_f64().unwrap_or(0.0)))
+}
+
+/// Helper to create a number Value from an f64 that is integral by
+/// construction (`ceil`, `floor`, `round`). Whole values inside the `i64`
+/// range become integers so they print without a trailing `.0`; anything else
+/// falls back to [`number_value`].
+pub(crate) fn integral_value(n: f64) -> Value {
+    // -2^63 and 2^63 are exactly representable; `as i64` is exact in between.
+    const TWO_POW_63: f64 = 9_223_372_036_854_775_808.0;
+    if n.fract() == 0.0 && (-TWO_POW_63..TWO_POW_63).contains(&n) {
+        Value::from(n as i64)
+    } else {
+        number_value(n)
+    }
+}
+
+/// Returns the exact value of an integer-stored number. Floats (including
+/// whole ones such as `5.0`) and non-numbers return `None`.
+pub(crate) fn exact_int(value: &Value) -> Option<i128> {
+    let n = value.as_number()?;
+    n.as_i64()
+        .map(i128::from)
+        .or_else(|| n.as_u64().map(i128::from))
+}
+
+/// Builds an integer number from an exact result, or `None` when the result
+/// fits neither `i64` nor `u64` and the caller should fall back to `f64`.
+pub(crate) fn int_value(n: i128) -> Option<Value> {
+    i64::try_from(n)
+        .map(Value::from)
+        .or_else(|_| u64::try_from(n).map(Value::from))
+        .ok()
+}
+
+/// Sums numbers exactly when every one is integer-stored and the total fits
+/// `i64` or `u64`. Returns `None` otherwise so the caller can sum as `f64`.
+pub(crate) fn exact_int_sum<'a, I>(values: I) -> Option<Value>
+where
+    I: IntoIterator<Item = &'a Value>,
+{
+    let total = values
+        .into_iter()
+        .try_fold(0i128, |acc, v| acc.checked_add(exact_int(v)?))?;
+    int_value(total)
+}
+
 /// Creates a JmespathError for a custom runtime error message.
 pub fn custom_error(ctx: &Context<'_>, message: &str) -> JmespathError {
     JmespathError::from_ctx(ctx, ErrorReason::Parse(message.to_owned()))
@@ -327,9 +381,16 @@ borrowed_function!(AbsFn);
 
 impl AbsFn {
     fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
-        let n = arg(args, 0).as_f64().unwrap();
-        Ok(number_value(n.abs()))
+        Ok(abs_value(arg(args, 0)))
     }
+}
+
+/// Absolute value, kept as an integer for integer input.
+pub(crate) fn abs_value(value: &Value) -> Value {
+    if let Some(abs) = exact_int(value).and_then(|i| int_value(i.abs())) {
+        return abs;
+    }
+    number_value(value.as_f64().unwrap_or(0.0).abs())
 }
 
 defn!(AvgFn, vec![arg!(array_number)], None);
@@ -351,8 +412,7 @@ borrowed_function!(CeilFn);
 
 impl CeilFn {
     fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
-        let n = arg(args, 0).as_f64().unwrap();
-        Ok(number_value(n.ceil()))
+        Ok(rounded_value(arg(args, 0), f64::ceil))
     }
 }
 
@@ -391,8 +451,7 @@ borrowed_function!(FloorFn);
 
 impl FloorFn {
     fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
-        let n = arg(args, 0).as_f64().unwrap();
-        Ok(number_value(n.floor()))
+        Ok(rounded_value(arg(args, 0), f64::floor))
     }
 }
 
@@ -624,12 +683,11 @@ borrowed_function!(SumFn);
 
 impl SumFn {
     fn call<A: Borrow<Value>>(&self, args: &[A], _ctx: &mut Context<'_>) -> SearchResult {
-        let sum: f64 = arg(args, 0)
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_f64().unwrap_or(0.0))
-            .sum();
+        let arr = arg(args, 0).as_array().unwrap();
+        if let Some(sum) = exact_int_sum(arr) {
+            return Ok(sum);
+        }
+        let sum: f64 = arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).sum();
         Ok(number_value(sum))
     }
 }

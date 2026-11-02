@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::{Function, integral_value};
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -40,7 +40,7 @@ impl Function for ParseBytesFn {
             .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
 
         match parse_bytes_str(s) {
-            Some(bytes) => Ok(number_value(bytes)),
+            Some(bytes) => Ok(integral_value(bytes)),
             None => Ok(Value::Null),
         }
     }

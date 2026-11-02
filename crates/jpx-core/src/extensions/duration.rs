@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::Function;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -20,7 +20,7 @@ impl Function for ParseDurationFn {
             .ok_or_else(|| crate::functions::custom_error(ctx, "Expected string"))?;
 
         match parse_duration_str(s) {
-            Some(secs) => Ok(number_value(secs as f64)),
+            Some(secs) => Ok(Value::from(secs)),
             None => Ok(Value::Null),
         }
     }

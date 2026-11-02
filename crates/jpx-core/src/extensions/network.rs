@@ -7,7 +7,7 @@ use std::str::FromStr;
 use ipnetwork::{IpNetwork, Ipv4Network};
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::Function;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -26,7 +26,7 @@ impl Function for IpToIntFn {
         match Ipv4Addr::from_str(s) {
             Ok(ip) => {
                 let int_val: u32 = ip.into();
-                Ok(number_value(int_val as f64))
+                Ok(Value::from(int_val))
             }
             Err(_) => Ok(Value::Null),
         }

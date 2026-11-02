@@ -18,7 +18,7 @@ impl Function for LevenshteinFn {
         let s1 = args[0].as_str().unwrap();
         let s2 = args[1].as_str().unwrap();
         let dist = strsim::levenshtein(s1, s2);
-        Ok(number_value(dist as f64))
+        Ok(Value::from(dist))
     }
 }
 
@@ -48,7 +48,7 @@ impl Function for DamerauLevenshteinFn {
         let s1 = args[0].as_str().unwrap();
         let s2 = args[1].as_str().unwrap();
         let dist = strsim::damerau_levenshtein(s1, s2);
-        Ok(number_value(dist as f64))
+        Ok(Value::from(dist))
     }
 }
 
@@ -117,7 +117,7 @@ impl Function for HammingFn {
         let s1 = args[0].as_str().unwrap();
         let s2 = args[1].as_str().unwrap();
         match strsim::hamming(s1, s2) {
-            Ok(dist) => Ok(number_value(dist as f64)),
+            Ok(dist) => Ok(Value::from(dist)),
             Err(_) => Ok(Value::Null), // Different lengths
         }
     }
@@ -132,7 +132,7 @@ impl Function for OsaDistanceFn {
         let s1 = args[0].as_str().unwrap();
         let s2 = args[1].as_str().unwrap();
         let dist = strsim::osa_distance(s1, s2);
-        Ok(number_value(dist as f64))
+        Ok(Value::from(dist))
     }
 }
 

@@ -228,7 +228,7 @@ echo '{"name": "Alice", "age": 30}' | jpx 'name'
 
 # Array operations
 echo '[1, 2, 3, 4, 5]' | jpx 'sum(@)'
-# 15.0
+# 15
 
 # Nested access
 echo '{"user": {"profile": {"email": "alice@example.com"}}}' | jpx 'user.profile.email'
@@ -313,7 +313,7 @@ echo '[10, 20, 30, 40, 50]' | jpx 'stddev(@)'
 ```bash
 # Current Unix timestamp
 echo '{}' | jpx 'now()'
-# 1705312200.0
+# 1705312200
 
 # Format a Unix timestamp
 echo '{"ts": 1705276800}' | jpx -r "format_date(ts, '%Y-%m-%d')"
@@ -321,7 +321,7 @@ echo '{"ts": 1705276800}' | jpx -r "format_date(ts, '%Y-%m-%d')"
 
 # Date arithmetic (add 7 days to timestamp)
 echo '{"ts": 1705276800}' | jpx 'date_add(ts, `7`, `"days"`)'
-# 1705881600.0
+# 1705881600
 ```
 
 ### Duration Functions
@@ -329,7 +329,7 @@ echo '{"ts": 1705276800}' | jpx 'date_add(ts, `7`, `"days"`)'
 ```bash
 # Parse human-readable durations
 echo '{"duration": "1h30m"}' | jpx 'parse_duration(duration)'
-# 5400.0
+# 5400
 
 echo '{"duration": "2d12h"}' | jpx 'duration_hours(parse_duration(duration))'
 # 60.0
