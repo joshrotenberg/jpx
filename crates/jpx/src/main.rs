@@ -383,7 +383,7 @@ fn run() -> Result<i32> {
         return Ok(exit_code);
     }
     if args.lines_output {
-        output::output_as_lines(&json_value, &args.output)?;
+        output::output_as_lines(&json_value, &args.output, args.raw)?;
         return Ok(exit_code);
     }
     #[cfg(feature = "parquet")]

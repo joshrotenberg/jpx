@@ -107,16 +107,21 @@ pub(crate) fn output_as_toml(
     }
 }
 
-/// Output one JSON value per line (for arrays)
+/// Output one JSON value per line (for arrays). With `raw`, string elements are
+/// written without JSON quotes, so `-l -r` yields plain lines for shell loops.
 pub(crate) fn output_as_lines(
     value: &serde_json::Value,
     output_path: &Option<String>,
+    raw: bool,
 ) -> Result<()> {
     match value {
         serde_json::Value::Array(arr) => {
             let lines: Vec<String> = arr
                 .iter()
-                .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()))
+                .map(|v| match v {
+                    serde_json::Value::String(s) if raw => s.clone(),
+                    _ => serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()),
+                })
                 .collect();
             write_output(&lines.join("\n"), output_path)
         }
