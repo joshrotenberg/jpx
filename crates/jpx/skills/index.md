@@ -6,13 +6,20 @@ offline, without reading stdin or configuration.
 
 ## Shipped topics
 
+- `pipelines`: filter, reshape, and count JSON from commands and files;
+  NDJSON, plain text lines, shell loops and conditionals.
 - `query-libraries`: create, validate, and run named queries in `.jpx` files.
 
-Read the complete, installable topic with `jpx --skills query-libraries`.
+Read a complete, installable topic with `jpx --skills <topic>`, such as
+`jpx --skills pipelines`.
 Use `jpx --skills` to return to this index. Add `--json` for pretty JSON or
 `-c` for compact JSON; the `content` field contains the exact Markdown.
 
 ## Essential conventions
+
+Pipe JSON in (`cmd | jpx 'expr'`) or name a file with `-f`. `-c` prints
+compact JSON, `-l -r` prints one unquoted line per string, `--stream`
+evaluates NDJSON line by line, and a null result prints nothing.
 
 A `.jpx` library starts each query with `-- :name <query-name>`, optionally
 followed by `-- :desc <description>`, then its JMESPath expression. Run a
