@@ -199,10 +199,10 @@ impl TableStyle {
 #[command(styles = STYLES)]
 #[command(disable_help_flag = true)]
 #[command(
-    after_help = "Use --help for examples and detailed documentation\nAgents: jpx --skills for offline instructions; jpx --skills query-libraries for a SKILL.md"
+    after_help = "Use --help for examples and detailed documentation\nAgents: jpx --skills for offline instructions; jpx --skills <topic> for an installable SKILL.md"
 )]
 #[command(after_long_help = concat!(
-    "Agents: jpx --skills for offline instructions; jpx --skills query-libraries for a SKILL.md\n\n",
+    "Agents: jpx --skills for offline instructions; jpx --skills <topic> for an installable SKILL.md\n\n",
     "GETTING STARTED:\n",
     "  JMESPath basics (work everywhere):\n",
     "    .field          Access object field       {\"name\": \"jo\"} | jpx 'name' -> \"jo\"\n",
@@ -288,7 +288,8 @@ pub(crate) struct Args {
             "types", "values", "bench", "warmup"
         ],
         help = "Read offline agent instructions (index or topic)",
-        long_help = "Print the embedded index, or a complete SKILL.md for query-libraries.\n\
+        long_help = "Print the embedded index, or a complete SKILL.md for a topic\n\
+            (pipelines, query-libraries).\n\
             No stdin, files, configuration, or network access is needed.\n\
             Use --json for pretty JSON or -c for compact JSON; otherwise prints Markdown.\n\
             Query/execution and other output flags cannot be combined with --skills."
@@ -508,7 +509,7 @@ pub(crate) struct Args {
     /// Output one value per line
     #[arg(short = 'l', long = "lines", conflicts_with_all = ["yaml", "toml_output", "csv_output", "tsv_output", "table"],
           help = "Output one JSON value per line",
-          long_help = "Output one JSON value per line (NDJSON/JSON Lines format).\nUseful for streaming or piping array results to other tools.")]
+          long_help = "Output one JSON value per line (NDJSON/JSON Lines format).\nUseful for streaming or piping array results to other tools.\nWith -r/--raw, string elements print without JSON quotes, for shell loops.")]
     pub(crate) lines_output: bool,
 
     /// Output as formatted table

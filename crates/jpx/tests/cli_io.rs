@@ -839,6 +839,22 @@ mod output_formats {
     }
 
     #[test]
+    fn lines_output_with_raw_unquotes_strings_only() {
+        jpx()
+            .args(["-l", "-r", "@"])
+            .write_stdin(r#"["a b", 1, null, {"k": "v"}, "c"]"#)
+            .assert()
+            .success()
+            .stdout("a b\n1\nnull\n{\"k\":\"v\"}\nc\n");
+        jpx()
+            .args(["-l", "@"])
+            .write_stdin(r#"["a"]"#)
+            .assert()
+            .success()
+            .stdout("\"a\"\n");
+    }
+
+    #[test]
     fn table_output() {
         jpx()
             .arg("-t")

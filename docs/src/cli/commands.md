@@ -18,14 +18,19 @@ jpx [OPTIONS] [EXPRESSIONS]...
 
 ### Offline Agent Instructions
 
-`jpx --skills` prints a small index. `jpx --skills query-libraries` prints a
-complete, installable `SKILL.md` with tested examples for creating, validating,
-and running `.jpx` query libraries. This is the only shipped topic.
+`jpx --skills` prints a small index. `jpx --skills <topic>` prints a complete,
+installable `SKILL.md` whose examples are run in CI with their documented
+output. Shipped topics:
+
+| Topic | Covers |
+|-------|--------|
+| `pipelines` | Filtering, reshaping and counting JSON from commands and files; NDJSON with `--stream` and `-s`; `-R` text input; `-l -r` lines for shell loops; `-x` conditionals; `--per-file`; `json_decode` |
+| `query-libraries` | Creating, validating and running `.jpx` query libraries |
 
 The assets are embedded in the binary: a copied binary works offline from an
 empty directory. Skills return before reading stdin, input files, configuration,
-or initializing the query engine. Save the topic's stdout as
-`jpx-query-libraries/SKILL.md` in your agent's supported skill directory.
+or initializing the query engine. Save a topic's stdout as
+`jpx-<topic>/SKILL.md` in your agent's supported skill directory.
 
 | Option | Skills output |
 |--------|---------------|
@@ -76,7 +81,7 @@ JSON is already the default, and `-c` retains its usual compact-output behavior.
 | `--toml` | Output as TOML |
 | `--csv` | Output as CSV (comma-separated values) |
 | `--tsv` | Output as TSV (tab-separated values) |
-| `-l, --lines` | Output one JSON value per line |
+| `-l, --lines` | Output one JSON value per line; with `-r`, strings print without quotes |
 | `-t, --table` | Output as a formatted table (for arrays of objects) |
 | `--table-style <STYLE>` | `unicode` (default), `ascii`, `markdown`, `plain`, `rounded`, `sharp`, or `modern` |
 | `--columns <NAMES>` | Select and order comma-separated table, CSV, or TSV columns; dot notation selects nested fields |

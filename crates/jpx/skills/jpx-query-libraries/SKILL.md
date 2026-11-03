@@ -33,8 +33,20 @@ jpx -c -Q users.jpx --query all-names -f users.json
 jpx -c 'users[?active == `true`].name' -f users.json
 ```
 
-The check exits successfully and reports `All queries valid.`. The three
-query results are `["Ada"]`, `["Ada","Lin"]`, and `["Ada"]`, in that order.
+```text
+Validating users.jpx...
+
+  [OK] active-names
+  [OK] all-names
+
+All queries valid.
+["Ada"]
+["Ada","Lin"]
+["Ada"]
+```
+
+The check exits successfully and reports `All queries valid.`, followed by
+the three query results in order.
 
 ## Adapt the library
 

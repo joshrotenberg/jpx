@@ -10,7 +10,35 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const INDEX: &str = include_str!("../skills/index.md");
-const TOPIC: &str = include_str!("../skills/jpx-query-libraries/SKILL.md");
+/// Shipped topics in index order, matching `src/skills.rs`.
+const TOPICS: &[(&str, &str)] = &[
+    (
+        "pipelines",
+        include_str!("../skills/jpx-pipelines/SKILL.md"),
+    ),
+    (
+        "query-libraries",
+        include_str!("../skills/jpx-query-libraries/SKILL.md"),
+    ),
+];
+
+fn topic_names() -> Vec<&'static str> {
+    TOPICS.iter().map(|(name, _)| *name).collect()
+}
+
+/// The index (`None`) followed by every shipped topic.
+fn targets() -> Vec<Option<&'static str>> {
+    std::iter::once(None)
+        .chain(TOPICS.iter().map(|(name, _)| Some(*name)))
+        .collect()
+}
+
+fn content(topic: Option<&str>) -> &'static str {
+    match topic {
+        None => INDEX,
+        Some(topic) => TOPICS.iter().find(|(name, _)| *name == topic).unwrap().1,
+    }
+}
 
 fn jpx() -> Command {
     let mut command = assert_cmd::cargo_bin_cmd!("jpx");
@@ -21,43 +49,42 @@ fn jpx() -> Command {
 /// Expected `--json` / `-c` bytes with the CLI's fixed field order. Serializing
 /// a `Value` would sort keys or keep insertion order depending on whether the
 /// build enables `serde_json/preserve_order`.
-fn expected_text(topic: bool, pretty: bool) -> String {
+fn expected_text(topic: Option<&str>, pretty: bool) -> String {
     #[derive(serde::Serialize)]
     struct Index {
-        topics: [&'static str; 1],
+        topics: Vec<&'static str>,
         content: &'static str,
     }
     #[derive(serde::Serialize)]
-    struct Topic {
-        topic: &'static str,
+    struct Topic<'a> {
+        topic: &'a str,
         content: &'static str,
     }
     let text = match (topic, pretty) {
-        (true, true) => serde_json::to_string_pretty(&Topic {
-            topic: "query-libraries",
-            content: TOPIC,
+        (Some(name), true) => serde_json::to_string_pretty(&Topic {
+            topic: name,
+            content: content(topic),
         }),
-        (true, false) => serde_json::to_string(&Topic {
-            topic: "query-libraries",
-            content: TOPIC,
+        (Some(name), false) => serde_json::to_string(&Topic {
+            topic: name,
+            content: content(topic),
         }),
-        (false, true) => serde_json::to_string_pretty(&Index {
-            topics: ["query-libraries"],
+        (None, true) => serde_json::to_string_pretty(&Index {
+            topics: topic_names(),
             content: INDEX,
         }),
-        (false, false) => serde_json::to_string(&Index {
-            topics: ["query-libraries"],
+        (None, false) => serde_json::to_string(&Index {
+            topics: topic_names(),
             content: INDEX,
         }),
     };
     format!("{}\n", text.unwrap())
 }
 
-fn expected_document(topic: bool) -> Value {
-    if topic {
-        json!({ "topic": "query-libraries", "content": TOPIC })
-    } else {
-        json!({ "topics": ["query-libraries"], "content": INDEX })
+fn expected_document(topic: Option<&str>) -> Value {
+    match topic {
+        Some(name) => json!({ "topic": name, "content": content(topic) }),
+        None => json!({ "topics": topic_names(), "content": INDEX }),
     }
 }
 
@@ -87,26 +114,33 @@ fn index_is_exact_small_and_lists_only_shipped_topics() {
         .get_output()
         .clone();
     let document: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(document["topics"], json!(["query-libraries"]));
+    assert_eq!(document["topics"], json!(topic_names()));
     for topic in document["topics"].as_array().unwrap() {
+        let topic = topic.as_str().unwrap();
+        assert!(
+            INDEX.contains(&format!("- `{topic}`:")),
+            "index omits {topic}"
+        );
         jpx()
-            .args(["--skills", topic.as_str().unwrap()])
+            .args(["--skills", topic])
             .assert()
             .success()
-            .stdout(TOPIC);
+            .stdout(content(Some(topic)));
     }
 }
 
 #[test]
 fn topic_is_exact_installable_skill_with_valid_frontmatter() {
-    jpx()
-        .args(["--skills", "query-libraries"])
-        .assert()
-        .success()
-        .stderr("")
-        .stdout(TOPIC);
-    let metadata = validate_skill_structure(TOPIC);
-    assert_eq!(metadata["name"].as_str().unwrap(), "jpx-query-libraries");
+    for (topic, markdown) in TOPICS {
+        jpx()
+            .args(["--skills", topic])
+            .assert()
+            .success()
+            .stderr("")
+            .stdout(*markdown);
+        let metadata = validate_skill_structure(markdown);
+        assert_eq!(metadata["name"].as_str().unwrap(), format!("jpx-{topic}"));
+    }
 }
 
 /// Structural checks only; the embedded bytes are compared exactly elsewhere.
@@ -129,17 +163,19 @@ fn validate_skill_structure(markdown: &str) -> serde_json::Value {
 
 #[test]
 fn skill_structure_validation_accepts_lf_and_crlf() {
-    let lf = TOPIC.replace("\r\n", "\n");
-    let crlf = lf.replace('\n', "\r\n");
-    assert_eq!(
-        validate_skill_structure(&lf),
-        validate_skill_structure(&crlf)
-    );
+    for (_, markdown) in TOPICS {
+        let lf = markdown.replace("\r\n", "\n");
+        let crlf = lf.replace('\n', "\r\n");
+        assert_eq!(
+            validate_skill_structure(&lf),
+            validate_skill_structure(&crlf)
+        );
+    }
 }
 
 #[test]
 fn json_and_compact_forms_preserve_exact_markdown() {
-    for topic in [false, true] {
+    for topic in targets() {
         for format in [
             vec!["--json"],
             vec!["-c"],
@@ -148,8 +184,8 @@ fn json_and_compact_forms_preserve_exact_markdown() {
         ] {
             let mut command = jpx();
             command.arg("--skills");
-            if topic {
-                command.arg("query-libraries");
+            if let Some(topic) = topic {
+                command.arg(topic);
             }
             let output = command
                 .args(&format)
@@ -181,7 +217,7 @@ fn ambient_defaults_do_not_select_a_skills_format_or_load_config() {
         "this is not valid TOML [",
     ] {
         fs::write(&config, contents).unwrap();
-        for topic in [false, true] {
+        for topic in targets() {
             for format in [None, Some("--json"), Some("-c")] {
                 let mut command = jpx();
                 command
@@ -193,11 +229,11 @@ fn ambient_defaults_do_not_select_a_skills_format_or_load_config() {
                     .env("JPX_QUIET", "1")
                     .env("JPX_STRICT", "1")
                     .arg("--skills");
-                if topic {
-                    command.arg("query-libraries");
+                if let Some(topic) = topic {
+                    command.arg(topic);
                 }
                 let expected = match format {
-                    None => if topic { TOPIC } else { INDEX }.to_owned(),
+                    None => content(topic).to_owned(),
                     Some("--json") => expected_text(topic, true),
                     Some(_) => expected_text(topic, false),
                 };
@@ -274,15 +310,15 @@ fn copied_binary_works_offline_in_empty_directory_without_reading_stdin() {
         .path()
         .join(format!("jpx{}", std::env::consts::EXE_SUFFIX));
     fs::copy(env!("CARGO_BIN_EXE_jpx"), &copied_binary).unwrap();
-    for topic in [false, true] {
+    for topic in targets() {
         for format in [None, Some("--json"), Some("-c")] {
             let mut command = ProcessCommand::new(&copied_binary);
             command
                 .env_clear()
                 .current_dir(working_dir.path())
                 .arg("--skills");
-            if topic {
-                command.arg("query-libraries");
+            if let Some(topic) = topic {
+                command.arg(topic);
             }
             if let Some(format) = format {
                 command.arg(format);
@@ -296,7 +332,7 @@ fn copied_binary_works_offline_in_empty_directory_without_reading_stdin() {
                     expected_document(topic)
                 );
             } else {
-                assert_eq!(output.stdout, if topic { TOPIC } else { INDEX }.as_bytes());
+                assert_eq!(output.stdout, content(topic).as_bytes());
             }
         }
     }
@@ -452,7 +488,7 @@ fn both_help_forms_point_agents_to_skills() {
     for help in ["-h", "--help"] {
         jpx().arg(help).assert().success().stdout(
             predicate::str::contains("Agents: jpx --skills")
-                .and(predicate::str::contains("--skills query-libraries")),
+                .and(predicate::str::contains("--skills <topic>")),
         );
     }
 }
@@ -496,92 +532,144 @@ fn ordinary_queries_keep_their_output_and_ambient_defaults() {
     }
 }
 
-/// Collect every fenced shell example, failing on unclosed/unknown fences so
-/// newly added examples cannot silently escape execution.
+/// A runnable example: a shell block, and the exact stdout documented by the
+/// `text` block that follows it (empty when none follows).
 #[cfg(unix)]
-fn shell_examples(markdown: &str) -> Vec<String> {
-    let mut examples = Vec::new();
-    let mut block: Option<String> = None;
+#[derive(Debug, PartialEq)]
+struct Example {
+    script: String,
+    stdout: String,
+}
+
+/// Collect every fenced example. Unknown fence languages, unclosed fences and
+/// a `text` block that does not directly follow a shell block fail, so a new
+/// example cannot silently escape execution or lose its expected output.
+#[cfg(unix)]
+fn shell_examples(markdown: &str) -> Vec<Example> {
+    let mut examples: Vec<Example> = Vec::new();
+    let mut block: Option<(bool, String)> = None;
+    let mut text_may_follow = false;
     for line in markdown.lines() {
         if line == "```" {
-            examples.push(block.take().expect("closing fence without opening fence"));
-        } else if line.starts_with("```") {
-            assert!(matches!(line, "```sh" | "```bash" | "```shell"));
-            assert!(block.replace(String::new()).is_none());
-        } else if let Some(block) = &mut block {
-            block.push_str(line);
-            block.push('\n');
+            let (is_text, body) = block.take().expect("closing fence without opening fence");
+            if is_text {
+                examples.last_mut().unwrap().stdout = body;
+                text_may_follow = false;
+            } else {
+                examples.push(Example {
+                    script: body,
+                    stdout: String::new(),
+                });
+                text_may_follow = true;
+            }
+        } else if let Some(language) = line.strip_prefix("```") {
+            assert!(block.is_none(), "fence opened inside another fence");
+            let is_text = match language {
+                "sh" | "bash" | "shell" => false,
+                "text" => {
+                    assert!(
+                        text_may_follow,
+                        "a text block must directly follow a shell example"
+                    );
+                    true
+                }
+                other => panic!("unsupported fence language {other:?}"),
+            };
+            block = Some((is_text, String::new()));
+        } else if let Some((_, body)) = &mut block {
+            body.push_str(line);
+            body.push('\n');
+        } else if !line.trim().is_empty() {
+            text_may_follow = false;
         }
     }
-    assert!(block.is_none(), "unclosed shell example");
+    assert!(block.is_none(), "unclosed fence");
     examples
 }
 
 #[cfg(unix)]
 #[test]
-fn every_embedded_shell_example_runs_against_the_built_binary() {
+fn example_parser_pairs_output_and_rejects_ambiguous_fences() {
+    let examples = shell_examples("```sh\necho a\n```\n\n```text\na\n```\n```sh\ntrue\n```\n");
+    assert_eq!(
+        examples,
+        vec![
+            Example {
+                script: "echo a\n".into(),
+                stdout: "a\n".into()
+            },
+            Example {
+                script: "true\n".into(),
+                stdout: String::new()
+            },
+        ]
+    );
+    for bad in [
+        "```text\na\n```\n",
+        "```sh\necho a\n```\nprose\n```text\na\n```\n",
+        "```sh\necho a\n```\n```text\na\n```\n```text\na\n```\n",
+        "```python\nprint(1)\n```\n",
+        "```sh\necho a\n",
+    ] {
+        assert!(
+            std::panic::catch_unwind(|| shell_examples(bad)).is_err(),
+            "accepted {bad:?}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn every_embedded_shell_example_prints_its_documented_output() {
     let binary_dir = tempfile::tempdir().unwrap();
-    fs::copy(env!("CARGO_BIN_EXE_jpx"), binary_dir.path().join("jpx")).unwrap();
+    // A symlink, not a copy: a copied binary can fail with ETXTBSY when a
+    // concurrently forked test process still holds the copy's write handle.
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_jpx"), binary_dir.path().join("jpx")).unwrap();
     let path = std::env::join_paths([
         binary_dir.path(),
         std::path::Path::new("/usr/bin"),
         std::path::Path::new("/bin"),
     ])
     .unwrap();
-    let examples: Vec<_> = [INDEX, TOPIC]
-        .into_iter()
-        .flat_map(shell_examples)
-        .collect();
-    assert_eq!(
-        examples.len(),
-        2,
-        "add verified results for each new shell example"
-    );
-    for (index, example) in examples.iter().enumerate() {
+    assert!(shell_examples(INDEX).is_empty());
+    for (topic, markdown) in TOPICS {
+        let examples = shell_examples(markdown);
+        assert!(!examples.is_empty(), "{topic} has no runnable example");
+        // A topic's examples run in order in one directory, as documented.
         let directory = tempfile::tempdir().unwrap();
         let config = directory.path().join("config.toml");
         fs::write(&config, "").unwrap();
-        let output = Command::new("/bin/sh")
-            .env_clear()
-            .env("PATH", &path)
-            .env("JPX_CONFIG", &config)
-            .env("NO_COLOR", "1")
-            .current_dir(directory.path())
-            .args(["-eu", "-c", example])
-            .timeout(Duration::from_secs(10))
-            .assert()
-            .success()
-            .stderr("")
-            .get_output()
-            .clone();
-        match index {
-            0 => {
-                let stdout = String::from_utf8(output.stdout).unwrap();
-                assert!(stdout.contains("All queries valid."));
-                let results: Vec<Value> = stdout
-                    .lines()
-                    .filter(|line| line.starts_with('['))
-                    .map(|line| serde_json::from_str(line).unwrap())
-                    .collect();
-                assert_eq!(
-                    results,
-                    vec![json!(["Ada"]), json!(["Ada", "Lin"]), json!(["Ada"])]
-                );
-                assert!(directory.path().join("users.jpx").exists());
-                assert!(directory.path().join("users.json").exists());
-            }
-            1 => {
-                assert!(output.stdout.is_empty());
-                assert_eq!(
-                    fs::read_to_string(
-                        directory.path().join("skills/jpx-query-libraries/SKILL.md")
-                    )
-                    .unwrap(),
-                    TOPIC
-                );
-            }
-            _ => unreachable!(),
+        for example in &examples {
+            let output = Command::new("/bin/sh")
+                .env_clear()
+                .env("PATH", &path)
+                .env("JPX_CONFIG", &config)
+                .env("NO_COLOR", "1")
+                .current_dir(directory.path())
+                .args(["-eu", "-c", &example.script])
+                .timeout(Duration::from_secs(10))
+                .assert()
+                .success()
+                .stderr("")
+                .get_output()
+                .clone();
+            assert_eq!(
+                String::from_utf8(output.stdout).unwrap(),
+                example.stdout,
+                "{topic} example printed unexpected output:\n{}",
+                example.script
+            );
         }
+        // Every topic documents saving itself; the copy must be exact.
+        assert_eq!(
+            fs::read_to_string(
+                directory
+                    .path()
+                    .join(format!("skills/jpx-{topic}/SKILL.md"))
+            )
+            .unwrap(),
+            *markdown
+        );
     }
 }
 
