@@ -13,6 +13,8 @@ offline, without reading stdin or configuration.
 - `pipelines`: filter, reshape, and count JSON from commands and files;
   NDJSON, plain text lines, shell loops and conditionals.
 - `query-libraries`: create, validate, and run named queries in `.jpx` files.
+- `shell-quoting`: keep backticks, `$variables` and quotes intact; pass shell
+  values with `--arg`/`--argjson`; diagnose filters that return `[]`.
 
 Read a complete, installable topic with `jpx --skills <topic>`, such as
 `jpx --skills pipelines`.
@@ -32,6 +34,7 @@ library first with `jpx -Q library.jpx --check`.
 
 JMESPath literals are backtick-delimited JSON, such as `` `true` `` or
 `` `"active"` ``. In a shell, single-quote the whole expression so backticks
-are not interpreted as command substitution. When creating a library with
+are not interpreted as command substitution, and pass shell values with
+`--arg` (string) or `--argjson` (JSON) rather than splicing them in. When creating a library with
 a heredoc, quote its delimiter (`<<'JPX'`) to preserve backticks and `$`.
 The query-libraries topic includes a runnable fixture demonstrating both forms.

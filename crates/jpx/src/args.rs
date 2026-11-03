@@ -289,7 +289,7 @@ pub(crate) struct Args {
         ],
         help = "Read offline agent instructions (index or topic)",
         long_help = "Print the embedded index, or a complete SKILL.md for a topic\n\
-            (pipelines, query-libraries).\n\
+            (pipelines, query-libraries, shell-quoting).\n\
             No stdin, files, configuration, or network access is needed.\n\
             Use --json for pretty JSON or -c for compact JSON; otherwise prints Markdown.\n\
             Query/execution and other output flags cannot be combined with --skills."

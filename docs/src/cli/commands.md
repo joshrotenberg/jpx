@@ -26,6 +26,7 @@ output. Shipped topics:
 |-------|--------|
 | `pipelines` | Filtering, reshaping and counting JSON from commands and files; NDJSON with `--stream` and `-s`; `-R` text input; `-l -r` lines for shell loops; `-x` conditionals; `--per-file`; `json_decode` |
 | `query-libraries` | Creating, validating and running `.jpx` query libraries |
+| `shell-quoting` | Single-quoting expressions, `--arg` and `--argjson` for shell values, string literals and apostrophes, quoted keys, moving long expressions into `.jpx` files |
 
 The assets are embedded in the binary: a copied binary works offline from an
 empty directory. Skills return before reading stdin, input files, configuration,
