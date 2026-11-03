@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.2...jpx-v0.5.3) - 2026-11-03
+
+### Added
+
+- *(cli)* add the pipelines skills topic and test every topic example ([#331](https://github.com/joshrotenberg/jpx/pull/331))
+
+### Fixed
+
+- return integers from integer-valued numeric functions ([#332](https://github.com/joshrotenberg/jpx/pull/332))
+
 ## [0.5.2](https://github.com/joshrotenberg/jpx/compare/jpx-v0.5.1...jpx-v0.5.2) - 2026-11-02
 
 ### Added
