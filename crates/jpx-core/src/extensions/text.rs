@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::{Function, integral_value, number_value};
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -121,7 +121,7 @@ impl Function for ReadingTimeSecondsFn {
         let s = args[0].as_str().unwrap();
         let word_count = s.split_whitespace().count() as f64;
         let seconds = (word_count / WORDS_PER_MINUTE) * 60.0;
-        Ok(number_value(seconds.ceil()))
+        Ok(integral_value(seconds.ceil()))
     }
 }
 

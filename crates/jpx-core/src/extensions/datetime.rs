@@ -124,7 +124,7 @@ impl Function for NowMillisFn {
     fn evaluate(&self, args: &[Value], ctx: &mut Context<'_>) -> SearchResult {
         self.signature.validate(args, ctx)?;
         let ts = Utc::now().timestamp_millis();
-        Ok(number_value(ts as f64))
+        Ok(Value::from(ts))
     }
 }
 
@@ -141,21 +141,21 @@ impl Function for ParseDateFn {
             // Custom format provided
             let format = args[1].as_str().unwrap();
             match NaiveDateTime::parse_from_str(s, format) {
-                Ok(dt) => Ok(number_value(dt.and_utc().timestamp() as f64)),
+                Ok(dt) => Ok(Value::from(dt.and_utc().timestamp())),
                 Err(_) => Ok(Value::Null),
             }
         } else {
             // Try common formats
             if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
-                return Ok(number_value(dt.timestamp() as f64));
+                return Ok(Value::from(dt.timestamp()));
             }
             if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
-                return Ok(number_value(dt.and_utc().timestamp() as f64));
+                return Ok(Value::from(dt.and_utc().timestamp()));
             }
             if let Ok(dt) =
                 NaiveDateTime::parse_from_str(&format!("{}T00:00:00", s), "%Y-%m-%dT%H:%M:%S")
             {
-                return Ok(number_value(dt.and_utc().timestamp() as f64));
+                return Ok(Value::from(dt.and_utc().timestamp()));
             }
             Ok(Value::Null)
         }
@@ -208,7 +208,7 @@ impl Function for DateAddFn {
         match dt {
             chrono::LocalResult::Single(dt) => {
                 let new_dt = dt + duration;
-                Ok(number_value(new_dt.timestamp() as f64))
+                Ok(Value::from(new_dt.timestamp()))
             }
             _ => Ok(Value::Null),
         }
@@ -233,7 +233,7 @@ impl Function for DateDiffFn {
         let diff_seconds = (ts1 - ts2) as i64;
 
         let result = match unit.to_lowercase().as_str() {
-            "seconds" | "second" | "s" => diff_seconds as f64,
+            "seconds" | "second" | "s" => return Ok(Value::from(diff_seconds)),
             "minutes" | "minute" | "m" => diff_seconds as f64 / 60.0,
             "hours" | "hour" | "h" => diff_seconds as f64 / 3600.0,
             "days" | "day" | "d" => diff_seconds as f64 / 86400.0,
@@ -384,7 +384,7 @@ impl Function for BusinessDaysBetweenFn {
         // If original order was reversed, return negative count
         let result = if ts1 > ts2 { -count } else { count };
 
-        Ok(number_value(result as f64))
+        Ok(Value::from(result))
     }
 }
 
@@ -449,7 +449,7 @@ impl Function for QuarterFn {
             chrono::LocalResult::Single(dt) => {
                 let month = dt.month();
                 let quarter = ((month - 1) / 3) + 1;
-                Ok(number_value(quarter as f64))
+                Ok(Value::from(quarter))
             }
             _ => Ok(Value::Null),
         }
@@ -638,7 +638,7 @@ impl Function for ToEpochFn {
         self.signature.validate(args, ctx)?;
 
         match parse_date_value(&args[0]) {
-            Some(ts) => Ok(number_value(ts as f64)),
+            Some(ts) => Ok(Value::from(ts)),
             None => Ok(Value::Null),
         }
     }
@@ -656,8 +656,8 @@ impl Function for ToEpochMsFn {
 
         match parse_date_value(&args[0]) {
             Some(ts) => {
-                let ts_ms = ts * 1000;
-                Ok(number_value(ts_ms as f64))
+                // Out-of-range dates cannot be represented in milliseconds.
+                Ok(ts.checked_mul(1000).map_or(Value::Null, Value::from))
             }
             None => Ok(Value::Null),
         }

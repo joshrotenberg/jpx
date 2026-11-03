@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use semver_crate::{Version, VersionReq};
 use serde_json::{Number, Value};
 
-use crate::functions::{Function, number_value};
+use crate::functions::Function;
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -130,7 +130,7 @@ impl Function for SemverCompareFn {
             std::cmp::Ordering::Greater => 1,
         };
 
-        Ok(number_value(result as f64))
+        Ok(Value::from(result))
     }
 }
 

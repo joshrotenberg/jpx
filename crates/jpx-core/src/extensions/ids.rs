@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use crate::functions::{Function, custom_error, number_value};
+use crate::functions::{Function, custom_error};
 use crate::interpreter::SearchResult;
 use crate::registry::register_if_enabled;
 use crate::{Context, Runtime, arg, defn};
@@ -98,7 +98,7 @@ impl Function for UlidTimestampFn {
         match ulid::Ulid::from_string(ulid_str) {
             Ok(id) => {
                 let ts = id.timestamp_ms();
-                Ok(number_value(ts as f64))
+                Ok(Value::from(ts))
             }
             Err(_) => Ok(Value::Null),
         }

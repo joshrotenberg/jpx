@@ -47,7 +47,7 @@ impl Function for ToNumberFn {
 
         let result = match &args[0] {
             Value::Number(n) => Some(n.clone()),
-            Value::String(s) => s.parse::<f64>().ok().and_then(serde_json::Number::from_f64),
+            Value::String(s) => parse_number(s),
             Value::Bool(b) => Some(serde_json::Number::from(if *b { 1 } else { 0 })),
             _ => None,
         };
@@ -226,14 +226,24 @@ impl Function for ParseNumbersFn {
     }
 }
 
+/// Parses a numeric string. Integer strings become integer numbers, exact
+/// for the full `i64`/`u64` range; anything else goes through `f64`.
+fn parse_number(s: &str) -> Option<serde_json::Number> {
+    if let Ok(i) = s.parse::<i64>() {
+        return Some(i.into());
+    }
+    if let Ok(u) = s.parse::<u64>() {
+        return Some(u.into());
+    }
+    s.parse::<f64>().ok().and_then(serde_json::Number::from_f64)
+}
+
 fn parse_numbers_recursive(value: &Value) -> Value {
     match value {
         Value::String(s) => {
             // Try to parse as number - be conservative, only pure numeric strings
             let trimmed = s.trim();
-            if let Ok(n) = trimmed.parse::<f64>()
-                && let Some(num) = serde_json::Number::from_f64(n)
-            {
+            if let Some(num) = parse_number(trimmed) {
                 return Value::Number(num);
             }
             value.clone()
@@ -361,9 +371,7 @@ fn auto_parse_recursive(value: &Value) -> Value {
             }
 
             // Try numeric values
-            if let Ok(n) = trimmed.parse::<f64>()
-                && let Some(num) = serde_json::Number::from_f64(n)
-            {
+            if let Some(num) = parse_number(trimmed) {
                 return Value::Number(num);
             }
 
