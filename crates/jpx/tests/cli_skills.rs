@@ -20,6 +20,10 @@ const TOPICS: &[(&str, &str)] = &[
         "query-libraries",
         include_str!("../skills/jpx-query-libraries/SKILL.md"),
     ),
+    (
+        "shell-quoting",
+        include_str!("../skills/jpx-shell-quoting/SKILL.md"),
+    ),
 ];
 
 fn topic_names() -> Vec<&'static str> {
